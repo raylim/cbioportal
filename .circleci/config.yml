@@ -24,6 +24,14 @@ commands:
         description: Push image to DockerHub
         type: enum
         enum: ["true", "false"]
+      core_repository:
+        description: Optional cbioportal-core repository for an immutable WSI build
+        type: string
+        default: ""
+      core_ref:
+        description: Optional immutable cbioportal-core commit for an immutable WSI build
+        type: string
+        default: ""
     steps:
       - run:
           name: Build and Push cBioPortal docker image
@@ -32,6 +40,8 @@ commands:
             export DOCKER_TAG=$CIRCLE_SHA1
             export DOCKER_REPO=<<parameters.docker_repo>>
             export APP_TYPE=<<parameters.app_type>>
+            export CORE_REPOSITORY=<<parameters.core_repository>>
+            export CORE_REF=<<parameters.core_ref>>
 
             if [ $APP_TYPE = "web" ]; then
               URL="https://hub.docker.com/v2/repositories/$DOCKER_REPO/tags/$DOCKER_TAG-web-shenandoah"
@@ -43,14 +53,63 @@ commands:
             fi
 
             TAG_FOUND=$(curl -s $URL | jq -r .name)
-            if [ $APP_TYPE = "web" ] && [ $TAG_FOUND = "$DOCKER_TAG-web-shenandoah" ]; then
+            if [ -z "$CORE_REPOSITORY" ] && [ -z "$CORE_REF" ] && [ $APP_TYPE = "web" ] && [ $TAG_FOUND = "$DOCKER_TAG-web-shenandoah" ]; then
               echo "Image already exists. Pulling remote image and skipping build step!"
               docker pull $DOCKER_REPO:$DOCKER_TAG-web-shenandoah
               exit 0
             fi
-            if [ $APP_TYPE = "web-and-data" ] && [ $TAG_FOUND = "$DOCKER_TAG" ]; then
+            if [ -z "$CORE_REPOSITORY" ] && [ -z "$CORE_REF" ] && [ $APP_TYPE = "web-and-data" ] && [ $TAG_FOUND = "$DOCKER_TAG" ]; then
               echo "Image already exists. Pulling remote image and skipping build step!"
               docker pull $DOCKER_REPO:$DOCKER_TAG
+              exit 0
+            fi
+
+            # The shared cbioportal-test helper builds the default Core branch.
+            # WSI validation must use the exact Core contract reviewed with
+            # this stack, and the same image must be saved/promoted after the
+            # tests pass. Keep this path local to explicitly pinned
+            # web-and-data builds; ordinary images retain the shared helper.
+            if [ -n "$CORE_REPOSITORY" ] || [ -n "$CORE_REF" ]; then
+              if [ "$APP_TYPE" != "web-and-data" ] || [ -z "$CORE_REPOSITORY" ] || [ -z "$CORE_REF" ]; then
+                echo "core_repository and core_ref are only valid together for web-and-data images" >&2
+                exit 1
+              fi
+              if [ "<<parameters.push>>" = "true" ]; then
+                echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                PUSH_FLAG="--push"
+                PLATFORMS="linux/amd64,linux/arm64"
+              else
+                PUSH_FLAG="--load"
+                PLATFORMS="linux/amd64"
+              fi
+              docker pull docker.io/tonistiigi/binfmt:latest
+              docker run --rm --privileged docker.io/tonistiigi/binfmt:latest --install all
+              docker buildx use cbioportal-test >/dev/null 2>&1 || docker buildx create --name cbioportal-test --driver docker-container --use
+              docker buildx inspect --bootstrap --builder cbioportal-test
+              cd /tmp/repos/cbioportal
+              cp src/main/resources/application.properties.EXAMPLE src/main/resources/application.properties
+              docker buildx build $PUSH_FLAG \
+                --platform "$PLATFORMS" \
+                --build-arg CORE_REPOSITORY="$CORE_REPOSITORY" \
+                --build-arg CORE_REF="$CORE_REF" \
+                --tag "$DOCKER_REPO:$DOCKER_TAG" \
+                --file docker/web-and-data/Dockerfile \
+                --cache-from type=gha \
+                --cache-to type=gha \
+                .
+              if [ "<<parameters.push>>" = "true" ]; then
+                for attempt in 1 2 3 4 5 6; do
+                  TAG_FOUND=$(curl --silent "$URL" | jq -r '.name // empty')
+                  [ "$TAG_FOUND" = "${URL##*/}" ] && break
+                  [ "$attempt" -eq 6 ] && {
+                    echo "Expected image tag was not published: ${URL}" >&2
+                    exit 1
+                  }
+                  sleep $((attempt * 5))
+                done
+              else
+                docker image inspect "$DOCKER_REPO:$DOCKER_TAG" >/dev/null
+              fi
               exit 0
             fi
 
@@ -224,6 +283,8 @@ jobs:
         - build_push_image:
             app_type: "web-and-data"
             push: "false"
+            core_repository: "raylim/cbioportal-core"
+            core_ref: "17bd6512f106aebed850c536a498cb132e2f1dba"
         - run:
             name: Save cbioportal image as tar
             command: |
@@ -257,6 +318,8 @@ jobs:
         - build_push_image:
             app_type: "web-and-data"
             push: "true"
+            core_repository: "raylim/cbioportal-core"
+            core_ref: "17bd6512f106aebed850c536a498cb132e2f1dba"
 
     # Playwright localdb e2e, ported from cbioportal-frontend's
     # e2e_localdb_shards. Identical to the frontend job EXCEPT the backend
@@ -942,7 +1005,7 @@ jobs:
               export WSI_CORE_REPOSITORY=raylim/cbioportal-core
               # Pin the exact core PR commit so this test is reproducible and
               # cannot silently follow a mutable personal-fork branch.
-              export WSI_CORE_REF=7316bd05542dbbf57bf29a6a74dfc4b600876b84
+              export WSI_CORE_REF=17bd6512f106aebed850c536a498cb132e2f1dba
               : > /tmp/repos/wsi-image-build.log
               docker build \
                 --build-arg CORE_REPOSITORY="$WSI_CORE_REPOSITORY" \
@@ -960,6 +1023,8 @@ jobs:
               export DOCKER_IMAGE_CBIOPORTAL="cbioportal/cbioportal-dev:${CIRCLE_SHA1:?CIRCLE_SHA1 is required}"
               docker image inspect "$DOCKER_IMAGE_CBIOPORTAL" >/dev/null
               export CBIOPORTAL_SOURCE_DIR=/tmp/repos/cbioportal
+              test -f "$CBIOPORTAL_SOURCE_DIR/src/main/resources/db-scripts/clickhouse/populate_derived_tables.sql"
+              test ! -d "$CBIOPORTAL_SOURCE_DIR/src/main/resources/db-scripts/clickhouse/populate_derived_tables.sql"
               nohup ./scripts/docker-compose.sh \
                 --compose_extensions='-f /tmp/repos/cbioportal/src/e2e/js/test/WsiHierarchyController/wsi_ci_compose_override.yml' \
                 >> /tmp/repos/docker-compose-logs.txt 2>&1 &
@@ -1087,9 +1152,9 @@ jobs:
               # This immutable fork commit keeps WSI hierarchy assertions in
               # sync with the timeline-event timing contract in this PR.
               git -C /tmp/repos/cbioportal-frontend-wsi fetch --depth 1 origin \
-                87039beae4bad5028e62096c6439bdcc3e7f21b7
+                0481571578aa846ff5a78f909e8166d9acbf6150
               git -C /tmp/repos/cbioportal-frontend-wsi checkout --detach \
-                87039beae4bad5028e62096c6439bdcc3e7f21b7
+                0481571578aa846ff5a78f909e8166d9acbf6150
               cd /tmp/repos/cbioportal-frontend-wsi
               pnpm install --frozen-lockfile
         - run:
@@ -1106,6 +1171,7 @@ jobs:
                 CBIOPORTAL_URL=https://localhost:3000 \
                 CBIOPORTAL_PROXY_TARGET=http://localhost:8080 \
                 WSI_TILE_PROXY_TARGET=http://localhost:8081 \
+                WSI_RUNTIME_MODE=proxied \
                 pnpm exec rspack serve -c rspack.config.js \
                 >> /tmp/repos/frontend-logs.txt 2>&1 &
         - run:
