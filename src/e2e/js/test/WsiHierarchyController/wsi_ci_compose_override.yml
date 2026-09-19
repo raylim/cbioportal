@@ -41,4 +41,8 @@ services:
     volumes:
       - ${CBIOPORTAL_SOURCE_DIR}/src/main/resources/db-scripts/clickhouse/init/schema.sql:/data/schema.sql:ro
       - ${CBIOPORTAL_SOURCE_DIR}/src/main/resources/db-scripts/clickhouse/init/seed-cbioportal_hg19_hg38_v2.14.5.sql.gz:/data/seed.sql.gz:ro
-      - ${CBIOPORTAL_SOURCE_DIR}/src/main/resources/db-scripts/clickhouse/populate_derived_tables.sql:/data/clickhouse.sql:ro
+      # cbioportal-docker-compose master reads this exact target from
+      # 003_load_derived_tables.sh. Mounting a different target leaves the
+      # generated source absent; Docker then creates a directory at the
+      # expected path and ClickHouse fails with EISDIR on stdin.
+      - ${CBIOPORTAL_SOURCE_DIR}/src/main/resources/db-scripts/clickhouse/populate_derived_tables.sql:/data/populate_derived_tables.sql:ro
