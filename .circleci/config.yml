@@ -1152,9 +1152,9 @@ jobs:
               # This immutable fork commit keeps WSI hierarchy assertions in
               # sync with the timeline-event timing contract in this PR.
               git -C /tmp/repos/cbioportal-frontend-wsi fetch --depth 1 origin \
-                0481571578aa846ff5a78f909e8166d9acbf6150
+                9868469ec7dc3ab5723408d312291551f0983022
               git -C /tmp/repos/cbioportal-frontend-wsi checkout --detach \
-                0481571578aa846ff5a78f909e8166d9acbf6150
+                9868469ec7dc3ab5723408d312291551f0983022
               cd /tmp/repos/cbioportal-frontend-wsi
               pnpm install --frozen-lockfile
         - run:
