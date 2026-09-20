@@ -34,7 +34,7 @@ INSERT INTO cancer_study (
   (990001, 'msk_spectrum_tme_2022', 'mixed', 'SPECTRUM TME public WSI fixture',
    'Public SPECTRUM WSI fixture', 1, 'PUBLIC', 1, now(), 2),
   (990002, 'wsi_ci_study_b', 'mixed', 'WSI CI study B',
-   'Authenticated WSI CI control', 1, 'PUBLIC', 1, now(), 2);
+   'Authenticated WSI CI control', 1, 'PRIVATE', 1, now(), 2);
 
 INSERT INTO patient (internal_id, stable_id, cancer_study_id) VALUES
   (990001, 'P-0055908', 990001),

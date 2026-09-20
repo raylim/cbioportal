@@ -1,6 +1,14 @@
 services:
   cbioportal:
     environment:
+      # Keep authentication mode and the local bypass explicit and
+      # overridable. The default remains the unauthenticated fixture stack;
+      # an authenticated validation job must set both variables deliberately.
+      WSI_AUTHENTICATE: ${WSI_AUTHENTICATE:-false}
+      WSI_LOCAL_AUTH_BYPASS: ${WSI_LOCAL_AUTH_BYPASS:-true}
+      WSI_BASIC_USERNAME: ${WSI_BASIC_USERNAME:-wsi-ci-user}
+      WSI_BASIC_PASSWORD: ${WSI_BASIC_PASSWORD:-wsi-ci-password}
+      WSI_BASIC_AUTHORITIES: ${WSI_BASIC_AUTHORITIES:-PUBLIC}
       WSI_AUTH_SECRET: ${WSI_AUTH_SECRET}
       WSI_AUTH_AUDIENCE: ${WSI_AUTH_AUDIENCE:-cbioportal-wsi}
       WSI_TILE_SERVER_URL: ${WSI_TILE_SERVER_URL:-http://localhost:8081}
@@ -22,7 +30,14 @@ services:
       -cp '/cbioportal-webapp:/cbioportal-webapp/lib/*'
       org.cbioportal.PortalApplication
       --spring.config.location=file:/cbioportal-webapp/application.properties
-      --authenticate=false
+      --authenticate=$${WSI_AUTHENTICATE}
+      --basic.username=$${WSI_BASIC_USERNAME}
+      --basic.password=$${WSI_BASIC_PASSWORD}
+      --basic.authorities=$${WSI_BASIC_AUTHORITIES}
+      --spring.security.saml2.relyingparty.registration.cbio-idp.assertingparty.metadata-uri=classpath:/client-tailored-saml-idp-metadata.xml
+      --spring.security.saml2.relyingparty.registration.cbio-idp.entity-id=cbioportal-saml
+      --spring.security.saml2.relyingparty.registration.cbio-idp.signing.credentials[0].certificate-location=classpath:/local.crt
+      --spring.security.saml2.relyingparty.registration.cbio-idp.signing.credentials[0].private-key-location=classpath:/local.key
       --session.service.url=http://cbioportal-session:5001/api/sessions/my_portal/
       --spring.datasource.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver
       --spring.datasource.url=$${CLICKHOUSE_URL}
@@ -35,7 +50,7 @@ services:
       --bitly.access.token=local-ci-unused-token
       --wsi.access-token-secret=$${WSI_AUTH_SECRET}
       --wsi.access-token-audience=$${WSI_AUTH_AUDIENCE}
-      --wsi.local-auth-bypass=true
+      --wsi.local-auth-bypass=$${WSI_LOCAL_AUTH_BYPASS}
       --msk.wsi.tile_server.url=$${WSI_TILE_SERVER_URL}
       --clickhouse_mode=true
       --spring.profiles.active=clickhouse"

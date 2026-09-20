@@ -21,6 +21,8 @@ const config = {
 const hasAuthenticatedWsiSetup = Boolean(
   process.env.WSI_AUTH_SECRET && process.env.WSI_LOCAL_AUTH_BYPASS !== 'true'
 );
+const requireAuthenticatedWsiSetup =
+  process.env.WSI_REQUIRE_AUTHENTICATED_SETUP === 'true';
 const hasTileSetup = Boolean(process.env.WSI_AUTH_SECRET);
 const localAuthBypass = process.env.WSI_LOCAL_AUTH_BYPASS === 'true';
 const hasExplicitFrontend = Boolean(process.env.CBIOPORTAL_FRONTEND_URL);
@@ -29,6 +31,12 @@ const hasExplicitTileIds = Boolean(
     process.env.WSI_TEST_PART_SLIDE_ID &&
     process.env.WSI_TEST_UNMATCHED_SLIDE_ID
 );
+
+if (requireAuthenticatedWsiSetup && !hasAuthenticatedWsiSetup) {
+  throw new Error(
+    'Authenticated WSI validation was requested, but WSI_LOCAL_AUTH_BYPASS is enabled or WSI_AUTH_SECRET is missing'
+  );
+}
 
 type Slide = {
   imageId: string;

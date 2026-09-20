@@ -996,7 +996,7 @@ jobs:
                       | select(
                           .procedureDateDays == -17
                           and .timepointSource
-                            == "Procedure date relative to first ICD-O diagnosis"
+                            == "Recorded procedure date relative to first tumor sequencing"
                         )
                     ]
                     | length == 2
@@ -1048,8 +1048,8 @@ jobs:
               corepack enable
               corepack prepare pnpm@10.33.0 --activate
               declare -a CHILDREN=(
-                "foundation|d0dc2ee03f519afa11971de13eea5d773ec2dca5|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx|tests/wsi-foundation-route.spec.ts"
-                "molecular|491f36064d874c4317f6ba7ca9519699e084a7fa|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-foundation-route.spec.ts"
+                "foundation|e34b1dc57faa93f93cd4bb8f048563aad90dc4f7|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx|tests/wsi-foundation-route.spec.ts"
+                "molecular|b52d65c71ab1cdb7c3caecaaffea0bc15f5269eb|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-foundation-route.spec.ts"
                 "patient|603179e01188912722fc811927e697190a16e992|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts|tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts"
                 "study|15693a0ce9f7cc75ee344ac3a03459c0a17ec121|src/pages/studyView/tabs/ClinicalDataTab.spec.ts|tests/wsi-foundation-route.spec.ts tests/pathology-study-clinical-data.spec.ts"
               )
@@ -1162,7 +1162,7 @@ jobs:
                 PORT=3000 \
                 CBIOPORTAL_URL=https://localhost:3000 \
                 CBIOPORTAL_PROXY_TARGET=http://localhost:8080 \
-                WSI_TILE_PROXY_TARGET=http://localhost:8081 \
+                  WSI_TILE_PROXY_TARGET=http://localhost:8081 \
                 pnpm exec rspack serve -c rspack.config.js \
                 >> /tmp/repos/frontend-logs.txt 2>&1 &
         - run:
@@ -1225,7 +1225,9 @@ jobs:
               WSI_TILE_SERVER_URL: http://localhost:8081
               WSI_AUTH_SECRET: local-development-wsi-secret-change-me-32chars
               WSI_AUTH_AUDIENCE: cbioportal-wsi
+              WSI_AUTHENTICATE: "false"
               WSI_LOCAL_AUTH_BYPASS: "true"
+              WSI_REQUIRE_AUTHENTICATED_SETUP: "false"
               MOCHA_FILE: /tmp/repos/wsi-api-test-results/results.xml
             command: |
               mkdir -p /tmp/repos/wsi-api-test-results
