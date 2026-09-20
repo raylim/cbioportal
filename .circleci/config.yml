@@ -1229,17 +1229,19 @@ jobs:
                 echo 'Frontend bundle contains the placeholder cBioPortal API URL'
                 exit 1
               fi
-              if [ "${WSI_RUN_BROWSER_E2E}" = "true" ]; then
-                portal_api_status=$(curl --silent --show-error --insecure \
-                  --output /tmp/repos/frontend-proxied-api.json \
-                  --write-out '%{http_code}' \
-                  --header 'Origin: https://localhost:3000' \
-                  'https://localhost:3000/api/studies?projection=SUMMARY&pageSize=1')
-                if [ "$portal_api_status" != 200 ]; then
-                  echo "Same-origin frontend API proxy returned $portal_api_status"
-                  cat /tmp/repos/frontend-proxied-api.json
-                  exit 1
-                fi
+              # Health is deliberately public in both authentication modes.
+              # Study and WSI endpoints are protected in the authenticated
+              # profile and are exercised only after the browser establishes
+              # its Keycloak session.
+              health_status=$(curl --silent --show-error --insecure \
+                --output /tmp/repos/frontend-health.json \
+                --write-out '%{http_code}' \
+                --header 'Origin: https://localhost:3000' \
+                'https://localhost:3000/api/health')
+              if [ "$health_status" != 200 ]; then
+                echo "Same-origin frontend health proxy returned $health_status"
+                cat /tmp/repos/frontend-health.json
+                exit 1
               fi
         - run:
             name: Smoke check local-file WSI tile server mode
