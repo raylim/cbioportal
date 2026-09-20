@@ -54,7 +54,8 @@ jobs:
       - name: Run WSI validator tests
         working-directory: cbioportal-core
         run: |
-          python -m pip install --upgrade pip pytest
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
           PYTHONPATH=scripts pytest -q tests/unit_tests_validate_data.py -k wsi
       - uses: actions/setup-java@v4
         with:
@@ -94,8 +95,6 @@ jobs:
           repository: ${{ env.FRONTEND_REPOSITORY }}
           ref: ${{ matrix.ref }}
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.33.0
       - uses: actions/setup-node@v4
         with:
           node-version: '22.18.0'
