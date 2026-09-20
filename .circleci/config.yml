@@ -1162,7 +1162,7 @@ jobs:
                 PORT=3000 \
                 CBIOPORTAL_URL=https://localhost:3000 \
                 CBIOPORTAL_PROXY_TARGET=http://localhost:8080 \
-                  WSI_TILE_PROXY_TARGET=http://localhost:8081 \
+                WSI_TILE_PROXY_TARGET=http://localhost:8081 \
                 pnpm exec rspack serve -c rspack.config.js \
                 >> /tmp/repos/frontend-logs.txt 2>&1 &
         - run:
