@@ -1029,10 +1029,10 @@ jobs:
               corepack enable
               corepack prepare pnpm@10.33.0 --activate
               declare -a CHILDREN=(
-                "foundation|6e9a199b28d224e30ee8c17d84eb11aad82e6e45|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx"
-                "molecular|c89a2dc7ddae86afb422a234f3781fb6e0c4c87c|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx"
-                "patient|1a0e5339e5aacba67d1e5440d8dd7dcfb8453a22|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts"
-                "study|7fa5d610d5eb2fc009073ca581a81877e37f9f9e|src/pages/studyView/tabs/ClinicalDataTab.spec.ts"
+                "foundation|9bfc407f125196dd5d947f954a6a2b82d4d2fb3b|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx"
+                "molecular|55d7484c8bd9fdebd6f3510c9d1f1eb1253e47af|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx"
+                "patient|e7468eb1fb9d9dfe50c2e38b8167a96ad2468e71|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts"
+                "study|130ea01600f663192c889955da5b035743e09d94|src/pages/studyView/tabs/ClinicalDataTab.spec.ts"
               )
               for child in "${CHILDREN[@]}"; do
                 IFS='|' read -r name ref specs <<< "$child"
@@ -1067,9 +1067,9 @@ jobs:
               # This immutable fork commit keeps WSI hierarchy assertions in
               # sync with the timeline-event timing contract in this PR.
               git -C /tmp/repos/cbioportal-frontend-wsi fetch --depth 1 origin \
-                5783e11667e52ee1e657d1c24cc88d1d8025bce7
+                1746b497ce416240c2fc8cc62e9a1a3e5028e9ef
               git -C /tmp/repos/cbioportal-frontend-wsi checkout --detach \
-                5783e11667e52ee1e657d1c24cc88d1d8025bce7
+                1746b497ce416240c2fc8cc62e9a1a3e5028e9ef
               cd /tmp/repos/cbioportal-frontend-wsi
               pnpm install --frozen-lockfile
         - run:
