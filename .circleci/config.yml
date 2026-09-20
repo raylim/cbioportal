@@ -895,7 +895,7 @@ jobs:
               export WSI_CORE_REPOSITORY=raylim/cbioportal-core
               # Pin the exact core PR commit so this test is reproducible and
               # cannot silently follow a mutable personal-fork branch.
-              export WSI_CORE_REF=03b4f1d4463d80b3c3b28808822435c7c5ab9e5e
+              export WSI_CORE_REF=f4bded2c60a7aae138dd81d0463853cf268c3b5a
               : > /tmp/repos/wsi-image-build.log
               docker build \
                 --build-arg CORE_REPOSITORY="$WSI_CORE_REPOSITORY" \
@@ -1144,9 +1144,9 @@ jobs:
               # This immutable fork commit keeps WSI hierarchy assertions in
               # sync with the timeline-event timing contract in this PR.
               git -C /tmp/repos/cbioportal-frontend-wsi fetch --depth 1 origin \
-                bd3df1609fc746a643ada38b6e8bf4c6b4e3adf9
+                bdde482395134dab57cfce6553a4303645411e57
               git -C /tmp/repos/cbioportal-frontend-wsi checkout --detach \
-                bd3df1609fc746a643ada38b6e8bf4c6b4e3adf9
+                bdde482395134dab57cfce6553a4303645411e57
               cd /tmp/repos/cbioportal-frontend-wsi
               pnpm install --frozen-lockfile
         - run:
