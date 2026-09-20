@@ -808,6 +808,11 @@ jobs:
               : "${CLICKHOUSE_USER:?CLICKHOUSE_USER must come from the clickhouse-public-staging-ro-user context}"
               : "${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD must come from the clickhouse-public-staging-ro-user context}"
               export DOCKER_IMAGE_CBIOPORTAL="cbioportal/cbioportal-dev:${CIRCLE_SHA1:?CIRCLE_SHA1 is required}"
+              # The public read-only clone can lag the PR's schema version;
+              # keep the ordinary API compatibility gate running without
+              # mutating that shared database. The WSI job validates the
+              # current schema against its local ClickHouse fixture.
+              export APP_CUSTOM_ARGS="--db.suppress_schema_version_mismatch_errors=true ${APP_CUSTOM_ARGS:-}"
               nohup ./scripts/docker-compose.sh \
                 --compose_extensions='-f addon/clickhouse/docker-compose.remote.clickhouse.yml -f /tmp/repos/cbioportal/.circleci/remote-clickhouse-no-migration.yml' \
                 >> /tmp/repos/docker-compose-logs.txt 2>&1 &
