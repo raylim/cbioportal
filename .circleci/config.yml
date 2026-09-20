@@ -1005,9 +1005,10 @@ jobs:
                       AND upperUTF8(event.event_type) = '\''PATHOLOGY SLIDES'\''"
               ')
               test "$imported_pathology_events" = 4
-              curl -fsS \
-                http://localhost:8080/api/wsi/v2/hierarchy/msk_spectrum_tme_2022/P-0055908 \
-                | jq -e '
+              if [ "${WSI_LOCAL_AUTH_BYPASS}" = "true" ]; then
+                curl -fsS \
+                  http://localhost:8080/api/wsi/v2/hierarchy/msk_spectrum_tme_2022/P-0055908 \
+                  | jq -e '
                     [
                       .sampleGroups[].parts[].blocks[].slides[]
                       | select(.imageId == "3020726" or .imageId == "3020691")
@@ -1019,6 +1020,20 @@ jobs:
                     ]
                     | length == 2
                   '
+              else
+                auth_cookie=/tmp/repos/wsi-auth-cookie.txt
+                login_status=$(curl -sS -o /dev/null -w '%{http_code}' \
+                  -c "$auth_cookie" \
+                  -X POST http://localhost:8080/j_spring_security_check \
+                  --data-urlencode "j_username=${WSI_BASIC_USERNAME}" \
+                  --data-urlencode "j_password=${WSI_BASIC_LOGIN_PASSWORD}" \
+                  --data-urlencode 'user_id=wsi-ci-user')
+                test "$login_status" = 302
+                curl -fsS \
+                  -b "$auth_cookie" \
+                  http://localhost:8080/api/wsi/v2/hierarchy/msk_spectrum_tme_2022/P-0055908 \
+                  | jq -e '.sampleGroups | length > 0'
+              fi
         - run:
             name: Capture WSI diagnostics
             when: always
@@ -1070,7 +1085,7 @@ jobs:
               corepack prepare pnpm@10.33.0 --activate
               declare -a CHILDREN=(
                 "foundation|e34b1dc57faa93f93cd4bb8f048563aad90dc4f7|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx|tests/wsi-foundation-route.spec.ts"
-                "molecular|b52d65c71ab1cdb7c3caecaaffea0bc15f5269eb|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-foundation-route.spec.ts"
+                "molecular|b52d65c71ab1cdb7c3caecaaffea0bc15f5269eb|src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-foundation-route.spec.ts"
                 "patient|603179e01188912722fc811927e697190a16e992|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts|tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts"
                 "study|15693a0ce9f7cc75ee344ac3a03459c0a17ec121|src/pages/studyView/tabs/ClinicalDataTab.spec.ts|tests/wsi-foundation-route.spec.ts tests/pathology-study-clinical-data.spec.ts"
               )
@@ -1294,6 +1309,7 @@ jobs:
               PW_IGNORE_HTTPS_ERRORS: "1"
               PW_SUITE: wsi
               WSI_VIEWER_BASE_URL: https://localhost:3000
+              WSI_AUTH_PORTAL_URL: http://localhost:8080
               WSI_PROXY_REHEARSAL: "1"
               WSI_TIMING_STUDY_ID: msk_spectrum_tme_2022
               WSI_TIMING_UNDATED_PATIENT_ID: P-0055908
@@ -1359,9 +1375,10 @@ jobs:
         WSI_BASIC_USERNAME: wsi-ci-user
         WSI_BASIC_PASSWORD: '$2b$10$7MoXjWmDD/mrvq7hF9D0RuFewhTzl8KYATtySCSZX7tMV.614kO3.'
         WSI_BASIC_LOGIN_PASSWORD: wsi-ci-password
-        WSI_BASIC_AUTHORITIES: PUBLIC
+        WSI_BASIC_AUTHORITIES: PUBLIC_STUDIES
         WSI_RUN_CHILD_MATRIX: "false"
-        WSI_RUN_BROWSER_E2E: "false"
+        WSI_RUN_BROWSER_E2E: "true"
+        WSI_AUTHENTICATED_E2E: "true"
 
     run_security_tests:
       machine:

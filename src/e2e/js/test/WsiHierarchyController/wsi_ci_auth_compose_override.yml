@@ -13,6 +13,7 @@ services:
       --basic.username=$${WSI_BASIC_USERNAME}
       --basic.password=$${WSI_BASIC_PASSWORD}
       --basic.authorities=$${WSI_BASIC_AUTHORITIES}
+      --filter_groups_by_appname=false
       --spring.security.saml2.relyingparty.registration.cbio-idp.assertingparty.metadata-uri=classpath:/client-tailored-saml-idp-metadata.xml
       --spring.security.saml2.relyingparty.registration.cbio-idp.entity-id=cbioportal
       --spring.security.saml2.relyingparty.registration.cbio-idp.signing.credentials[0].certificate-location=classpath:/local.crt

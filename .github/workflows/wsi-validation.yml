@@ -1,0 +1,132 @@
+name: WSI validation
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FRONTEND_REPOSITORY: raylim/cbioportal-frontend
+  FRONTEND_FOUNDATION_REF: e34b1dc57faa93f93cd4bb8f048563aad90dc4f7
+  FRONTEND_MOLECULAR_REF: b52d65c71ab1cdb7c3caecaaffea0bc15f5269eb
+  FRONTEND_PATIENT_REF: 603179e01188912722fc811927e697190a16e992
+  FRONTEND_STUDY_REF: 15693a0ce9f7cc75ee344ac3a03459c0a17ec121
+  FRONTEND_INTEGRATION_REF: ae904860ca9d8aad400f45e5ebdd8bb132acccaa
+  CORE_REPOSITORY: raylim/cbioportal-core
+  CORE_REF: ee488a75f2a4c74a37929649d7c040c62fe82f76
+
+jobs:
+  fixture-contract:
+    name: Verify WSI fixture and authorization contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate fixture permissions and immutable pins
+        working-directory: .
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          allowed = Path('src/e2e/js/test/WsiHierarchyController/wsi_loader_fixture/meta_study.txt').read_text()
+          denied = Path('src/e2e/js/test/WsiHierarchyController/wsi_loader_control_fixture/meta_study.txt').read_text()
+          assert 'groups: PUBLIC_STUDIES' in allowed
+          assert 'groups: WSI_DENIED' in denied
+          assert 'WSI_AUTHENTICATED_E2E: "true"' in Path('.circleci/config.yml').read_text()
+          assert len('${{ env.CORE_REF }}') == 40
+          print('fixture permissions and source pins are present')
+          PY
+
+  core-import-validation:
+    name: Core WSI validation and import tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          ref: ${{ env.CORE_REF }}
+          path: cbioportal-core
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run WSI validator tests
+        working-directory: cbioportal-core
+        run: |
+          python -m pip install --upgrade pip pytest
+          pytest -q tests/unit_tests_validate_data.py -k wsi
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Run Java WSI import tests
+        working-directory: cbioportal-core
+        run: mvn -q -Dtest=ImportWsiDataTest test
+
+  frontend-children:
+    name: Frontend child (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: foundation
+            ref: e34b1dc57faa93f93cd4bb8f048563aad90dc4f7
+            jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
+            browser: tests/wsi-foundation-route.spec.ts
+          - name: molecular
+            ref: b52d65c71ab1cdb7c3caecaaffea0bc15f5269eb
+            jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
+            browser: tests/wsi-foundation-route.spec.ts
+          - name: patient
+            ref: 603179e01188912722fc811927e697190a16e992
+            jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
+            browser: tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts
+          - name: study
+            ref: 15693a0ce9f7cc75ee344ac3a03459c0a17ec121
+            jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
+            browser: tests/wsi-foundation-route.spec.ts tests/pathology-study-clinical-data.spec.ts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.FRONTEND_REPOSITORY }}
+          ref: ${{ matrix.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+          cache: pnpm
+      - name: Enable pnpm
+        run: corepack enable && corepack prepare pnpm@10.33.0 --activate
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck and build
+        run: |
+          pnpm run typecheck
+          pnpm run build
+      - name: Run child unit tests
+        run: pnpm exec jest ${{ matrix.jest }} --runInBand --no-cache
+      - name: Check child browser specs are discoverable
+        working-directory: end-to-end-test-playwright
+        run: |
+          pnpm install --frozen-lockfile --ignore-workspace
+          pnpm exec playwright test ${{ matrix.browser }} --list
+
+  combined-frontend:
+    name: Combined frontend validation
+    runs-on: ubuntu-latest
+    needs: frontend-children
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.FRONTEND_REPOSITORY }}
+          ref: ${{ env.FRONTEND_INTEGRATION_REF }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+          cache: pnpm
+      - run: corepack enable && corepack prepare pnpm@10.33.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run build
