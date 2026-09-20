@@ -1029,13 +1029,13 @@ jobs:
               corepack enable
               corepack prepare pnpm@10.33.0 --activate
               declare -a CHILDREN=(
-                "foundation|9bfc407f125196dd5d947f954a6a2b82d4d2fb3b|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx"
-                "molecular|ee87fee3c61d9af3e5da3a9e7a60b8a70e5ccfd1|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx"
-                "patient|26d87b84f94bf97afaccaf7de9563e8998f804f3|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts"
-                "study|dc9af6c8c94d6aa912f435d47657c42d19ff110d|src/pages/studyView/tabs/ClinicalDataTab.spec.ts"
+                "foundation|9bfc407f125196dd5d947f954a6a2b82d4d2fb3b|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx|tests/wsi-viewer.spec.ts"
+                "molecular|ee87fee3c61d9af3e5da3a9e7a60b8a70e5ccfd1|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-pathology-mocked.spec.ts"
+                "patient|26d87b84f94bf97afaccaf7de9563e8998f804f3|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts|tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts"
+                "study|dc9af6c8c94d6aa912f435d47657c42d19ff110d|src/pages/studyView/tabs/ClinicalDataTab.spec.ts|tests/pathology-study-clinical-data.spec.ts"
               )
               for child in "${CHILDREN[@]}"; do
-                IFS='|' read -r name ref specs <<< "$child"
+                IFS='|' read -r name ref specs browser_specs <<< "$child"
                 dir="/tmp/repos/cbioportal-frontend-wsi-$name"
                 rm -rf "$dir"
                 git clone --filter=blob:none --no-checkout \
@@ -1045,12 +1045,59 @@ jobs:
                 cd "$dir"
                 pnpm install --frozen-lockfile
                 pnpm run typecheck
-                pnpm run buildModules
+                # Build the application bundle as well as workspace packages;
+                # package-only builds cannot catch viewer wiring regressions.
+                pnpm run build
                 if [ "$name" = "study" ] || [ "$name" = "patient" ]; then
                   pnpm exec jest $specs --runInBand --env=jsdom --no-cache
                 else
                   pnpm exec jest $specs --runInBand --no-cache
                 fi
+
+                # Exercise each child against the imported backend before the
+                # combined integration checkout. A child must be usable on its
+                # own, so start its own frontend server and browser suite.
+                frontend_pid=""
+                cleanup_child_server() {
+                  if [ -n "$frontend_pid" ]; then
+                    kill "$frontend_pid" 2>/dev/null || true
+                    wait "$frontend_pid" 2>/dev/null || true
+                  fi
+                }
+                trap cleanup_child_server EXIT
+                NODE_ENV=development \
+                  HOST=0.0.0.0 \
+                  PORT=3100 \
+                  CBIOPORTAL_URL=https://localhost:3100 \
+                  CBIOPORTAL_PROXY_TARGET=http://localhost:8080 \
+                  WSI_TILE_PROXY_TARGET=http://localhost:8081 \
+                  pnpm exec rspack serve -c rspack.config.js \
+                  > "/tmp/repos/wsi-frontend-$name.log" 2>&1 &
+                frontend_pid=$!
+                ready=0
+                for attempt in $(seq 1 80); do
+                  if curl --fail --silent --show-error --insecure \
+                    https://localhost:3100/ > /dev/null; then
+                    ready=1
+                    break
+                  fi
+                  sleep 2
+                done
+                test "$ready" = 1
+                cd "$dir/end-to-end-test-playwright"
+                pnpm install --frozen-lockfile --ignore-workspace
+                pnpm exec playwright install chromium
+                CBIOPORTAL_URL=https://localhost:3100 \
+                  CBIOPORTAL_FRONTEND_URL=https://localhost:3100 \
+                  WSI_VIEWER_BASE_URL=https://localhost:3100 \
+                  LOCALDEV=0 \
+                  PW_IGNORE_HTTPS_ERRORS=1 \
+                  PW_SUITE=wsi \
+                  WSI_PROXY_REHEARSAL=1 \
+                  pnpm exec playwright test $browser_specs --reporter=line
+                cleanup_child_server
+                frontend_pid=""
+                trap - EXIT
               done
         - run:
             name: Checkout native WSI frontend for local integration
