@@ -809,7 +809,7 @@ jobs:
               : "${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD must come from the clickhouse-public-staging-ro-user context}"
               export DOCKER_IMAGE_CBIOPORTAL="cbioportal/cbioportal-dev:${CIRCLE_SHA1:?CIRCLE_SHA1 is required}"
               nohup ./scripts/docker-compose.sh \
-                --compose_extensions='-f addon/clickhouse/docker-compose.remote.clickhouse.yml' \
+                --compose_extensions='-f addon/clickhouse/docker-compose.remote.clickhouse.yml -f /tmp/repos/cbioportal/.circleci/remote-clickhouse-no-migration.yml' \
                 >> /tmp/repos/docker-compose-logs.txt 2>&1 &
         - run:
             name: Wait for cbioportal to be live at localhost
