@@ -1271,6 +1271,7 @@ jobs:
               corepack prepare pnpm@10.33.0 --activate
               cd /tmp/repos/cbioportal-frontend-wsi/end-to-end-test-playwright
               pnpm exec playwright test \
+                tests/wsi-foundation-route.spec.ts \
                 tests/wsi-viewer.spec.ts \
                 tests/wsi-pathology-mocked.spec.ts \
                 tests/pathology-summary.spec.ts \
