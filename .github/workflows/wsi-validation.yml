@@ -107,7 +107,12 @@ jobs:
           pnpm run typecheck
           pnpm run build
       - name: Run child unit tests
-        run: pnpm exec jest ${{ matrix.jest }} --runInBand --no-cache
+        run: |
+          if [ "${{ matrix.name }}" = "patient" ] || [ "${{ matrix.name }}" = "study" ]; then
+            pnpm exec jest ${{ matrix.jest }} --runInBand --env=jsdom --no-cache
+          else
+            pnpm exec jest ${{ matrix.jest }} --runInBand --no-cache
+          fi
       - name: Check child browser specs are discoverable
         working-directory: end-to-end-test-playwright
         env:
