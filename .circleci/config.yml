@@ -863,7 +863,7 @@ jobs:
         - store_artifacts:
             path: /tmp/repos/docker-compose-logs.txt
 
-    run_wsi_api_tests:
+    run_wsi_api_tests: &run_wsi_api_tests
       machine:
         image: ubuntu-2204:2024.08.1
         docker_layer_caching: true
@@ -874,6 +874,15 @@ jobs:
         WSI_AUTH_SECRET: local-development-wsi-secret-change-me-32chars
         WSI_AUTH_AUDIENCE: cbioportal-wsi
         WSI_TILE_SERVER_URL: http://localhost:8081
+        WSI_TILE_SERVER_PORT: "8081"
+        WSI_PORTAL_TYPE: ""
+        WSI_COMPOSE_EXTENSIONS: >-
+          -f /tmp/repos/cbioportal/src/e2e/js/test/WsiHierarchyController/wsi_ci_compose_override.yml
+        WSI_AUTHENTICATE: "false"
+        WSI_LOCAL_AUTH_BYPASS: "true"
+        WSI_REQUIRE_AUTHENTICATED_SETUP: "false"
+        WSI_RUN_CHILD_MATRIX: "true"
+        WSI_RUN_BROWSER_E2E: "true"
       steps:
         - attach_workspace:
             at: /tmp/repos
@@ -913,8 +922,17 @@ jobs:
               export DOCKER_IMAGE_CBIOPORTAL="cbioportal/cbioportal-dev:${CIRCLE_SHA1:?CIRCLE_SHA1 is required}"
               docker image inspect "$DOCKER_IMAGE_CBIOPORTAL" >/dev/null
               export CBIOPORTAL_SOURCE_DIR=/tmp/repos/cbioportal
+              if [ "${WSI_PORTAL_TYPE}" = "keycloak" ]; then
+                sed -i '/utils\/check-connection.sh --url=localhost:8081/c\
+              i=0; while [ "$i" -lt 180 ]; do if curl -fsS http://localhost:8081/auth/realms/cbio/protocol/saml/descriptor 2>/dev/null | grep -q EntityDescriptor; then break; fi; i=$((i + 1)); sleep 2; done; if [ "$i" -ge 180 ]; then echo "Timed out waiting for Keycloak SAML metadata" >&2; exit 1; fi' scripts/docker-compose.sh
+              fi
+              compose_args=()
+              if [ -n "${WSI_PORTAL_TYPE}" ]; then
+                compose_args+=(--portal_type="${WSI_PORTAL_TYPE}")
+              fi
               nohup ./scripts/docker-compose.sh \
-                --compose_extensions='-f /tmp/repos/cbioportal/src/e2e/js/test/WsiHierarchyController/wsi_ci_compose_override.yml' \
+                "${compose_args[@]}" \
+                --compose_extensions="${WSI_COMPOSE_EXTENSIONS}" \
                 >> /tmp/repos/docker-compose-logs.txt 2>&1 &
         - run:
             name: Wait for cbioportal to be live at localhost
@@ -1016,7 +1034,7 @@ jobs:
         - run:
             name: Start local WSI tile contract fixture
             command: |
-              export SERVER_PORT=8081
+              export SERVER_PORT="${WSI_TILE_SERVER_PORT}"
               nohup python3 \
                 /tmp/repos/cbioportal/src/e2e/js/test/WsiHierarchyController/local_tile_server.py \
                 >> /tmp/repos/tile-server-logs.txt 2>&1 &
@@ -1024,7 +1042,7 @@ jobs:
             name: Wait for WSI tile server to be live at localhost
             command: |
               cd cbioportal-test
-              ./utils/check-connection.sh --url=localhost:8081 --max_retries=80
+              ./utils/check-connection.sh --url="localhost:${WSI_TILE_SERVER_PORT}" --max_retries=80
         - run:
             name: Install Node.js 22 and pnpm for local WSI frontend
             command: |
@@ -1041,6 +1059,9 @@ jobs:
             name: Validate each WSI frontend child against the foundation
             no_output_timeout: 30m
             command: |
+              if [ "${WSI_RUN_CHILD_MATRIX}" != "true" ]; then
+                exit 0
+              fi
               set -euo pipefail
               export NVM_DIR="$HOME/.nvm"
               [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
@@ -1093,7 +1114,7 @@ jobs:
                   PORT=3100 \
                   CBIOPORTAL_URL=https://localhost:3100 \
                   CBIOPORTAL_PROXY_TARGET=http://localhost:8080 \
-                  WSI_TILE_PROXY_TARGET=http://localhost:8081 \
+                  WSI_TILE_PROXY_TARGET="http://localhost:${WSI_TILE_SERVER_PORT}" \
                   pnpm exec rspack serve -c rspack.config.js \
                   > "/tmp/repos/wsi-frontend-$name.log" 2>&1 &
                 frontend_pid=$!
@@ -1162,7 +1183,7 @@ jobs:
                 PORT=3000 \
                 CBIOPORTAL_URL=https://localhost:3000 \
                 CBIOPORTAL_PROXY_TARGET=http://localhost:8080 \
-                WSI_TILE_PROXY_TARGET=http://localhost:8081 \
+                WSI_TILE_PROXY_TARGET="http://localhost:${WSI_TILE_SERVER_PORT}" \
                 pnpm exec rspack serve -c rspack.config.js \
                 >> /tmp/repos/frontend-logs.txt 2>&1 &
         - run:
@@ -1193,20 +1214,22 @@ jobs:
                 echo 'Frontend bundle contains the placeholder cBioPortal API URL'
                 exit 1
               fi
-              portal_api_status=$(curl --silent --show-error --insecure \
-                --output /tmp/repos/frontend-proxied-api.json \
-                --write-out '%{http_code}' \
-                --header 'Origin: https://localhost:3000' \
-                'https://localhost:3000/api/studies?projection=SUMMARY&pageSize=1')
-              if [ "$portal_api_status" != 200 ]; then
-                echo "Same-origin frontend API proxy returned $portal_api_status"
-                cat /tmp/repos/frontend-proxied-api.json
-                exit 1
+              if [ "${WSI_RUN_BROWSER_E2E}" = "true" ]; then
+                portal_api_status=$(curl --silent --show-error --insecure \
+                  --output /tmp/repos/frontend-proxied-api.json \
+                  --write-out '%{http_code}' \
+                  --header 'Origin: https://localhost:3000' \
+                  'https://localhost:3000/api/studies?projection=SUMMARY&pageSize=1')
+                if [ "$portal_api_status" != 200 ]; then
+                  echo "Same-origin frontend API proxy returned $portal_api_status"
+                  cat /tmp/repos/frontend-proxied-api.json
+                  exit 1
+                fi
               fi
         - run:
             name: Smoke check local-file WSI tile server mode
             command: |
-              direct_contract=$(curl -fsS http://localhost:8081/health | jq -er '.auth_contract_version')
+              direct_contract=$(curl -fsS "http://localhost:${WSI_TILE_SERVER_PORT}/health" | jq -er '.auth_contract_version')
               proxied_contract=$(curl -fsSk https://localhost:3000/wsi/health | jq -er '.auth_contract_version')
               test "$direct_contract" = 2
               test "$proxied_contract" = "$direct_contract"
@@ -1222,12 +1245,8 @@ jobs:
               CBIOPORTAL_URL: http://localhost:8080
               CBIOPORTAL_FRONTEND_URL: https://localhost:3000
               WSI_FRONTEND_ALLOW_SELF_SIGNED_TLS: "true"
-              WSI_TILE_SERVER_URL: http://localhost:8081
               WSI_AUTH_SECRET: local-development-wsi-secret-change-me-32chars
               WSI_AUTH_AUDIENCE: cbioportal-wsi
-              WSI_AUTHENTICATE: "false"
-              WSI_LOCAL_AUTH_BYPASS: "true"
-              WSI_REQUIRE_AUTHENTICATED_SETUP: "false"
               MOCHA_FILE: /tmp/repos/wsi-api-test-results/results.xml
             command: |
               mkdir -p /tmp/repos/wsi-api-test-results
@@ -1291,14 +1310,16 @@ jobs:
               corepack enable
               corepack prepare pnpm@10.33.0 --activate
               cd /tmp/repos/cbioportal-frontend-wsi/end-to-end-test-playwright
-              pnpm exec playwright test \
-                tests/wsi-foundation-route.spec.ts \
-                tests/wsi-viewer.spec.ts \
-                tests/wsi-pathology-mocked.spec.ts \
-                tests/pathology-summary.spec.ts \
-                tests/pathology-study-clinical-data.spec.ts \
-                tests/pathology-timing-contract.spec.ts \
-                --reporter=line
+              if [ "${WSI_RUN_BROWSER_E2E}" = "true" ]; then
+                pnpm exec playwright test \
+                  tests/wsi-foundation-route.spec.ts \
+                  tests/wsi-viewer.spec.ts \
+                  tests/wsi-pathology-mocked.spec.ts \
+                  tests/pathology-summary.spec.ts \
+                  tests/pathology-study-clinical-data.spec.ts \
+                  tests/pathology-timing-contract.spec.ts \
+                  --reporter=line
+              fi
         - store_test_results:
             path: /tmp/repos/wsi-api-test-results
         - store_artifacts:
@@ -1319,6 +1340,27 @@ jobs:
             path: /tmp/repos/wsi-tile-smoke.txt
         - store_artifacts:
             path: /tmp/repos/cbioportal-frontend-wsi/end-to-end-test-playwright/test-results
+
+    run_wsi_authenticated_api_tests:
+      <<: *run_wsi_api_tests
+      environment:
+        DOCKER_REPO: cbioportal/cbioportal-dev
+        WSI_AUTH_SECRET: local-development-wsi-secret-change-me-32chars
+        WSI_AUTH_AUDIENCE: cbioportal-wsi
+        WSI_TILE_SERVER_URL: http://localhost:8082
+        WSI_TILE_SERVER_PORT: "8082"
+        WSI_PORTAL_TYPE: keycloak
+        WSI_COMPOSE_EXTENSIONS: >-
+          -f /tmp/repos/cbioportal/src/e2e/js/test/WsiHierarchyController/wsi_ci_compose_override.yml
+          -f /tmp/repos/cbioportal/src/e2e/js/test/WsiHierarchyController/wsi_ci_auth_compose_override.yml
+        WSI_AUTHENTICATE: saml_plus_basic
+        WSI_LOCAL_AUTH_BYPASS: "false"
+        WSI_REQUIRE_AUTHENTICATED_SETUP: "true"
+        WSI_BASIC_USERNAME: wsi-ci-user
+        WSI_BASIC_PASSWORD: wsi-ci-password
+        WSI_BASIC_AUTHORITIES: PUBLIC
+        WSI_RUN_CHILD_MATRIX: "false"
+        WSI_RUN_BROWSER_E2E: "false"
 
     run_security_tests:
       machine:
@@ -1478,6 +1520,7 @@ workflows:
               - e2e_localdb_merge
               - run_api_tests
               - run_wsi_api_tests
+              - run_wsi_authenticated_api_tests
               - run_security_tests
         - push_web_and_data_image:
             context:
@@ -1486,6 +1529,7 @@ workflows:
               - e2e_localdb_merge
               - run_api_tests
               - run_wsi_api_tests
+              - run_wsi_authenticated_api_tests
               - run_security_tests
         # Playwright localdb e2e, replacing the retired WDIO run_e2e_localdb_tests.
         # Shards need the frontend dist/specs (build_frontend) and the PR's
@@ -1506,6 +1550,10 @@ workflows:
             requires:
               - build_web_and_data_image
         - run_wsi_api_tests:
+            requires:
+              - build_frontend
+              - build_web_and_data_image
+        - run_wsi_authenticated_api_tests:
             requires:
               - build_frontend
               - build_web_and_data_image
