@@ -1086,7 +1086,7 @@ jobs:
                 test "$ready" = 1
                 cd "$dir/end-to-end-test-playwright"
                 pnpm install --frozen-lockfile --ignore-workspace
-                pnpm exec playwright install chromium
+                pnpm exec playwright install --with-deps chromium
                 CBIOPORTAL_URL=https://localhost:3100 \
                   CBIOPORTAL_FRONTEND_URL=https://localhost:3100 \
                   WSI_VIEWER_BASE_URL=https://localhost:3100 \
