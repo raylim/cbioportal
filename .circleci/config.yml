@@ -1146,6 +1146,7 @@ jobs:
                 cd "$dir/end-to-end-test-playwright"
                 pnpm install --frozen-lockfile --ignore-workspace
                 pnpm exec playwright install --with-deps chromium
+                rm -rf test-results
                 CBIOPORTAL_URL=https://localhost:3100 \
                   CBIOPORTAL_FRONTEND_URL=https://localhost:3100 \
                   WSI_VIEWER_BASE_URL=https://localhost:3100 \
@@ -1160,7 +1161,19 @@ jobs:
                   WSI_TIMING_RECORDED_SLIDE_ID=3020726 \
                   WSI_TIMING_RECORDED_DATE_DAYS=-17 \
                   WSI_TIMING_RECORDED_DATE_SOURCE=RECORDED_PROCEDURE_DATE \
-                  pnpm exec playwright test $browser_specs --reporter=line
+                  pnpm exec playwright test $browser_specs
+                  test -s test-results/report.json
+                  python3 - <<'PY'
+                  import json
+                  from pathlib import Path
+
+                  report = json.loads(Path('test-results/report.json').read_text())
+                  stats = report.get('stats', {})
+                  assert stats.get('expected', 0) > 0, stats
+                  assert stats.get('skipped', 0) == 0, stats
+                  assert stats.get('unexpected', 0) == 0, stats
+                  print('required child browser cases executed:', stats)
+                  PY
                 cleanup_child_server
                 frontend_pid=""
                 trap - EXIT
@@ -1328,6 +1341,7 @@ jobs:
               corepack enable
               corepack prepare pnpm@10.33.0 --activate
               cd /tmp/repos/cbioportal-frontend-wsi/end-to-end-test-playwright
+              rm -rf test-results
               if [ "${WSI_RUN_BROWSER_E2E}" = "true" ]; then
                 pnpm exec playwright test \
                   tests/wsi-foundation-route.spec.ts \
@@ -1335,9 +1349,20 @@ jobs:
                   tests/wsi-pathology-mocked.spec.ts \
                   tests/pathology-summary.spec.ts \
                   tests/pathology-study-clinical-data.spec.ts \
-                  tests/pathology-timing-contract.spec.ts \
-                  --reporter=line
+                  tests/pathology-timing-contract.spec.ts
               fi
+              test -s test-results/report.json
+              python3 - <<'PY'
+              import json
+              from pathlib import Path
+
+              report = json.loads(Path('test-results/report.json').read_text())
+              stats = report.get('stats', {})
+              assert stats.get('expected', 0) > 0, stats
+              assert stats.get('skipped', 0) == 0, stats
+              assert stats.get('unexpected', 0) == 0, stats
+              print('required combined browser cases executed:', stats)
+              PY
         - store_test_results:
             path: /tmp/repos/wsi-api-test-results
         - store_artifacts:
