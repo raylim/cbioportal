@@ -795,7 +795,8 @@ jobs:
             name: Load cbioportal image
             command: |
               export DOCKER_TAG=$CIRCLE_SHA1
-              docker load -i $DOCKER_TAG-web-shenandoah.tar
+              # Migration runs from this image and needs Python and db-scripts.
+              docker load -i $DOCKER_TAG.tar
         - run:
             name: Instantiate a cbioportal instance
             environment:
@@ -806,7 +807,7 @@ jobs:
               : "${CLICKHOUSE_URL:?CLICKHOUSE_URL must come from the clickhouse-public-staging-ro-user context}"
               : "${CLICKHOUSE_USER:?CLICKHOUSE_USER must come from the clickhouse-public-staging-ro-user context}"
               : "${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD must come from the clickhouse-public-staging-ro-user context}"
-              export DOCKER_IMAGE_CBIOPORTAL="cbioportal/cbioportal-dev:${CIRCLE_SHA1:?CIRCLE_SHA1 is required}-web-shenandoah"
+              export DOCKER_IMAGE_CBIOPORTAL="cbioportal/cbioportal-dev:${CIRCLE_SHA1:?CIRCLE_SHA1 is required}"
               nohup ./scripts/docker-compose.sh \
                 --compose_extensions='-f addon/clickhouse/docker-compose.remote.clickhouse.yml' \
                 >> /tmp/repos/docker-compose-logs.txt 2>&1 &
@@ -1007,6 +1008,18 @@ jobs:
                 docker logs cbioportal-database-container 2>&1 || true
               } > /tmp/repos/wsi-diagnostics.txt 2>&1
         - run:
+            name: Start local WSI tile contract fixture
+            command: |
+              export SERVER_PORT=8081
+              nohup python3 \
+                /tmp/repos/cbioportal/src/e2e/js/test/WsiHierarchyController/local_tile_server.py \
+                >> /tmp/repos/tile-server-logs.txt 2>&1 &
+        - run:
+            name: Wait for WSI tile server to be live at localhost
+            command: |
+              cd cbioportal-test
+              ./utils/check-connection.sh --url=localhost:8081 --max_retries=80
+        - run:
             name: Install Node.js 22 and pnpm for local WSI frontend
             command: |
               curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
@@ -1029,10 +1042,10 @@ jobs:
               corepack enable
               corepack prepare pnpm@10.33.0 --activate
               declare -a CHILDREN=(
-                "foundation|9bfc407f125196dd5d947f954a6a2b82d4d2fb3b|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx|tests/wsi-viewer.spec.ts"
-                "molecular|adf8b1d8eddd6a168a6e03d60661a03a394a70aa|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-pathology-mocked.spec.ts"
-                "patient|26d87b84f94bf97afaccaf7de9563e8998f804f3|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts|tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts"
-                "study|dc9af6c8c94d6aa912f435d47657c42d19ff110d|src/pages/studyView/tabs/ClinicalDataTab.spec.ts|tests/pathology-study-clinical-data.spec.ts"
+                "foundation|2e720e8fa789149cd3cc464b1285d90e71b0909a|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx|tests/wsi-foundation-route.spec.ts"
+                "molecular|ec07692ca757c0175ffa920270c2fc921c32800a|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-foundation-route.spec.ts"
+                "patient|ba9c640232a864d99bf5651ee4d04934fad0806d|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts|tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts"
+                "study|5053a1092a99bb1befbd01eeec0211cb928706f3|src/pages/studyView/tabs/ClinicalDataTab.spec.ts|tests/wsi-foundation-route.spec.ts tests/pathology-study-clinical-data.spec.ts"
               )
               for child in "${CHILDREN[@]}"; do
                 IFS='|' read -r name ref specs browser_specs <<< "$child"
@@ -1053,6 +1066,10 @@ jobs:
                 else
                   pnpm exec jest $specs --runInBand --no-cache
                 fi
+
+                for browser_spec in $browser_specs; do
+                  test -f "$dir/end-to-end-test-playwright/$browser_spec"
+                done
 
                 # Exercise each child against the imported backend before the
                 # combined integration checkout. A child must be usable on its
@@ -1114,9 +1131,9 @@ jobs:
               # This immutable fork commit keeps WSI hierarchy assertions in
               # sync with the timeline-event timing contract in this PR.
               git -C /tmp/repos/cbioportal-frontend-wsi fetch --depth 1 origin \
-                24adf785de4dc32626ee665735425d6b46cf3f73
+                c789e5e56147ed5c7ab0fc801eb122a04ac7bd76
               git -C /tmp/repos/cbioportal-frontend-wsi checkout --detach \
-                24adf785de4dc32626ee665735425d6b46cf3f73
+                c789e5e56147ed5c7ab0fc801eb122a04ac7bd76
               cd /tmp/repos/cbioportal-frontend-wsi
               pnpm install --frozen-lockfile
         - run:
@@ -1173,18 +1190,6 @@ jobs:
                 cat /tmp/repos/frontend-proxied-api.json
                 exit 1
               fi
-        - run:
-            name: Start local WSI tile contract fixture
-            command: |
-              export SERVER_PORT=8081
-              nohup python3 \
-                /tmp/repos/cbioportal/src/e2e/js/test/WsiHierarchyController/local_tile_server.py \
-                >> /tmp/repos/tile-server-logs.txt 2>&1 &
-        - run:
-            name: Wait for WSI tile server to be live at localhost
-            command: |
-              cd cbioportal-test
-              ./utils/check-connection.sh --url=localhost:8081 --max_retries=80
         - run:
             name: Smoke check local-file WSI tile server mode
             command: |
@@ -1476,7 +1481,6 @@ workflows:
             context:
               - clickhouse-public-staging-ro-user
             requires:
-              - build_web_image
               - build_web_and_data_image
         - run_wsi_api_tests:
             requires:
