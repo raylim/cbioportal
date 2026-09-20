@@ -97,6 +97,7 @@ VALUES
   (990001, 990001, -17, -17, 'PATHOLOGY SLIDES'),
   (990002, 990001, -17, -17, 'PATHOLOGY SLIDES'),
   (990003, 990001, -17, -17, 'PATHOLOGY SLIDES'),
+  (990005, 990001, -18, -18, 'PATHOLOGY SLIDES'),
   (990004, 990002, -17, -17, 'PATHOLOGY SLIDES');
 INSERT INTO clinical_event_data (clinical_event_id, key, value)
 VALUES
@@ -129,6 +130,16 @@ VALUES
   (990003, 'SUBTYPE', 'H&E'),
   (990003, 'TIMEPOINT_SOURCE', 'Procedure date relative to tumor sequencing'),
   (990003, 'IMAGE_IDS', '["3020648"]'),
+  (990005, 'IMAGE_COUNT', '1'),
+  (990005, 'NON_SERVABLE_IMAGE_COUNT', '0'),
+  (990005, 'TOTAL_IMAGE_COUNT', '1'),
+  (990005, 'SAMPLE_ID', ''),
+  (990005, 'MATCH_LEVEL', 'Unmatched'),
+  (990005, 'SPECIMEN', 'Part 35 / Block 5RS'),
+  (990005, 'SUBTYPE', 'H&E'),
+  (990005, 'TIMEPOINT_SOURCE', 'MISSING_PROCEDURE_DATE'),
+  (990005, 'IMAGE_IDS', '["3020649"]'),
+  (990005, 'LINKOUT', '/patient/wsiHESlides?studyId=msk_spectrum_tme_2022&caseId=P-0055908&stainFilter=hne&matchLevel=Unmatched&specimenKey=unmatched%3A%3A35%3A%3A5'),
   (990004, 'IMAGE_COUNT', '1'),
   (990004, 'NON_SERVABLE_IMAGE_COUNT', '0'),
   (990004, 'TOTAL_IMAGE_COUNT', '1'),
@@ -154,14 +165,18 @@ VALUES
    'Right fallopian tube and ovary'),
   (990001, 990001, '34', '34', '34',
    'SMALL BOWEL', 'Portion of small bowel with tumor', '',
-   'Portion of small bowel with tumor');
+   'Portion of small bowel with tumor'),
+  (990001, 990001, '35', '35', '35',
+   'SMALL BOWEL', 'Portion of small bowel and right colon with tumor', '',
+   'Portion of small bowel and right colon with tumor');
 INSERT INTO wsi_block
   (cancer_study_id, patient_id, part_key,
    block_key, block_number, block_label)
 VALUES
   (990001, 990001, '27', '4', '4', '4RO'),
   (990001, 990001, '27', '62', '62', '1 RFIM'),
-  (990001, 990001, '34', '4', '4', '4RS');
+  (990001, 990001, '34', '4', '4', '4RS'),
+  (990001, 990001, '35', '5', '5', '5RS');
 INSERT INTO wsi_slide
   (cancer_study_id, patient_id, image_id,
    stain_name, stain_group, is_hne, is_ihc, magnification, file_size_bytes,
@@ -180,7 +195,12 @@ VALUES
    'file:///app/testdata/3020691.jpg', 256, 232, 'image/jpeg'),
   (990001, 990001, '3020648', 'H&E, Initial',
    'H&E (Initial)', true, false, '20x', 1014457317, false, '', 'H&E',
-   NULL, NULL, NULL, NULL, NULL, NULL);
+   NULL, NULL, NULL, NULL, NULL, NULL),
+  (990001, 990001, '3020649', 'H&E, Initial',
+   'H&E (Initial)', true, false, '20x', 1014457317, true, '', 'H&E',
+   'file:///app/testdata/CMU-1-Small-Region.svs',
+   '{"dimensions":{"width":2220,"height":2967},"levels":1,"level_dimensions":[{"width":2220,"height":2967}],"level_downsamples":[1.0],"max_zoom":4,"tile_size":256,"mpp":{"x":0.499,"y":0.499},"objective_power":20,"vendor":"aperio"}',
+   'file:///app/testdata/3020691.jpg', 256, 232, 'image/jpeg');
 INSERT INTO wsi_slide_placement
   (cancer_study_id, patient_id, image_id,
    part_key, block_key, sample_id, match_level, specimen_key)
@@ -190,7 +210,9 @@ VALUES
   (990001, 990001, '3020691', '27', '62',
    990001, 'PART', 'part::27'),
   (990001, 990001, '3020648', '34', '4',
-   NULL, 'UNMATCHED', 'unmatched::34::4');
+   NULL, 'UNMATCHED', 'unmatched::34::4'),
+  (990001, 990001, '3020649', '35', '5',
+   NULL, 'UNMATCHED', 'unmatched::35::5');
 
 -- A second study verifies study-scoped tile/index authorization in E2E tests.
 INSERT INTO wsi_patient

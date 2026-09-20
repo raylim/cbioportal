@@ -274,10 +274,16 @@ describe('Authenticated WsiHierarchyController and tile contract', () => {
       .flatMap(sample => sample.parts)
       .flatMap(part => part.blocks)
       .flatMap(block => block.slides);
-    expect(slideIds).to.have.members(['3020726', '3020691', '3020648']);
+    expect(slideIds).to.have.members([
+      '3020726',
+      '3020691',
+      '3020648',
+      '3020649',
+    ]);
     expect(slides.map(slide => slide.matchLevel)).to.have.members([
       'PART',
       'BLOCK',
+      'UNMATCHED',
       'UNMATCHED',
     ]);
     slides.forEach(slide => {
@@ -405,6 +411,7 @@ describe('Authenticated WsiHierarchyController and tile contract', () => {
     expect(servableSlides.map(slide => slide.imageId)).to.have.members([
       blockSlide.imageId,
       partSlide.imageId,
+      '3020649',
     ]);
     expect(nonServableSlides.map(slide => slide.imageId)).to.deep.equal([
       unmatchedSlide.imageId,

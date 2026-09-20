@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 PORT = int(os.environ.get("SERVER_PORT", "8081"))
 AUTH_SECRET = os.environ.get("WSI_AUTH_SECRET", "")
 AUTH_AUDIENCE = os.environ.get("WSI_AUTH_AUDIENCE", "cbioportal-wsi")
-SERVABLE_SLIDES = {"3020726", "3020691", "openslide-small"}
+SERVABLE_SLIDES = {"3020726", "3020691", "3020649", "openslide-small"}
 
 # A valid 1x1 JPEG keeps the fixture self-contained and fast.
 JPEG_BYTES = base64.b64decode(

@@ -5,7 +5,7 @@
     "msk_spectrum_tme_2022": {
       "patients": ["P-0055908"],
       "samples": ["P-0055908-T01-IM6"],
-      "slides": ["3020648", "3020691", "3020726"]
+      "slides": ["3020648", "3020649", "3020691", "3020726"]
     },
     "wsi_ci_study_b": {
       "patients": ["WSI-CI-B-PATIENT"],

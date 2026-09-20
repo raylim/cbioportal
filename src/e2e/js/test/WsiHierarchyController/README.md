@@ -19,6 +19,7 @@ publicly available patient/sample/slide identifiers from that study:
 - block-matched slide `3020726`
 - part-matched slide `3020691`
 - unmatched slide `3020648`
+- viewable unmatched slide `3020649`
 
 The fixture trims the live hierarchy down to one example per required match
 level:
@@ -26,6 +27,10 @@ level:
 - `PART`
 - `BLOCK`
 - `UNMATCHED`
+
+The two unmatched examples deliberately cover both non-viewable and viewable
+source rows so clinical-data linkouts can be tested without mutating API
+responses in the browser.
 
 The CI seed retains a second non-public study only as an authorization-negative
 control; no private slide source or patient data is used by the public fixture.

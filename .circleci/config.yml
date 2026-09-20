@@ -965,7 +965,7 @@ jobs:
                       ON study.cancer_study_id = slide.cancer_study_id
                     WHERE study.cancer_study_identifier = '\''msk_spectrum_tme_2022'\''"
               ')
-              test "$imported_slides" = 3
+              test "$imported_slides" = 4
               imported_samples=$(docker exec cbioportal-database-container sh -lc '
                 clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" \
                   --database "$CLICKHOUSE_DB" --query "
@@ -986,7 +986,7 @@ jobs:
                     WHERE study.cancer_study_identifier = '\''msk_spectrum_tme_2022'\''
                       AND upperUTF8(event.event_type) = '\''PATHOLOGY SLIDES'\''"
               ')
-              test "$imported_pathology_events" = 3
+              test "$imported_pathology_events" = 4
               curl -fsS \
                 http://localhost:8080/api/wsi/v2/hierarchy/msk_spectrum_tme_2022/P-0055908 \
                 | jq -e '
@@ -1117,6 +1117,13 @@ jobs:
                   PW_IGNORE_HTTPS_ERRORS=1 \
                   PW_SUITE=wsi \
                   WSI_PROXY_REHEARSAL=1 \
+                  WSI_TIMING_STUDY_ID=msk_spectrum_tme_2022 \
+                  WSI_TIMING_UNDATED_PATIENT_ID=P-0055908 \
+                  WSI_TIMING_UNDATED_SLIDE_COUNT=2 \
+                  WSI_TIMING_RECORDED_PATIENT_ID=P-0055908 \
+                  WSI_TIMING_RECORDED_SLIDE_ID=3020726 \
+                  WSI_TIMING_RECORDED_DATE_DAYS=-17 \
+                  WSI_TIMING_RECORDED_DATE_SOURCE=RECORDED_PROCEDURE_DATE \
                   pnpm exec playwright test $browser_specs --reporter=line
                 cleanup_child_server
                 frontend_pid=""
@@ -1267,6 +1274,13 @@ jobs:
               PW_SUITE: wsi
               WSI_VIEWER_BASE_URL: https://localhost:3000
               WSI_PROXY_REHEARSAL: "1"
+              WSI_TIMING_STUDY_ID: msk_spectrum_tme_2022
+              WSI_TIMING_UNDATED_PATIENT_ID: P-0055908
+              WSI_TIMING_UNDATED_SLIDE_COUNT: "2"
+              WSI_TIMING_RECORDED_PATIENT_ID: P-0055908
+              WSI_TIMING_RECORDED_SLIDE_ID: "3020726"
+              WSI_TIMING_RECORDED_DATE_DAYS: "-17"
+              WSI_TIMING_RECORDED_DATE_SOURCE: RECORDED_PROCEDURE_DATE
               CBIO_URL: http://localhost:8080
             command: |
               export NVM_DIR="$HOME/.nvm"
