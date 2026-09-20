@@ -1050,7 +1050,7 @@ jobs:
               declare -a CHILDREN=(
                 "foundation|dc8c907581d107d22993b1c8ce276604bc207b7b|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx|tests/wsi-foundation-route.spec.ts"
                 "molecular|f2c5774abbe54ea729fd5e3f9263ee9e426d7b88|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-foundation-route.spec.ts"
-                "patient|75587b89851ea6c74fcb3c36880f6a03c005c246|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts|tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts"
+                "patient|e61471f56aa760788880532101a9de93d61bd4da|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts|tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts"
                 "study|5aee03b125d8f1c68954c56fde50db7ab76b9784|src/pages/studyView/tabs/ClinicalDataTab.spec.ts|tests/wsi-foundation-route.spec.ts tests/pathology-study-clinical-data.spec.ts"
               )
               for child in "${CHILDREN[@]}"; do
@@ -1144,9 +1144,9 @@ jobs:
               # This immutable fork commit keeps WSI hierarchy assertions in
               # sync with the timeline-event timing contract in this PR.
               git -C /tmp/repos/cbioportal-frontend-wsi fetch --depth 1 origin \
-                ba5668647ee6974ad44471f40f961b2edb531ed3
+                4b6a6896b4d019d6b4ca5d22e17db83b907e6900
               git -C /tmp/repos/cbioportal-frontend-wsi checkout --detach \
-                ba5668647ee6974ad44471f40f961b2edb531ed3
+                4b6a6896b4d019d6b4ca5d22e17db83b907e6900
               cd /tmp/repos/cbioportal-frontend-wsi
               pnpm install --frozen-lockfile
         - run:
