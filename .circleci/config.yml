@@ -1357,7 +1357,8 @@ jobs:
         WSI_LOCAL_AUTH_BYPASS: "false"
         WSI_REQUIRE_AUTHENTICATED_SETUP: "true"
         WSI_BASIC_USERNAME: wsi-ci-user
-        WSI_BASIC_PASSWORD: wsi-ci-password
+        WSI_BASIC_PASSWORD: '$2b$10$7MoXjWmDD/mrvq7hF9D0RuFewhTzl8KYATtySCSZX7tMV.614kO3.'
+        WSI_BASIC_LOGIN_PASSWORD: wsi-ci-password
         WSI_BASIC_AUTHORITIES: PUBLIC
         WSI_RUN_CHILD_MATRIX: "false"
         WSI_RUN_BROWSER_E2E: "false"

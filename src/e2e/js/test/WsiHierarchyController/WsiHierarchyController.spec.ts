@@ -13,6 +13,7 @@ const config = {
     process.env.WSI_FRONTEND_ALLOW_SELF_SIGNED_TLS === 'true',
   authSecret: process.env.WSI_AUTH_SECRET || 'local-development-wsi-secret-change-me-32chars',
   authAudience: process.env.WSI_AUTH_AUDIENCE || 'cbioportal-wsi',
+  basicLoginPassword: process.env.WSI_BASIC_LOGIN_PASSWORD || 'wsi-ci-password',
   blockTileSlideId: process.env.WSI_TEST_BLOCK_SLIDE_ID || '',
   partTileSlideId: process.env.WSI_TEST_PART_SLIDE_ID || '',
   unmatchedTileSlideId: process.env.WSI_TEST_UNMATCHED_SLIDE_ID || '',
@@ -153,7 +154,7 @@ function cookieHeader(response: any): string {
 async function login(): Promise<string> {
   const response = await axios.post(
     `${config.serverUrl}/j_spring_security_check`,
-    'j_username=wsi-ci-user&j_password=wsi-ci-password&user_id=wsi-ci-user',
+    `j_username=wsi-ci-user&j_password=${encodeURIComponent(config.basicLoginPassword)}&user_id=wsi-ci-user`,
     {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       maxRedirects: 0,
