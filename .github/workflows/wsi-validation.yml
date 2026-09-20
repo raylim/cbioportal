@@ -9,6 +9,7 @@ permissions:
   contents: read
 
 env:
+  BRANCH_ENV: master
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
   FRONTEND_FOUNDATION_REF: 04c69edefb0e59a84ac2fbb779bb8fadadba37d6
   FRONTEND_MOLECULAR_REF: 50e0fbf1d706fce9f87eaa5e228e9c3d5804dd98
