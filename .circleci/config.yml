@@ -1030,7 +1030,7 @@ jobs:
               corepack prepare pnpm@10.33.0 --activate
               declare -a CHILDREN=(
                 "foundation|6e9a199b28d224e30ee8c17d84eb11aad82e6e45|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx"
-                "molecular|c89a2dc7ddae86afb422a234f3781fb6e0c4c87c|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts"
+                "molecular|c89a2dc7ddae86afb422a234f3781fb6e0c4c87c|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx"
                 "patient|1a0e5339e5aacba67d1e5440d8dd7dcfb8453a22|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts"
                 "study|7fa5d610d5eb2fc009073ca581a81877e37f9f9e|src/pages/studyView/tabs/ClinicalDataTab.spec.ts"
               )
