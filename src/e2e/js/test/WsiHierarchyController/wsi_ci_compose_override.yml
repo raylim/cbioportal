@@ -3,6 +3,7 @@ services:
     environment:
       WSI_AUTH_SECRET: ${WSI_AUTH_SECRET}
       WSI_AUTH_AUDIENCE: ${WSI_AUTH_AUDIENCE:-cbioportal-wsi}
+      WSI_TILE_SERVER_URL: ${WSI_TILE_SERVER_URL:-http://localhost:8081}
       # The fixture's WSI artifacts are published under this audited, local
       # file URI namespace. Keep the same fail-closed artifact policy used by
       # production so CI exercises the exact portal access contract.
@@ -35,6 +36,7 @@ services:
       --wsi.access-token-secret=$${WSI_AUTH_SECRET}
       --wsi.access-token-audience=$${WSI_AUTH_AUDIENCE}
       --wsi.local-auth-bypass=true
+      --msk.wsi.tile_server.url=$${WSI_TILE_SERVER_URL}
       --clickhouse_mode=true
       --spring.profiles.active=clickhouse"
   cbioportal-database:

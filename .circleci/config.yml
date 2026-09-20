@@ -868,6 +868,7 @@ jobs:
         DOCKER_REPO: cbioportal/cbioportal-dev
         WSI_AUTH_SECRET: local-development-wsi-secret-change-me-32chars
         WSI_AUTH_AUDIENCE: cbioportal-wsi
+        WSI_TILE_SERVER_URL: http://localhost:8081
       steps:
         - attach_workspace:
             at: /tmp/repos
