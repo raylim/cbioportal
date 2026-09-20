@@ -1030,7 +1030,7 @@ jobs:
               corepack prepare pnpm@10.33.0 --activate
               declare -a CHILDREN=(
                 "foundation|9bfc407f125196dd5d947f954a6a2b82d4d2fb3b|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx|tests/wsi-viewer.spec.ts"
-                "molecular|ee87fee3c61d9af3e5da3a9e7a60b8a70e5ccfd1|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-pathology-mocked.spec.ts"
+                "molecular|365fe8fbd9959727a461115abc43c3e2a3c9790e|src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-pathology-mocked.spec.ts"
                 "patient|26d87b84f94bf97afaccaf7de9563e8998f804f3|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts|tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts"
                 "study|dc9af6c8c94d6aa912f435d47657c42d19ff110d|src/pages/studyView/tabs/ClinicalDataTab.spec.ts|tests/pathology-study-clinical-data.spec.ts"
               )
