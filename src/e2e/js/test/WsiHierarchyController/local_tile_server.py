@@ -24,6 +24,26 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
 
+    def end_headers(self):
+        # Browser E2E runs the portal and this fixture on different origins.
+        # The production tile contract permits the portal origin to send the
+        # signed request headers, so the deterministic fixture must answer the
+        # corresponding preflight and expose the response to that origin.
+        origin = self.headers.get("Origin")
+        self.send_header("Access-Control-Allow-Origin", origin or "*")
+        if origin:
+            self.send_header("Vary", "Origin")
+        self.send_header(
+            "Access-Control-Allow-Headers",
+            "Authorization, X-WSI-Source, Content-Type",
+        )
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        super().end_headers()
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.end_headers()
+
     def send_bytes(self, body, content_type):
         self.send_response(200)
         self.send_header("Content-Type", content_type)

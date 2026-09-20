@@ -290,7 +290,7 @@ describe('Authenticated WsiHierarchyController and tile contract', () => {
     });
   });
 
-  it('sources slide timepoints from the imported pathology timeline', async function () {
+  it('sources slide timepoints from the imported WSI timing contract', async function () {
     if (!hasTileSetup) this.skip();
     const response = await axios.get<PatientHierarchy>(
       hierarchyUrl,
@@ -303,11 +303,11 @@ describe('Authenticated WsiHierarchyController and tile contract', () => {
     [block, part].forEach(slide => {
       expect(slide.procedureDateDays).to.equal(-17);
       expect(slide.timepointSource).to.equal(
-        'Procedure date relative to first ICD-O diagnosis'
+        'Recorded procedure date relative to first tumor sequencing'
       );
     });
     expect(unmatched.procedureDateDays).to.equal(null);
-    expect(unmatched.timepointSource).to.equal(null);
+    expect(unmatched.timepointSource).to.equal('MISSING_PROCEDURE_DATE');
   });
 
   it('returns 404 for an unknown patient after authentication', async function () {
