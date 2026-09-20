@@ -52,11 +52,11 @@ jobs:
         with:
           python-version: '3.11'
       - name: Run WSI validator tests
-        working-directory: cbioportal-core
+        working-directory: cbioportal-core/tests
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt pytest
-          PYTHONPATH=scripts pytest -q tests/unit_tests_validate_data.py -k wsi
+          python -m pip install -r ../requirements.txt pytest
+          PYTHONPATH=../scripts pytest -q unit_tests_validate_data.py -k wsi
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
