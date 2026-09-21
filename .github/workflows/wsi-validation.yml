@@ -75,19 +75,19 @@ jobs:
       matrix:
         include:
           - name: foundation
-            ref: dbe50eabf0c8f2d0aa42cc2368b3adb3f0235b71
+            ref: ${{ env.FRONTEND_FOUNDATION_REF }}
             jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
             browser: tests/wsi-foundation-route.spec.ts
           - name: molecular
-            ref: 4c35e01f3d9cac15d89cfe483e5bf39aa20f2807
+            ref: ${{ env.FRONTEND_MOLECULAR_REF }}
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-foundation-route.spec.ts
           - name: patient
-            ref: 664c1b9b609e22b7a3e2d689d9b912c29e5a089c
+            ref: ${{ env.FRONTEND_PATIENT_REF }}
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
             browser: tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts
           - name: study
-            ref: 4292c7c24f045b61aee0328902174e252846a2ec
+            ref: ${{ env.FRONTEND_STUDY_REF }}
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/wsi-foundation-route.spec.ts tests/pathology-study-clinical-data.spec.ts
     steps:
