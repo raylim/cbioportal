@@ -197,6 +197,7 @@ jobs:
         env:
           CBIOPORTAL_URL: http://127.0.0.1:3000
           LOCALDEV: '0'
+          PW_SUITE: wsi
           WSI_MOCK_SKIP_LOGIN: '1'
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/report.json
         run: |
