@@ -11,11 +11,11 @@ permissions:
 env:
   BRANCH_ENV: master
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
-  FRONTEND_FOUNDATION_REF: aa2bd43801e025198477ca7dba15cc7a5e79a45d
-  FRONTEND_MOLECULAR_REF: 3da49e0fbd007f080d65e4854a4bd6072547872c
-  FRONTEND_PATIENT_REF: 31285ce179c8ad095dcd389954596263c1f6a3bc
-  FRONTEND_STUDY_REF: 01dc56e8ff3f49ca9c66faa21b0ae49304c187aa
-  FRONTEND_INTEGRATION_REF: 0f198f779bc676232020bde11f5af17d5a57a3d4
+  FRONTEND_FOUNDATION_REF: 82c975eec14b62b8f9cc95ef721a6aae0251a19c
+  FRONTEND_MOLECULAR_REF: c54c86b31256a46285f4dec93ed63152b5a5f9ec
+  FRONTEND_PATIENT_REF: 286786c434e5252dab9e86eca7e35cc921be04fa
+  FRONTEND_STUDY_REF: 69d0bfa71f0c8b99d8321fe0fbba37c848233cbc
+  FRONTEND_INTEGRATION_REF: 2a6e498bc03f64016c80dcb1e35fd849f6bae41d
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
 
@@ -140,9 +140,10 @@ jobs:
           CBIOPORTAL_URL: http://127.0.0.1:3000
           LOCALDEV: '0'
           PW_SUITE: wsi
+          WSI_CHILD_CONTRACT: '1'
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/report.json
         run: |
-          pnpm exec playwright test tests/wsi-foundation-mocked.spec.ts --reporter=line,json
+          pnpm exec playwright test tests/wsi-foundation-route.spec.ts --reporter=line,json
           node - <<'NODE'
           const fs = require('fs');
           const report = JSON.parse(fs.readFileSync('test-results/report.json', 'utf8'));
