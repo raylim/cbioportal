@@ -65,6 +65,32 @@ public class WsiAccessTokenControllerTest {
   }
 
   @Test
+  public void returnsAgentScopesWhenRequested() {
+    WsiAccessTokenController plainController = createAuthenticatedController();
+    ReflectionTestUtils.setField(
+        plainController, "accessTokenSecret", "0123456789abcdef0123456789abcdef");
+    ReflectionTestUtils.setField(plainController, "accessTokenAudience", "cbioportal-wsi");
+    ReflectionTestUtils.setField(plainController, "accessTokenTtlSeconds", 300);
+    ReflectionTestUtils.setField(
+        plainController, "cancerStudyPermissionEvaluator", cancerStudyPermissionEvaluator);
+    when(cancerStudyPermissionEvaluator.hasPermission(
+            any(Authentication.class), eq("study-1"), eq("CancerStudyId"), eq(AccessLevel.READ)))
+        .thenReturn(true);
+
+    ResponseEntity<?> response = plainController.issueAccessToken("study-1", "agent");
+
+    assertEquals(200, response.getStatusCode().value());
+    Map<?, ?> body = (Map<?, ?>) response.getBody();
+    String token = (String) body.get("access_token");
+    String payload = token.split("\\.")[1];
+    String decodedPayload =
+        new String(Base64.getUrlDecoder().decode(payload), StandardCharsets.UTF_8);
+    assertTrue(decodedPayload.contains("agent:chat"));
+    assertTrue(decodedPayload.contains("research:read"));
+    assertTrue(decodedPayload.contains("annotations:write"));
+  }
+
+  @Test
   public void returnsSourceBoundSlideAccessWhenAuthorized() {
     WsiAccessTokenController plainController = createAuthenticatedController();
     ReflectionTestUtils.setField(
