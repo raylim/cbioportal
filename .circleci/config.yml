@@ -1018,6 +1018,63 @@ jobs:
                   | jq -e '.sampleGroups | length > 0'
               fi
         - run:
+            name: Verify WSI deletion and clean snapshot reimport
+            command: |
+              set -euo pipefail
+              control_slides_before=$(docker exec cbioportal-database-container sh -lc '
+                clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" \
+                  --database "$CLICKHOUSE_DB" --query "
+                    SELECT count()
+                    FROM wsi_slide AS slide
+                    INNER JOIN cancer_study AS study
+                      ON study.cancer_study_id = slide.cancer_study_id
+                    WHERE study.cancer_study_identifier = '\''wsi_ci_study_b'\''"
+              ')
+              test "$control_slides_before" -gt 0
+              docker exec cbioportal-container sh -lc \
+                'cbioportalImporter.py -c remove-study -id msk_spectrum_tme_2022'
+              removed_slides=$(docker exec cbioportal-database-container sh -lc '
+                clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" \
+                  --database "$CLICKHOUSE_DB" --query "
+                    SELECT count()
+                    FROM wsi_slide AS slide
+                    INNER JOIN cancer_study AS study
+                      ON study.cancer_study_id = slide.cancer_study_id
+                    WHERE study.cancer_study_identifier = '\''msk_spectrum_tme_2022'\''"
+              ')
+              test "$removed_slides" = 0
+              docker exec cbioportal-container sh -lc '
+                export PORTAL_HOME=/cbioportal-webapp
+                export CLICKHOUSE_HOST="${CLICKHOUSE_HOST:-cbioportal-database}"
+                export CLICKHOUSE_NATIVE_PORT="${CLICKHOUSE_NATIVE_PORT:-9000}"
+                export CLICKHOUSE_DB="${CLICKHOUSE_DB:-cbioportal}"
+                export JAVA_OPTS="-Dspring.datasource.url=$CLICKHOUSE_URL -Dspring.datasource.username=$CLICKHOUSE_USER -Dspring.datasource.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver"
+                python3 /core/scripts/importer/metaImport.py \
+                  -s /tmp/wsi-loader-fixture -n -o \
+                  --derived-table-sql /tmp/wsi-clickhouse.sql
+              ' 2>&1 | tee -a /tmp/repos/wsi-import.log
+              reimported_slides=$(docker exec cbioportal-database-container sh -lc '
+                clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" \
+                  --database "$CLICKHOUSE_DB" --query "
+                    SELECT count()
+                    FROM wsi_slide AS slide
+                    INNER JOIN cancer_study AS study
+                      ON study.cancer_study_id = slide.cancer_study_id
+                    WHERE study.cancer_study_identifier = '\''msk_spectrum_tme_2022'\''"
+              ')
+              test "$reimported_slides" = 4
+              control_slides_after=$(docker exec cbioportal-database-container sh -lc '
+                clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" \
+                  --database "$CLICKHOUSE_DB" --query "
+                    SELECT count()
+                    FROM wsi_slide AS slide
+                    INNER JOIN cancer_study AS study
+                      ON study.cancer_study_id = slide.cancer_study_id
+                    WHERE study.cancer_study_identifier = '\''wsi_ci_study_b'\''"
+              ')
+              test "$control_slides_after" = "$control_slides_before"
+              echo "WSI delete/reimport passed: removed=$removed_slides reimported=$reimported_slides control=$control_slides_after"
+        - run:
             name: Capture WSI diagnostics
             when: always
             command: |
