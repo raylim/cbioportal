@@ -123,7 +123,10 @@ jobs:
           else
             pnpm exec jest ${{ matrix.jest }} --runInBand --no-cache
           fi
-      - name: Check child browser specs are discoverable
+      # These child-specific specs require the imported backend and execute in
+      # the CircleCI live child matrix. Keep the GitHub job's static check here
+      # so a renamed or deleted spec cannot silently disappear from that gate.
+      - name: Check live child browser specs are discoverable
         working-directory: end-to-end-test-playwright
         env:
           PW_SUITE: wsi
@@ -144,7 +147,7 @@ jobs:
           done
           cat /tmp/wsi-child-server.log
           exit 1
-      - name: Execute the child browser contract
+      - name: Execute the static foundation browser contract
         working-directory: end-to-end-test-playwright
         env:
           CBIOPORTAL_URL: http://127.0.0.1:3000
