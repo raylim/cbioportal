@@ -29,14 +29,22 @@ jobs:
         working-directory: .
         run: |
           python3 - <<'PY'
+          import json
           from pathlib import Path
 
+          manifest = json.loads(Path('wsi-validation-manifest.json').read_text())
           allowed = Path('src/e2e/js/test/WsiHierarchyController/wsi_loader_fixture/meta_study.txt').read_text()
           denied = Path('src/e2e/js/test/WsiHierarchyController/wsi_loader_control_fixture/meta_study.txt').read_text()
           assert 'groups: PUBLIC_STUDIES' in allowed
           assert 'groups: WSI_DENIED' in denied
           assert 'WSI_AUTHENTICATED_E2E: "true"' in Path('.circleci/config.yml').read_text()
           assert len('${{ env.CORE_REF }}') == 40
+          assert '${{ env.CORE_REF }}' == manifest['core']['ref']
+          assert '${{ env.FRONTEND_FOUNDATION_REF }}' == manifest['frontend']['foundation']
+          assert '${{ env.FRONTEND_MOLECULAR_REF }}' == manifest['frontend']['molecular']
+          assert '${{ env.FRONTEND_PATIENT_REF }}' == manifest['frontend']['patient']
+          assert '${{ env.FRONTEND_STUDY_REF }}' == manifest['frontend']['study']
+          assert '${{ env.FRONTEND_INTEGRATION_REF }}' == manifest['frontend']['integration']
           print('fixture permissions and source pins are present')
           PY
 

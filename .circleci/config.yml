@@ -1063,11 +1063,14 @@ jobs:
               nvm use 22.18.0
               corepack enable
               corepack prepare pnpm@10.33.0 --activate
+              MANIFEST=/tmp/repos/cbioportal/wsi-validation-manifest.json
+              test -s "$MANIFEST"
+              jq -e 'all(.frontend, .core, .backend; . != null)' "$MANIFEST" >/dev/null
               declare -a CHILDREN=(
-                "foundation|e5e5d735c2d6139305fce6264326fae092ad5d2f|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx|tests/wsi-foundation-route.spec.ts tests/wsi-foundation-mocked.spec.ts"
-                "molecular|d4e464879e414bd0203fd465255802163dad84d1|src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-foundation-route.spec.ts tests/wsi-foundation-mocked.spec.ts"
-                "patient|148cda0c3401cd385a0d95dbbc73a3dccd60d6fb|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts|tests/wsi-foundation-route.spec.ts tests/wsi-foundation-mocked.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts"
-                "study|f8519aa225fa73c2bcad2c0ac9bcc085e51c493a|src/pages/studyView/tabs/ClinicalDataTab.spec.ts|tests/wsi-foundation-route.spec.ts tests/wsi-foundation-mocked.spec.ts tests/pathology-study-clinical-data.spec.ts"
+                "foundation|$(jq -r .frontend.foundation "$MANIFEST")|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx|tests/wsi-foundation-route.spec.ts tests/wsi-foundation-mocked.spec.ts"
+                "molecular|$(jq -r .frontend.molecular "$MANIFEST")|src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-foundation-route.spec.ts tests/wsi-foundation-mocked.spec.ts"
+                "patient|$(jq -r .frontend.patient "$MANIFEST")|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts|tests/wsi-foundation-route.spec.ts tests/wsi-foundation-mocked.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts"
+                "study|$(jq -r .frontend.study "$MANIFEST")|src/pages/studyView/tabs/ClinicalDataTab.spec.ts|tests/wsi-foundation-route.spec.ts tests/wsi-foundation-mocked.spec.ts tests/pathology-study-clinical-data.spec.ts"
               )
               for child in "${CHILDREN[@]}"; do
                 IFS='|' read -r name ref specs browser_specs <<< "$child"
