@@ -72,7 +72,7 @@ public class WsiAccessTokenController {
     if (studyId == null || studyId.isBlank()) {
       return ResponseEntity.badRequest().build();
     }
-    if (!"wsi".equals(purpose) && !"annotations".equals(purpose)) {
+    if (!"wsi".equals(purpose) && !"annotations".equals(purpose) && !"agent".equals(purpose)) {
       return ResponseEntity.badRequest().build();
     }
     if (!anonymous
@@ -186,7 +186,11 @@ public class WsiAccessTokenController {
         .setAudience(accessTokenAudience)
         .claim(
             "scope",
-            "annotations".equals(purpose) ? "annotations:read annotations:write" : "wsi:read")
+            "annotations".equals(purpose)
+                ? "annotations:read annotations:write"
+                : "agent".equals(purpose)
+                    ? "agent:chat research:read annotations:read annotations:write"
+                    : "wsi:read")
         .claim("study_id", studyId)
         .setIssuedAt(Date.from(issuedAt))
         .setExpiration(Date.from(expiresAt))
