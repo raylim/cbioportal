@@ -1176,6 +1176,7 @@ jobs:
                   WSI_PROXY_REHEARSAL=1 \
                   WSI_TIMING_STUDY_ID=msk_spectrum_tme_2022 \
                   WSI_TIMING_UNDATED_PATIENT_ID=P-0055908 \
+                  WSI_UNDATED_PATIENT_ID=P-0055908 \
                   WSI_TIMING_UNDATED_SLIDE_COUNT=2 \
                   WSI_TIMING_RECORDED_PATIENT_ID=P-0055908 \
                   WSI_TIMING_RECORDED_SLIDE_ID=3020726 \
@@ -1183,17 +1184,7 @@ jobs:
                   WSI_TIMING_RECORDED_DATE_SOURCE=RECORDED_PROCEDURE_DATE \
                   pnpm exec playwright test $browser_specs --grep-invert 'private MSK-IMPACT'
                   test -s test-results/report.json
-                  python3 - <<'PY'
-                  import json
-                  from pathlib import Path
-
-                  report = json.loads(Path('test-results/report.json').read_text())
-                  stats = report.get('stats', {})
-                  assert stats.get('expected', 0) > 0, stats
-                  assert stats.get('skipped', 0) == 0, stats
-                  assert stats.get('unexpected', 0) == 0, stats
-                  print('required child browser cases executed:', stats)
-                  PY
+                  python3 -c 'import json; from pathlib import Path; report=json.loads(Path("test-results/report.json").read_text()); stats=report.get("stats", {}); assert stats.get("expected", 0) > 0, stats; assert stats.get("skipped", 0) == 0, stats; assert stats.get("unexpected", 0) == 0, stats; print("required child browser cases executed:", stats)'
                 cleanup_child_server
                 frontend_pid=""
                 trap - EXIT
@@ -1351,6 +1342,7 @@ jobs:
               WSI_PROXY_REHEARSAL: "1"
               WSI_TIMING_STUDY_ID: msk_spectrum_tme_2022
               WSI_TIMING_UNDATED_PATIENT_ID: P-0055908
+              WSI_UNDATED_PATIENT_ID: P-0055908
               WSI_TIMING_UNDATED_SLIDE_COUNT: "2"
               WSI_TIMING_RECORDED_PATIENT_ID: P-0055908
               WSI_TIMING_RECORDED_SLIDE_ID: "3020726"
