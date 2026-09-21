@@ -853,6 +853,8 @@ jobs:
         DOCKER_REPO: cbioportal/cbioportal-dev
         WSI_AUTH_SECRET: local-development-wsi-secret-change-me-32chars
         WSI_AUTH_AUDIENCE: cbioportal-wsi
+        WSI_TILE_REPOSITORY: cBioPortal/cbioportal-tile-server
+        WSI_TILE_REF: dde2cf206c1683277b950cada8e12c50c84251a1
         WSI_TILE_SERVER_URL: http://localhost:8081
         WSI_TILE_SERVER_PORT: "8081"
         WSI_PORTAL_TYPE: ""
@@ -1025,19 +1027,50 @@ jobs:
                 docker logs cbioportal-container 2>&1 || true
                 echo '=== database container logs ==='
                 docker logs cbioportal-database-container 2>&1 || true
+                echo '=== tile server container logs ==='
+                docker logs wsi-tile 2>&1 || true
+                echo '=== tile server build log ==='
+                cat /tmp/repos/tile-server-build.log 2>/dev/null || true
               } > /tmp/repos/wsi-diagnostics.txt 2>&1
         - run:
-            name: Start local WSI tile contract fixture
+            name: Build and start the pinned WSI tile server
             command: |
-              export SERVER_PORT="${WSI_TILE_SERVER_PORT}"
-              nohup python3 \
-                /tmp/repos/cbioportal/src/e2e/js/test/WsiHierarchyController/local_tile_server.py \
-                >> /tmp/repos/tile-server-logs.txt 2>&1 &
+              set -euo pipefail
+              rm -rf /tmp/repos/cbioportal-tile-server
+              git clone --filter=blob:none --no-checkout \
+                "https://github.com/${WSI_TILE_REPOSITORY}.git" \
+                /tmp/repos/cbioportal-tile-server
+              git -C /tmp/repos/cbioportal-tile-server fetch --depth 1 origin "${WSI_TILE_REF}"
+              git -C /tmp/repos/cbioportal-tile-server checkout --detach "${WSI_TILE_REF}"
+              docker network create wsi-tile-net >/dev/null 2>&1 || true
+              docker run -d --name wsi-redis --network wsi-tile-net redis:7.4.5-alpine \
+                redis-server --save '' --appendonly no >/tmp/repos/wsi-redis-id
+              docker build --tag cbioportal-wsi-tile:${CIRCLE_SHA1} \
+                /tmp/repos/cbioportal-tile-server \
+                2>&1 | tee /tmp/repos/tile-server-build.log
+              docker run -d --name wsi-tile --network wsi-tile-net \
+                -p "${WSI_TILE_SERVER_PORT}:8080" \
+                --link wsi-redis:redis \
+                -e WSI_AUTH_SECRET="${WSI_AUTH_SECRET}" \
+                -e WSI_AUTH_AUDIENCE="${WSI_AUTH_AUDIENCE}" \
+                -e WSI_ALLOWED_SOURCE_SCHEMES=file \
+                -e WSI_ALLOWED_SOURCE_PREFIXES=file:///app/testdata/ \
+                -e WSI_ALLOWED_THUMBNAIL_PREFIXES=file:///app/testdata/ \
+                -e REDIS_URL=redis://redis:6379 \
+                -v /tmp/repos/cbioportal-tile-server/tests/testdata:/app/testdata:ro \
+                "cbioportal-wsi-tile:${CIRCLE_SHA1}" \
+                >> /tmp/repos/tile-server-logs.txt 2>&1
         - run:
             name: Wait for WSI tile server to be live at localhost
             command: |
-              cd cbioportal-test
-              ./utils/check-connection.sh --url="localhost:${WSI_TILE_SERVER_PORT}" --max_retries=80
+              for attempt in $(seq 1 120); do
+                if curl --fail --silent "http://localhost:${WSI_TILE_SERVER_PORT}/ready" >/dev/null; then
+                  exit 0
+                fi
+                sleep 2
+              done
+              docker logs wsi-tile 2>&1 || true
+              exit 1
         - run:
             name: Install Node.js 22 and pnpm for local WSI frontend
             command: |
@@ -1144,7 +1177,7 @@ jobs:
                   WSI_TIMING_RECORDED_SLIDE_ID=3020726 \
                   WSI_TIMING_RECORDED_DATE_DAYS=-17 \
                   WSI_TIMING_RECORDED_DATE_SOURCE=RECORDED_PROCEDURE_DATE \
-                  pnpm exec playwright test $browser_specs
+                  pnpm exec playwright test $browser_specs --grep-invert 'private MSK-IMPACT'
                   test -s test-results/report.json
                   python3 - <<'PY'
                   import json
@@ -1332,7 +1365,8 @@ jobs:
                   tests/wsi-pathology-mocked.spec.ts \
                   tests/pathology-summary.spec.ts \
                   tests/pathology-study-clinical-data.spec.ts \
-                  tests/pathology-timing-contract.spec.ts
+                  tests/pathology-timing-contract.spec.ts \
+                  --grep-invert 'private MSK-IMPACT'
               fi
               test -s test-results/report.json
               python3 - <<'PY'
@@ -1373,6 +1407,8 @@ jobs:
         DOCKER_REPO: cbioportal/cbioportal-dev
         WSI_AUTH_SECRET: local-development-wsi-secret-change-me-32chars
         WSI_AUTH_AUDIENCE: cbioportal-wsi
+        WSI_TILE_REPOSITORY: cBioPortal/cbioportal-tile-server
+        WSI_TILE_REF: dde2cf206c1683277b950cada8e12c50c84251a1
         WSI_TILE_SERVER_URL: http://localhost:8082
         WSI_TILE_SERVER_PORT: "8082"
         WSI_PORTAL_TYPE: keycloak

@@ -11,11 +11,11 @@ permissions:
 env:
   BRANCH_ENV: master
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
-  FRONTEND_FOUNDATION_REF: e5e5d735c2d6139305fce6264326fae092ad5d2f
-  FRONTEND_MOLECULAR_REF: d4e464879e414bd0203fd465255802163dad84d1
-  FRONTEND_PATIENT_REF: 148cda0c3401cd385a0d95dbbc73a3dccd60d6fb
-  FRONTEND_STUDY_REF: f8519aa225fa73c2bcad2c0ac9bcc085e51c493a
-  FRONTEND_INTEGRATION_REF: c20880341d611da9f82ded38b928e3f458918716
+  FRONTEND_FOUNDATION_REF: 3a0c851bf41a0c24b0844cc231eed12570dd8e20
+  FRONTEND_MOLECULAR_REF: 994d2a1869b32ac02df04d4ca4b1a436006a2d99
+  FRONTEND_PATIENT_REF: 4b4c42f23cb28be2e6cbb9468258ede225ae4ee5
+  FRONTEND_STUDY_REF: 930694142f35b3b371483220260e67c14bce4608
+  FRONTEND_INTEGRATION_REF: c70807f355ae10d5f6d6344e67ae9e7e0dd70e76
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
 
@@ -45,6 +45,8 @@ jobs:
           assert '${{ env.FRONTEND_PATIENT_REF }}' == manifest['frontend']['patient']
           assert '${{ env.FRONTEND_STUDY_REF }}' == manifest['frontend']['study']
           assert '${{ env.FRONTEND_INTEGRATION_REF }}' == manifest['frontend']['integration']
+          assert manifest['tile']['repository'] == 'cBioPortal/cbioportal-tile-server'
+          assert len(manifest['tile']['ref']) == 40
           print('fixture permissions and source pins are present')
           PY
 
@@ -83,19 +85,19 @@ jobs:
       matrix:
         include:
           - name: foundation
-            ref: e5e5d735c2d6139305fce6264326fae092ad5d2f
+            ref: 3a0c851bf41a0c24b0844cc231eed12570dd8e20
             jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
             browser: tests/wsi-foundation-route.spec.ts
           - name: molecular
-            ref: d4e464879e414bd0203fd465255802163dad84d1
+            ref: 994d2a1869b32ac02df04d4ca4b1a436006a2d99
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-foundation-route.spec.ts
           - name: patient
-            ref: 148cda0c3401cd385a0d95dbbc73a3dccd60d6fb
+            ref: 4b4c42f23cb28be2e6cbb9468258ede225ae4ee5
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
             browser: tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts
           - name: study
-            ref: f8519aa225fa73c2bcad2c0ac9bcc085e51c493a
+            ref: 930694142f35b3b371483220260e67c14bce4608
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/wsi-foundation-route.spec.ts tests/pathology-study-clinical-data.spec.ts
     steps:
