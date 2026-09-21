@@ -3,19 +3,25 @@ package org.cbioportal.application.rest;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Map;
+import org.cbioportal.application.security.CancerStudyPermissionEvaluator;
 import org.cbioportal.domain.wsi.WsiSlideAccess;
 import org.cbioportal.domain.wsi.WsiThumbnail;
 import org.cbioportal.domain.wsi.WsiTileMetadata;
 import org.cbioportal.domain.wsi.repository.WsiSlideAccessRepository;
+import org.cbioportal.legacy.utils.security.AccessLevel;
 import org.junit.After;
 import org.junit.Test;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -23,10 +29,39 @@ public class WsiAccessTokenControllerTest {
 
   private final WsiSlideAccessRepository wsiSlideAccessRepository =
       mock(WsiSlideAccessRepository.class);
+  private final CancerStudyPermissionEvaluator cancerStudyPermissionEvaluator =
+      mock(CancerStudyPermissionEvaluator.class);
 
   @After
   public void tearDown() {
     SecurityContextHolder.clearContext();
+  }
+
+  @Test
+  public void returnsAnnotationScopeWhenRequested() {
+    WsiAccessTokenController plainController = createAuthenticatedController();
+    ReflectionTestUtils.setField(
+        plainController, "accessTokenSecret", "0123456789abcdef0123456789abcdef");
+    ReflectionTestUtils.setField(plainController, "accessTokenAudience", "cbioportal-wsi");
+    ReflectionTestUtils.setField(plainController, "accessTokenTtlSeconds", 300);
+    ReflectionTestUtils.setField(
+        plainController, "cancerStudyPermissionEvaluator", cancerStudyPermissionEvaluator);
+    when(cancerStudyPermissionEvaluator.hasPermission(
+            any(Authentication.class), eq("study-1"), eq("CancerStudyId"), eq(AccessLevel.READ)))
+        .thenReturn(true);
+
+    ResponseEntity<?> response = plainController.issueAccessToken("study-1", "annotations");
+
+    assertEquals(200, response.getStatusCode().value());
+    Map<?, ?> body = (Map<?, ?>) response.getBody();
+    assertNotNull(body);
+    assertEquals("Bearer", body.get("token_type"));
+    String token = (String) body.get("access_token");
+    String payload = token.split("\\.")[1];
+    String decodedPayload =
+        new String(Base64.getUrlDecoder().decode(payload), StandardCharsets.UTF_8);
+    assertTrue(decodedPayload.contains("\"scope\":\"annotations:read annotations:write\""));
+    assertTrue(decodedPayload.contains("\"study_id\":\"study-1\""));
   }
 
   @Test
