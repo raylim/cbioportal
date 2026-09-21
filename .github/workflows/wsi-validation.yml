@@ -15,7 +15,7 @@ env:
   FRONTEND_MOLECULAR_REF: 4c35e01f3d9cac15d89cfe483e5bf39aa20f2807
   FRONTEND_PATIENT_REF: 664c1b9b609e22b7a3e2d689d9b912c29e5a089c
   FRONTEND_STUDY_REF: 4292c7c24f045b61aee0328902174e252846a2ec
-  FRONTEND_INTEGRATION_REF: 677eb83c04e53f9e647531e0c79b704cd799f684
+  FRONTEND_INTEGRATION_REF: e904a4b2aba0108516edea314a715a751818e7c1
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
 
@@ -139,3 +139,36 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
       - run: pnpm run build
+
+      - name: Install Playwright suite dependencies
+        working-directory: end-to-end-test-playwright
+        run: pnpm install --frozen-lockfile --ignore-workspace
+
+      - name: Serve the combined frontend bundle
+        run: |
+          nohup node_modules/.bin/pushstate-server dist 3000 >/tmp/wsi-frontend-server.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/wsi-frontend-server.log
+          exit 1
+
+      - name: Run combined mocked WSI browser contract
+        working-directory: end-to-end-test-playwright
+        env:
+          CBIOPORTAL_URL: http://127.0.0.1:3000
+          LOCALDEV: '0'
+          WSI_MOCK_SKIP_LOGIN: '1'
+        run: |
+          pnpm exec playwright test tests/wsi-pathology-mocked.spec.ts --reporter=line,json
+          node - <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('test-results/report.json', 'utf8'));
+          if (report.stats.expected === 0 || report.stats.skipped !== 0 || report.stats.unexpected !== 0) {
+            throw new Error(`combined WSI browser contract did not pass: ${JSON.stringify(report.stats)}`);
+          }
+          console.log(`combined WSI browser contract passed: ${report.stats.expected} tests`);
+          NODE
