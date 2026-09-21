@@ -166,6 +166,7 @@ jobs:
           CBIOPORTAL_URL: http://127.0.0.1:3000
           LOCALDEV: '0'
           WSI_MOCK_SKIP_LOGIN: '1'
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/report.json
         run: |
           pnpm exec playwright test tests/wsi-pathology-mocked.spec.ts --reporter=line,json
           node - <<'NODE'
