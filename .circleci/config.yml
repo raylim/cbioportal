@@ -109,11 +109,8 @@ jobs:
             environment:
               FRONTEND_REPO_URL: https://github.com/cBioPortal/cbioportal-frontend.git
               FRONTEND_REPO_BRANCH: master
-              FRONTEND_REPO_SHA: ceaf8fee804bd202a9a5d194c091c9693e1aee1f
             command: |
               git clone -b ${FRONTEND_REPO_BRANCH} --single-branch ${FRONTEND_REPO_URL}
-              git -C cbioportal-frontend fetch --depth 1 origin ${FRONTEND_REPO_SHA}
-              git -C cbioportal-frontend checkout --detach ${FRONTEND_REPO_SHA}
         - persist_to_workspace:
             root: /tmp/repos
             paths:
@@ -1084,10 +1081,10 @@ jobs:
               corepack enable
               corepack prepare pnpm@10.33.0 --activate
               declare -a CHILDREN=(
-                "foundation|dbe50eabf0c8f2d0aa42cc2368b3adb3f0235b71|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx|tests/wsi-foundation-route.spec.ts"
-                "molecular|4c35e01f3d9cac15d89cfe483e5bf39aa20f2807|src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-foundation-route.spec.ts"
-                "patient|664c1b9b609e22b7a3e2d689d9b912c29e5a089c|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts|tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts"
-                "study|4292c7c24f045b61aee0328902174e252846a2ec|src/pages/studyView/tabs/ClinicalDataTab.spec.ts|tests/wsi-foundation-route.spec.ts tests/pathology-study-clinical-data.spec.ts"
+                "foundation|e5e5d735c2d6139305fce6264326fae092ad5d2f|src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx|tests/wsi-foundation-route.spec.ts tests/wsi-foundation-mocked.spec.ts"
+                "molecular|d4e464879e414bd0203fd465255802163dad84d1|src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx|tests/wsi-foundation-route.spec.ts tests/wsi-foundation-mocked.spec.ts"
+                "patient|148cda0c3401cd385a0d95dbbc73a3dccd60d6fb|src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts src/pages/patientView/timeline/ClinicalEventsTables.spec.ts src/pages/patientView/timeline/TimelineWrapper.spec.ts|tests/wsi-foundation-route.spec.ts tests/wsi-foundation-mocked.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts"
+                "study|f8519aa225fa73c2bcad2c0ac9bcc085e51c493a|src/pages/studyView/tabs/ClinicalDataTab.spec.ts|tests/wsi-foundation-route.spec.ts tests/wsi-foundation-mocked.spec.ts tests/pathology-study-clinical-data.spec.ts"
               )
               for child in "${CHILDREN[@]}"; do
                 IFS='|' read -r name ref specs browser_specs <<< "$child"
@@ -1193,9 +1190,9 @@ jobs:
               # This immutable fork commit keeps WSI hierarchy assertions in
               # sync with the timeline-event timing contract in this PR.
               git -C /tmp/repos/cbioportal-frontend-wsi fetch --depth 1 origin \
-                677eb83c04e53f9e647531e0c79b704cd799f684
+                c20880341d611da9f82ded38b928e3f458918716
               git -C /tmp/repos/cbioportal-frontend-wsi checkout --detach \
-                677eb83c04e53f9e647531e0c79b704cd799f684
+                c20880341d611da9f82ded38b928e3f458918716
               cd /tmp/repos/cbioportal-frontend-wsi
               pnpm install --frozen-lockfile
         - run:
