@@ -854,7 +854,7 @@ jobs:
         WSI_AUTH_SECRET: local-development-wsi-secret-change-me-32chars
         WSI_AUTH_AUDIENCE: cbioportal-wsi
         WSI_TILE_REPOSITORY: cBioPortal/cbioportal-tile-server
-        WSI_TILE_REF: dde2cf206c1683277b950cada8e12c50c84251a1
+        WSI_TILE_REF: 082c3f77ec7eb091bc4a17b96d89cf6d1618d73c
         WSI_TILE_SERVER_URL: http://localhost:8081
         WSI_TILE_SERVER_PORT: "8081"
         WSI_PORTAL_TYPE: ""
@@ -1415,7 +1415,7 @@ jobs:
         WSI_AUTH_SECRET: local-development-wsi-secret-change-me-32chars
         WSI_AUTH_AUDIENCE: cbioportal-wsi
         WSI_TILE_REPOSITORY: cBioPortal/cbioportal-tile-server
-        WSI_TILE_REF: dde2cf206c1683277b950cada8e12c50c84251a1
+        WSI_TILE_REF: 082c3f77ec7eb091bc4a17b96d89cf6d1618d73c
         WSI_TILE_SERVER_URL: http://localhost:8082
         WSI_TILE_SERVER_PORT: "8082"
         WSI_PORTAL_TYPE: keycloak

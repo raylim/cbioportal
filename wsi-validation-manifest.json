@@ -9,7 +9,7 @@
   },
   "tile": {
     "repository": "cBioPortal/cbioportal-tile-server",
-    "ref": "dde2cf206c1683277b950cada8e12c50c84251a1"
+    "ref": "082c3f77ec7eb091bc4a17b96d89cf6d1618d73c"
   },
   "frontend": {
     "repository": "raylim/cbioportal-frontend",
