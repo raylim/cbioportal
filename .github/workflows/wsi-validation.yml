@@ -11,11 +11,11 @@ permissions:
 env:
   BRANCH_ENV: master
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
-  FRONTEND_FOUNDATION_REF: 11e70b9f5138a6f4a8131e5aaffc50d61c57915c
-  FRONTEND_MOLECULAR_REF: 59bf500ee5727f027dd310e0db4a547d5819c2d0
-  FRONTEND_PATIENT_REF: 25a15b7d616bc83ab7480fbe316ebc6bfd6d01d6
-  FRONTEND_STUDY_REF: 346dbf79846dbcddb66457c652d52addb36b6bcc
-  FRONTEND_INTEGRATION_REF: 89ca313ebfef28989609345fe3dff3d16e731ece
+  FRONTEND_FOUNDATION_REF: 7bc11bfd0c6a4046cd9bb6886b168f8dacecdcc1
+  FRONTEND_MOLECULAR_REF: c4d8ce312e7de20c466b9474e5cfc791e679c79f
+  FRONTEND_PATIENT_REF: a6e1ed55e2f73596460841bcf2fe1cd80a31ae23
+  FRONTEND_STUDY_REF: 761fca4b5a5d503c13047af925f76f1ed05e0a5d
+  FRONTEND_INTEGRATION_REF: 502ffec842fb52efbf6d9684e8d236c37560e048
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
 
@@ -88,19 +88,19 @@ jobs:
       matrix:
         include:
           - name: foundation
-            ref: 11e70b9f5138a6f4a8131e5aaffc50d61c57915c
+            ref: 7bc11bfd0c6a4046cd9bb6886b168f8dacecdcc1
             jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
             browser: tests/wsi-foundation-route.spec.ts
           - name: molecular
-            ref: 59bf500ee5727f027dd310e0db4a547d5819c2d0
+            ref: c4d8ce312e7de20c466b9474e5cfc791e679c79f
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-foundation-route.spec.ts
           - name: patient
-            ref: 25a15b7d616bc83ab7480fbe316ebc6bfd6d01d6
+            ref: a6e1ed55e2f73596460841bcf2fe1cd80a31ae23
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
             browser: tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts
           - name: study
-            ref: 346dbf79846dbcddb66457c652d52addb36b6bcc
+            ref: 761fca4b5a5d503c13047af925f76f1ed05e0a5d
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/wsi-foundation-route.spec.ts tests/pathology-study-clinical-data.spec.ts
     steps:
