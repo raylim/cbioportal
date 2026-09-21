@@ -1021,6 +1021,35 @@ jobs:
             name: Verify WSI deletion and clean snapshot reimport
             command: |
               set -euo pipefail
+              wsi_tables=(wsi_patient wsi_part wsi_block wsi_slide wsi_slide_placement wsi_slide_timing)
+              wsi_count() {
+                local table="$1"
+                local study_id="$2"
+                docker exec cbioportal-database-container sh -lc '
+                  table="$1"
+                  study_id="$2"
+                  clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" \
+                    --database "$CLICKHOUSE_DB" --query "SELECT count() FROM ${table} WHERE cancer_study_id = ${study_id}"
+                ' sh "$table" "$study_id"
+              }
+              study_id_for_identifier() {
+                local identifier="$1"
+                docker exec cbioportal-database-container sh -lc '
+                  identifier="$1"
+                  clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" \
+                    --database "$CLICKHOUSE_DB" --query "SELECT toString(cancer_study_id) FROM cancer_study WHERE cancer_study_identifier = '\''${identifier}'\'' LIMIT 1"
+                ' sh "$identifier"
+              }
+              target_study_id=$(study_id_for_identifier msk_spectrum_tme_2022)
+              control_study_id=$(study_id_for_identifier wsi_ci_study_b)
+              test -n "$target_study_id"
+              test -n "$control_study_id"
+              control_snapshot=""
+              for table in "${wsi_tables[@]}"; do
+                count=$(wsi_count "$table" "$control_study_id")
+                test "$count" -gt 0
+                control_snapshot="${control_snapshot}${table}=${count};"
+              done
               control_slides_before=$(docker exec cbioportal-database-container sh -lc '
                 clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" \
                   --database "$CLICKHOUSE_DB" --query "
@@ -1032,17 +1061,18 @@ jobs:
               ')
               test "$control_slides_before" -gt 0
               docker exec cbioportal-container sh -lc \
-                'cbioportalImporter.py -c remove-study -id msk_spectrum_tme_2022'
-              removed_slides=$(docker exec cbioportal-database-container sh -lc '
-                clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" \
-                  --database "$CLICKHOUSE_DB" --query "
-                    SELECT count()
-                    FROM wsi_slide AS slide
-                    INNER JOIN cancer_study AS study
-                      ON study.cancer_study_id = slide.cancer_study_id
-                    WHERE study.cancer_study_identifier = '\''msk_spectrum_tme_2022'\''"
-              ')
-              test "$removed_slides" = 0
+                'export PORTAL_HOME=/cbioportal-webapp
+                 export CLICKHOUSE_HOST="${CLICKHOUSE_HOST:-cbioportal-database}"
+                 export CLICKHOUSE_NATIVE_PORT="${CLICKHOUSE_NATIVE_PORT:-9000}"
+                 export CLICKHOUSE_DB="${CLICKHOUSE_DB:-cbioportal}"
+                 export JAVA_OPTS="-Dspring.datasource.url=$CLICKHOUSE_URL -Dspring.datasource.username=$CLICKHOUSE_USER -Dspring.datasource.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver"
+                 cbioportalImporter.py -c remove-study -id msk_spectrum_tme_2022'
+              removed_snapshot=""
+              for table in "${wsi_tables[@]}"; do
+                count=$(wsi_count "$table" "$target_study_id")
+                test "$count" = 0
+                removed_snapshot="${removed_snapshot}${table}=${count};"
+              done
               docker exec cbioportal-container sh -lc '
                 export PORTAL_HOME=/cbioportal-webapp
                 export CLICKHOUSE_HOST="${CLICKHOUSE_HOST:-cbioportal-database}"
@@ -1053,6 +1083,8 @@ jobs:
                   -s /tmp/wsi-loader-fixture -n -o \
                   --derived-table-sql /tmp/wsi-clickhouse.sql
               ' 2>&1 | tee -a /tmp/repos/wsi-import.log
+              reimported_study_id=$(study_id_for_identifier msk_spectrum_tme_2022)
+              test -n "$reimported_study_id"
               reimported_slides=$(docker exec cbioportal-database-container sh -lc '
                 clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" \
                   --database "$CLICKHOUSE_DB" --query "
@@ -1063,6 +1095,13 @@ jobs:
                     WHERE study.cancer_study_identifier = '\''msk_spectrum_tme_2022'\''"
               ')
               test "$reimported_slides" = 4
+              expected_reimport_snapshot="wsi_patient=1;wsi_part=3;wsi_block=3;wsi_slide=4;wsi_slide_placement=4;wsi_slide_timing=4;"
+              reimported_snapshot=""
+              for table in "${wsi_tables[@]}"; do
+                count=$(wsi_count "$table" "$reimported_study_id")
+                reimported_snapshot="${reimported_snapshot}${table}=${count};"
+              done
+              test "$reimported_snapshot" = "$expected_reimport_snapshot"
               control_slides_after=$(docker exec cbioportal-database-container sh -lc '
                 clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" \
                   --database "$CLICKHOUSE_DB" --query "
@@ -1073,12 +1112,27 @@ jobs:
                     WHERE study.cancer_study_identifier = '\''wsi_ci_study_b'\''"
               ')
               test "$control_slides_after" = "$control_slides_before"
-              echo "WSI delete/reimport passed: removed=$removed_slides reimported=$reimported_slides control=$control_slides_after"
+              control_snapshot_after=""
+              for table in "${wsi_tables[@]}"; do
+                count=$(wsi_count "$table" "$control_study_id")
+                control_snapshot_after="${control_snapshot_after}${table}=${count};"
+              done
+              test "$control_snapshot_after" = "$control_snapshot"
+              echo "WSI delete/reimport passed: target_before=$target_study_id target_after=$reimported_study_id removed=$removed_snapshot reimported=$reimported_snapshot control=$control_snapshot_after"
         - run:
             name: Capture WSI diagnostics
             when: always
             command: |
               {
+                echo '=== validation source identity ==='
+                git -C /tmp/repos/cbioportal rev-parse HEAD 2>/dev/null || true
+                git -C /tmp/repos/cbioportal show -s --format='%H %s' HEAD 2>/dev/null || true
+                echo '=== portal image identity ==='
+                docker image inspect "${DOCKER_REPO}:${CIRCLE_SHA1}" \
+                  --format '{{index .RepoDigests 0}} {{.Id}}' 2>/dev/null || true
+                echo '=== tile image identity ==='
+                docker image inspect "cbioportal-wsi-tile:${CIRCLE_SHA1}" \
+                  --format '{{index .RepoDigests 0}} {{.Id}}' 2>/dev/null || true
                 echo '=== docker ps -a ==='
                 docker ps -a
                 echo '=== cbioportal container logs ==='
