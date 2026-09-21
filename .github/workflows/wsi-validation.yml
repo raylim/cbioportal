@@ -144,6 +144,10 @@ jobs:
         working-directory: end-to-end-test-playwright
         run: pnpm install --frozen-lockfile --ignore-workspace
 
+      - name: Install Chromium for the combined browser contract
+        working-directory: end-to-end-test-playwright
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Serve the combined frontend bundle
         run: |
           nohup node_modules/.bin/pushstate-server dist 3000 >/tmp/wsi-frontend-server.log 2>&1 &
