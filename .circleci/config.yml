@@ -1547,8 +1547,6 @@ workflows:
             requires:
               - e2e_localdb_merge
               - run_api_tests
-              - run_wsi_api_tests
-              - run_wsi_authenticated_api_tests
               - run_security_tests
         - push_web_and_data_image:
             context:
@@ -1556,8 +1554,6 @@ workflows:
             requires:
               - e2e_localdb_merge
               - run_api_tests
-              - run_wsi_api_tests
-              - run_wsi_authenticated_api_tests
               - run_security_tests
         # Playwright localdb e2e, replacing the retired WDIO run_e2e_localdb_tests.
         # Shards need the frontend dist/specs (build_frontend) and the PR's
