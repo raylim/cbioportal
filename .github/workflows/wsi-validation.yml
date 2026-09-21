@@ -12,10 +12,10 @@ env:
   BRANCH_ENV: master
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
   FRONTEND_FOUNDATION_REF: 3a0c851bf41a0c24b0844cc231eed12570dd8e20
-  FRONTEND_MOLECULAR_REF: 994d2a1869b32ac02df04d4ca4b1a436006a2d99
-  FRONTEND_PATIENT_REF: 4b4c42f23cb28be2e6cbb9468258ede225ae4ee5
-  FRONTEND_STUDY_REF: 930694142f35b3b371483220260e67c14bce4608
-  FRONTEND_INTEGRATION_REF: c70807f355ae10d5f6d6344e67ae9e7e0dd70e76
+  FRONTEND_MOLECULAR_REF: 8aa5a9a371365058f34cc54795c34718ca9e8404
+  FRONTEND_PATIENT_REF: 6d39422027ad5c75f421131a734d48c2c8c671c1
+  FRONTEND_STUDY_REF: e3b7d5560020255e8b80b9824a6db5ac6caf9144
+  FRONTEND_INTEGRATION_REF: 49dba02785055ae60fc6d1830377f815d3d0b142
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
 
@@ -89,15 +89,15 @@ jobs:
             jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
             browser: tests/wsi-foundation-route.spec.ts
           - name: molecular
-            ref: 994d2a1869b32ac02df04d4ca4b1a436006a2d99
+            ref: 8aa5a9a371365058f34cc54795c34718ca9e8404
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-foundation-route.spec.ts
           - name: patient
-            ref: 4b4c42f23cb28be2e6cbb9468258ede225ae4ee5
+            ref: 6d39422027ad5c75f421131a734d48c2c8c671c1
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
             browser: tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts
           - name: study
-            ref: 930694142f35b3b371483220260e67c14bce4608
+            ref: e3b7d5560020255e8b80b9824a6db5ac6caf9144
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/wsi-foundation-route.spec.ts tests/pathology-study-clinical-data.spec.ts
     steps:
