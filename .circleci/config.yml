@@ -883,10 +883,11 @@ jobs:
             command: |
               set -o pipefail
               export DOCKER_TAG=$CIRCLE_SHA1
-              export WSI_CORE_REPOSITORY=raylim/cbioportal-core
-              # Pin the exact core PR commit so this test is reproducible and
-              # cannot silently follow a mutable personal-fork branch.
-              export WSI_CORE_REF=c178bb7daf8999194e82b09d387eca3ab39a4b65
+              manifest=/tmp/repos/cbioportal/wsi-validation-manifest.json
+              export WSI_CORE_REPOSITORY=$(jq -er .core.repository "$manifest")
+              # Read the exact Core commit from the shared manifest so this
+              # test cannot silently drift from the published validation tuple.
+              export WSI_CORE_REF=$(jq -er .core.ref "$manifest")
               : > /tmp/repos/wsi-image-build.log
               docker build \
                 --build-arg CORE_REPOSITORY="$WSI_CORE_REPOSITORY" \
@@ -1036,6 +1037,9 @@ jobs:
             name: Build and start the pinned WSI tile server
             command: |
               set -euo pipefail
+              manifest=/tmp/repos/cbioportal/wsi-validation-manifest.json
+              export WSI_TILE_REPOSITORY=$(jq -er .tile.repository "$manifest")
+              export WSI_TILE_REF=$(jq -er .tile.ref "$manifest")
               rm -rf /tmp/repos/cbioportal-tile-server
               git clone --filter=blob:none --no-checkout \
                 "https://github.com/${WSI_TILE_REPOSITORY}.git" \
