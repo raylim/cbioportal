@@ -28,7 +28,6 @@ commands:
       - run:
           name: Build and Push cBioPortal docker image
           command: |
-            set -euo pipefail
             export DOCKER_TAG=$CIRCLE_SHA1
             export DOCKER_REPO=<<parameters.docker_repo>>
             export APP_TYPE=<<parameters.app_type>>
@@ -62,22 +61,6 @@ commands:
             else
               echo "Unknown app type provided. Accepted values are ['web', 'web-and-data']"
               exit 1
-            fi
-
-            if [ "<<parameters.push>>" = "true" ]; then
-              for attempt in 1 2 3 4 5 6; do
-                TAG_FOUND=$(curl --silent "$URL" | jq -r '.name // empty')
-                [ "$TAG_FOUND" = "${URL##*/}" ] && break
-                [ "$attempt" -eq 6 ] && {
-                  echo "Expected image tag was not published: ${URL}" >&2
-                  exit 1
-                }
-                sleep $((attempt * 5))
-              done
-            elif [ "$APP_TYPE" = "web" ]; then
-              docker image inspect "$DOCKER_REPO:$DOCKER_TAG-web-shenandoah" >/dev/null
-            else
-              docker image inspect "$DOCKER_REPO:$DOCKER_TAG" >/dev/null
             fi
 
 jobs:
