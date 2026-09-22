@@ -16,8 +16,8 @@ env:
   FRONTEND_FOUNDATION_REF: c4f0fae883e1d26da6b12f84fd35f8f1b319b2a9
   FRONTEND_MOLECULAR_REF: da67a208617b0f1734a1b458636caad86a19ccf6
   FRONTEND_PATIENT_REF: 624d6be246bd1e2311931763e960984e6f77d12f
-  FRONTEND_STUDY_REF: 4424f73ed3f07890f4b97be7a675391e3fb837c9
-  FRONTEND_INTEGRATION_REF: 1969daede3270b56d4624f9ebbd74f5642564bbc
+  FRONTEND_STUDY_REF: 7e29888e90cf7980ab4f6e1a232f5cb1073a3b3f
+  FRONTEND_INTEGRATION_REF: a5ff109ad2a1d7ea6c10b0cb102b1ef203483030
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
   TEST_STACK_REPOSITORY: cBioPortal/cbioportal-test
@@ -121,7 +121,7 @@ jobs:
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
             browser: tests/wsi-pathology-mocked.spec.ts
           - name: study
-            ref: 4424f73ed3f07890f4b97be7a675391e3fb837c9
+            ref: 7e29888e90cf7980ab4f6e1a232f5cb1073a3b3f
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/wsi-study-mocked.spec.ts
     steps:
