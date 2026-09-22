@@ -66,7 +66,7 @@ jobs:
                   workflow,
               )
               assert match, f'missing immutable matrix ref for {name}'
-              assert match.group(1) == '${{ env.' + env_name + ' }}'
+              assert match.group(1) == manifest['frontend'][name]
           assert manifest['tile']['repository'] == 'cBioPortal/cbioportal-tile-server'
           assert len(manifest['tile']['ref']) == 40
           print('fixture metadata and source pins are present; live authorization is covered by the CircleCI API job')
