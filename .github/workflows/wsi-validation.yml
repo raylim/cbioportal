@@ -2,7 +2,6 @@ name: WSI validation
 
 on:
   pull_request:
-  push:
   workflow_dispatch:
 
 permissions:
