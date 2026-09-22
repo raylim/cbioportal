@@ -21,12 +21,12 @@ env:
 
 jobs:
   fixture-contract:
-    name: Verify WSI fixture and authorization contract
+    name: Verify WSI fixture and source pins
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Validate fixture permissions and immutable pins
+      - name: Validate fixture metadata and immutable pins
         working-directory: .
         run: |
           python3 - <<'PY'
@@ -48,7 +48,7 @@ jobs:
           assert '${{ env.FRONTEND_INTEGRATION_REF }}' == manifest['frontend']['integration']
           assert manifest['tile']['repository'] == 'cBioPortal/cbioportal-tile-server'
           assert len(manifest['tile']['ref']) == 40
-          print('fixture permissions and source pins are present')
+          print('fixture metadata and source pins are present; live authorization is covered by the CircleCI API job')
           PY
 
   core-import-validation:
