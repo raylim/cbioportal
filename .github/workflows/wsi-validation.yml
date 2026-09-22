@@ -13,9 +13,9 @@ env:
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
   FRONTEND_FOUNDATION_REF: 8da431a25c8cb60f675626aee9eb7e99b9c0cfc8
   FRONTEND_MOLECULAR_REF: 751729107e2694b986a3182de00012b8d112ddee
-  FRONTEND_PATIENT_REF: d579d7daef496753098f579a55fcfd111352831a
+  FRONTEND_PATIENT_REF: afc54fd8d0cb9b35b7ef9355e7ed3ce60891ed4e
   FRONTEND_STUDY_REF: 19ff29c6b758e471bde3e13e061bcfa33303bebb
-  FRONTEND_INTEGRATION_REF: cf3161f3fc79c09581e79f8bbedc4d253b86579c
+  FRONTEND_INTEGRATION_REF: 111bbeb2674891cc09107b9cb92f85c4f8daedde
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
 
@@ -96,7 +96,7 @@ jobs:
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-foundation-route.spec.ts
           - name: patient
-            ref: d579d7daef496753098f579a55fcfd111352831a
+            ref: afc54fd8d0cb9b35b7ef9355e7ed3ce60891ed4e
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
             browser: tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts
           - name: study
