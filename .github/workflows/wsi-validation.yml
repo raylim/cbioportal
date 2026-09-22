@@ -11,11 +11,11 @@ permissions:
 env:
   BRANCH_ENV: master
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
-  FRONTEND_FOUNDATION_REF: 0e458fc06baf8376d38c4a88a618cdd86e227810
-  FRONTEND_MOLECULAR_REF: eb8833a0993c66e87401cc269be6a7d9aaf7271e
-  FRONTEND_PATIENT_REF: e34fd85984bdc5bab5ec9d1aa9c1066fb098a172
-  FRONTEND_STUDY_REF: a8fced5d3abd3e7afd903e8879018f79e69f08ba
-  FRONTEND_INTEGRATION_REF: 41308093b47a6a2cf6f8eec25dc3244fce116f53
+  FRONTEND_FOUNDATION_REF: d5f63f87ee229b4cfb8fa9e3e1300858e00b66ac
+  FRONTEND_MOLECULAR_REF: c005ca1799143a6470907b06120a48d16d2e1892
+  FRONTEND_PATIENT_REF: b797f3605e4affe627977ffab0614cabfb123702
+  FRONTEND_STUDY_REF: bff54fbc05184ccf2d640947b2e8cdfa4c3eb0f8
+  FRONTEND_INTEGRATION_REF: 51d4ae2480c142c810b8527c9f90c78b294059be
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
 
@@ -88,19 +88,19 @@ jobs:
       matrix:
         include:
           - name: foundation
-            ref: 0e458fc06baf8376d38c4a88a618cdd86e227810
+            ref: d5f63f87ee229b4cfb8fa9e3e1300858e00b66ac
             jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
             browser: tests/wsi-foundation-route.spec.ts
           - name: molecular
-            ref: eb8833a0993c66e87401cc269be6a7d9aaf7271e
+            ref: c005ca1799143a6470907b06120a48d16d2e1892
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-foundation-route.spec.ts
           - name: patient
-            ref: e34fd85984bdc5bab5ec9d1aa9c1066fb098a172
+            ref: b797f3605e4affe627977ffab0614cabfb123702
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
             browser: tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts
           - name: study
-            ref: a8fced5d3abd3e7afd903e8879018f79e69f08ba
+            ref: bff54fbc05184ccf2d640947b2e8cdfa4c3eb0f8
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/wsi-foundation-route.spec.ts tests/pathology-study-clinical-data.spec.ts
     steps:
@@ -131,6 +131,8 @@ jobs:
       # so a renamed or deleted spec cannot silently disappear from that gate.
       - name: Check live child browser specs are discoverable
         working-directory: end-to-end-test-playwright
+        env:
+          PW_SUITE: wsi
         run: |
           pnpm install --frozen-lockfile --ignore-workspace
           pnpm exec playwright test ${{ matrix.browser }} --list
@@ -153,6 +155,7 @@ jobs:
         env:
           CBIOPORTAL_URL: http://127.0.0.1:3000
           LOCALDEV: '0'
+          PW_SUITE: wsi
           WSI_CHILD_CONTRACT: '1'
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/report.json
         run: |
@@ -211,6 +214,7 @@ jobs:
         env:
           CBIOPORTAL_URL: http://127.0.0.1:3000
           LOCALDEV: '0'
+          PW_SUITE: wsi
           WSI_MOCK_SKIP_LOGIN: '1'
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/report.json
         run: |
