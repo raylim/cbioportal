@@ -16,8 +16,8 @@ env:
   FRONTEND_FOUNDATION_REF: c4f0fae883e1d26da6b12f84fd35f8f1b319b2a9
   FRONTEND_MOLECULAR_REF: da67a208617b0f1734a1b458636caad86a19ccf6
   FRONTEND_PATIENT_REF: 9b755f16d8ef6b4e377411650ae914e15441ae79
-  FRONTEND_STUDY_REF: 7e3298091ef85cf522f877bac8111fb6d06a581b
-  FRONTEND_INTEGRATION_REF: 87411d1f32dd02bfb218b3713b042b74d83fbf57
+      FRONTEND_STUDY_REF: 21e83ccddf5a3c69ada41d70b1817f40674c8541
+      FRONTEND_INTEGRATION_REF: 227a0e5258dfad7e29b4ea6d181b9b3be7c37ba7
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
   TEST_STACK_REPOSITORY: cBioPortal/cbioportal-test
@@ -123,7 +123,7 @@ jobs:
           - name: study
             ref: 7e3298091ef85cf522f877bac8111fb6d06a581b
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
-            browser: tests/wsi-foundation-mocked.spec.ts
+            browser: tests/wsi-study-mocked.spec.ts
     steps:
       - uses: actions/checkout@v4
         with:
