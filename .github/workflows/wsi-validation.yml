@@ -131,7 +131,6 @@ jobs:
       # so a renamed or deleted spec cannot silently disappear from that gate.
       - name: Check live child browser specs are discoverable
         working-directory: end-to-end-test-playwright
-        env:
         run: |
           pnpm install --frozen-lockfile --ignore-workspace
           pnpm exec playwright test ${{ matrix.browser }} --list
