@@ -15,9 +15,9 @@ env:
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
   FRONTEND_FOUNDATION_REF: c4f0fae883e1d26da6b12f84fd35f8f1b319b2a9
   FRONTEND_MOLECULAR_REF: da67a208617b0f1734a1b458636caad86a19ccf6
-  FRONTEND_PATIENT_REF: 9b755f16d8ef6b4e377411650ae914e15441ae79
-  FRONTEND_STUDY_REF: f3109e7f4df220c9ff1df75b21483dcaa6e92908
-  FRONTEND_INTEGRATION_REF: 1ca7bdbeca36d897f1562707ce7d38708ea05509
+  FRONTEND_PATIENT_REF: 624d6be246bd1e2311931763e960984e6f77d12f
+  FRONTEND_STUDY_REF: 4424f73ed3f07890f4b97be7a675391e3fb837c9
+  FRONTEND_INTEGRATION_REF: 1969daede3270b56d4624f9ebbd74f5642564bbc
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
   TEST_STACK_REPOSITORY: cBioPortal/cbioportal-test
@@ -117,11 +117,11 @@ jobs:
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-molecular-mocked.spec.ts
           - name: patient
-            ref: 9b755f16d8ef6b4e377411650ae914e15441ae79
+            ref: 624d6be246bd1e2311931763e960984e6f77d12f
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
             browser: tests/wsi-pathology-mocked.spec.ts
           - name: study
-            ref: f3109e7f4df220c9ff1df75b21483dcaa6e92908
+            ref: 4424f73ed3f07890f4b97be7a675391e3fb837c9
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/wsi-study-mocked.spec.ts
     steps:
@@ -217,7 +217,7 @@ jobs:
 
       - name: Serve the combined frontend bundle
         run: |
-          nohup node_modules/.bin/pushstate-server dist 3000 >/tmp/wsi-frontend-server.log 2>&1 &
+          nohup node_modules/.bin/pushstate-server dist 3000 index.html >/tmp/wsi-frontend-server.log 2>&1 &
           for attempt in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:3000/ >/dev/null; then
               exit 0
