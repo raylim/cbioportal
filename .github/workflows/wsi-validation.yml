@@ -16,8 +16,8 @@ env:
   FRONTEND_FOUNDATION_REF: c4f0fae883e1d26da6b12f84fd35f8f1b319b2a9
   FRONTEND_MOLECULAR_REF: da67a208617b0f1734a1b458636caad86a19ccf6
   FRONTEND_PATIENT_REF: 9b755f16d8ef6b4e377411650ae914e15441ae79
-  FRONTEND_STUDY_REF: 21e83ccddf5a3c69ada41d70b1817f40674c8541
-  FRONTEND_INTEGRATION_REF: 227a0e5258dfad7e29b4ea6d181b9b3be7c37ba7
+  FRONTEND_STUDY_REF: f3109e7f4df220c9ff1df75b21483dcaa6e92908
+  FRONTEND_INTEGRATION_REF: 1ca7bdbeca36d897f1562707ce7d38708ea05509
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
   TEST_STACK_REPOSITORY: cBioPortal/cbioportal-test
@@ -121,7 +121,7 @@ jobs:
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
             browser: tests/wsi-pathology-mocked.spec.ts
           - name: study
-            ref: 21e83ccddf5a3c69ada41d70b1817f40674c8541
+            ref: f3109e7f4df220c9ff1df75b21483dcaa6e92908
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/wsi-study-mocked.spec.ts
     steps:
@@ -159,7 +159,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Serve the child bundle
         run: |
-          nohup node_modules/.bin/pushstate-server dist 3000 >/tmp/wsi-child-server.log 2>&1 &
+          nohup node_modules/.bin/pushstate-server dist 3000 index.html >/tmp/wsi-child-server.log 2>&1 &
           for attempt in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:3000/ >/dev/null; then
               exit 0
