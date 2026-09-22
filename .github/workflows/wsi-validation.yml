@@ -11,6 +11,7 @@ permissions:
 env:
   BRANCH_ENV: master
   BACKEND_REPOSITORY: raylim/cbioportal
+  BACKEND_VALIDATION_REF: abada1bb2c7863980608da996fe4bce66e7a2297
   BACKEND_FOUNDATION_REF: 93e9b8c9b4a127b0ae7de4fcecf98192faac068f
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
   FRONTEND_FOUNDATION_REF: d777f410356fb45289214f76bbc4ec392a578858
@@ -35,6 +36,7 @@ jobs:
         working-directory: .
         env:
           BACKEND_FOUNDATION_REF: ${{ env.BACKEND_FOUNDATION_REF }}
+          BACKEND_VALIDATION_REF: ${{ env.BACKEND_VALIDATION_REF }}
           CORE_REF: ${{ env.CORE_REF }}
           TEST_STACK_REF: ${{ env.TEST_STACK_REF }}
           TEST_STACK_REPOSITORY: ${{ env.TEST_STACK_REPOSITORY }}
@@ -57,6 +59,8 @@ jobs:
           assert 'groups: WSI_DENIED' in denied
           assert 'WSI_AUTHENTICATED_E2E: "true"' in Path('.circleci/config.yml').read_text()
           assert os.environ['BACKEND_FOUNDATION_REF'] == manifest['backend']['foundation']
+          assert len(os.environ['BACKEND_VALIDATION_REF']) == 40
+          assert os.environ['BACKEND_VALIDATION_REF'] == manifest['backend']['validation']
           assert len(os.environ['CORE_REF']) == 40
           assert os.environ['CORE_REF'] == manifest['core']['ref']
           assert os.environ['TEST_STACK_REF'] == manifest['testStack']['ref']
@@ -94,6 +98,14 @@ jobs:
           repository: ${{ env.CORE_REPOSITORY }}
           ref: ${{ env.CORE_REF }}
           path: cbioportal-core
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BACKEND_REPOSITORY }}
+          ref: ${{ env.BACKEND_VALIDATION_REF }}
+          path: cbioportal-validation
+      - name: Run backend fresh/migrated schema parity check
+        working-directory: cbioportal-validation/test
+        run: python3 test_clickhouse_wsi_schema_parity.py
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'

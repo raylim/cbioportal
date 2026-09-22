@@ -1,6 +1,7 @@
 {
   "backend": {
     "repository": "raylim/cbioportal",
+    "validation": "abada1bb2c7863980608da996fe4bce66e7a2297",
     "foundation": "93e9b8c9b4a127b0ae7de4fcecf98192faac068f"
   },
   "testStack": {
