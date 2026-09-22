@@ -3,6 +3,10 @@
     "repository": "raylim/cbioportal",
     "foundation": "93e9b8c9b4a127b0ae7de4fcecf98192faac068f"
   },
+  "testStack": {
+    "repository": "cBioPortal/cbioportal-test",
+    "ref": "a450018f8fdadf5fe568d66d41154e9f25281dfb"
+  },
   "core": {
     "repository": "raylim/cbioportal-core",
     "ref": "c178bb7daf8999194e82b09d387eca3ab39a4b65"

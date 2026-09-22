@@ -772,6 +772,19 @@ jobs:
         - attach_workspace:
             at: /tmp/repos
         - run:
+            name: Pin WSI test stack revision
+            command: |
+              set -euo pipefail
+              manifest=/tmp/repos/cbioportal/wsi-validation-manifest.json
+              test_stack_repository=$(jq -er .testStack.repository "$manifest")
+              test_stack_ref=$(jq -er .testStack.ref "$manifest")
+              test -d /tmp/repos/cbioportal-test/.git
+              git -C /tmp/repos/cbioportal-test remote set-url origin \
+                "https://github.com/${test_stack_repository}.git"
+              git -C /tmp/repos/cbioportal-test fetch --depth 1 origin "$test_stack_ref"
+              git -C /tmp/repos/cbioportal-test checkout --detach FETCH_HEAD
+              test "$(git -C /tmp/repos/cbioportal-test rev-parse HEAD)" = "$test_stack_ref"
+        - run:
             name: Load cbioportal image
             command: |
               export DOCKER_TAG=$CIRCLE_SHA1

@@ -10,6 +10,8 @@ permissions:
 
 env:
   BRANCH_ENV: master
+  BACKEND_REPOSITORY: raylim/cbioportal
+  BACKEND_FOUNDATION_REF: 93e9b8c9b4a127b0ae7de4fcecf98192faac068f
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
   FRONTEND_FOUNDATION_REF: 8da431a25c8cb60f675626aee9eb7e99b9c0cfc8
   FRONTEND_MOLECULAR_REF: 751729107e2694b986a3182de00012b8d112ddee
@@ -18,6 +20,8 @@ env:
   FRONTEND_INTEGRATION_REF: 454a0a185ff7c32b59a25910d1a3c27e73be833b
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
+  TEST_STACK_REPOSITORY: cBioPortal/cbioportal-test
+  TEST_STACK_REF: a450018f8fdadf5fe568d66d41154e9f25281dfb
 
 jobs:
   fixture-contract:
@@ -39,8 +43,11 @@ jobs:
           assert 'groups: PUBLIC_STUDIES' in allowed
           assert 'groups: WSI_DENIED' in denied
           assert 'WSI_AUTHENTICATED_E2E: "true"' in Path('.circleci/config.yml').read_text()
+          assert '${{ env.BACKEND_FOUNDATION_REF }}' == manifest['backend']['foundation']
           assert len('${{ env.CORE_REF }}') == 40
           assert '${{ env.CORE_REF }}' == manifest['core']['ref']
+          assert '${{ env.TEST_STACK_REF }}' == manifest['testStack']['ref']
+          assert '${{ env.TEST_STACK_REPOSITORY }}' == manifest['testStack']['repository']
           assert '${{ env.FRONTEND_FOUNDATION_REF }}' == manifest['frontend']['foundation']
           assert '${{ env.FRONTEND_MOLECULAR_REF }}' == manifest['frontend']['molecular']
           assert '${{ env.FRONTEND_PATIENT_REF }}' == manifest['frontend']['patient']
@@ -90,19 +97,19 @@ jobs:
           - name: foundation
             ref: 8da431a25c8cb60f675626aee9eb7e99b9c0cfc8
             jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
-            browser: tests/wsi-foundation-route.spec.ts
+            browser: tests/wsi-foundation-mocked.spec.ts
           - name: molecular
             ref: 751729107e2694b986a3182de00012b8d112ddee
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
-            browser: tests/wsi-foundation-route.spec.ts
+            browser: tests/wsi-foundation-mocked.spec.ts
           - name: patient
             ref: afc54fd8d0cb9b35b7ef9355e7ed3ce60891ed4e
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
-            browser: tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts
+            browser: tests/wsi-pathology-mocked.spec.ts
           - name: study
             ref: 19ff29c6b758e471bde3e13e061bcfa33303bebb
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
-            browser: tests/wsi-foundation-route.spec.ts tests/pathology-study-clinical-data.spec.ts
+            browser: tests/wsi-pathology-mocked.spec.ts
     steps:
       - uses: actions/checkout@v4
         with:
@@ -126,10 +133,7 @@ jobs:
           else
             pnpm exec jest ${{ matrix.jest }} --runInBand --no-cache
           fi
-      # These child-specific specs require the imported backend and execute in
-      # the CircleCI live child matrix. Keep the GitHub job's static check here
-      # so a renamed or deleted spec cannot silently disappear from that gate.
-      - name: Check live child browser specs are discoverable
+      - name: Check child browser contract is discoverable
         working-directory: end-to-end-test-playwright
         env:
           PW_SUITE: wsi
@@ -150,16 +154,16 @@ jobs:
           done
           cat /tmp/wsi-child-server.log
           exit 1
-      - name: Execute the static foundation browser contract
+      - name: Execute the child browser contract
         working-directory: end-to-end-test-playwright
         env:
           CBIOPORTAL_URL: http://127.0.0.1:3000
           LOCALDEV: '0'
           PW_SUITE: wsi
-          WSI_CHILD_CONTRACT: '1'
+          WSI_MOCK_SKIP_LOGIN: '1'
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/report.json
         run: |
-          pnpm exec playwright test --config=playwright.wsi.config.ts tests/wsi-foundation-route.spec.ts --reporter=line,json
+          pnpm exec playwright test --config=playwright.wsi.config.ts ${{ matrix.browser }} --reporter=line,json
           node - <<'NODE'
           const fs = require('fs');
           const report = JSON.parse(fs.readFileSync('test-results/report.json', 'utf8'));
