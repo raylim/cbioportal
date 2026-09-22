@@ -10,7 +10,7 @@
   },
   "core": {
     "repository": "raylim/cbioportal-core",
-    "ref": "c178bb7daf8999194e82b09d387eca3ab39a4b65"
+    "ref": "217e7bbbdf89402b30b4f446f7b9e66bccefad19"
   },
   "tile": {
     "repository": "cBioPortal/cbioportal-tile-server",
