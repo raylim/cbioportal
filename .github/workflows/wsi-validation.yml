@@ -13,11 +13,11 @@ env:
   BACKEND_REPOSITORY: raylim/cbioportal
   BACKEND_FOUNDATION_REF: 93e9b8c9b4a127b0ae7de4fcecf98192faac068f
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
-  FRONTEND_FOUNDATION_REF: 11a2d20713342385038951caa4ed771c9918ad2e
-  FRONTEND_MOLECULAR_REF: 89bbbd40f139b2dee86ebb61dd52d2cf1b37c433
-  FRONTEND_PATIENT_REF: a2f8e27e9d7f779f99555865985aff394d9d7a40
-  FRONTEND_STUDY_REF: c4d9ecfd53c799aedfc3e819eeff339d64850dac
-  FRONTEND_INTEGRATION_REF: bd64a5d7ee77bdc834fbde2bcbbf20837bc2cb53
+  FRONTEND_FOUNDATION_REF: c4f0fae883e1d26da6b12f84fd35f8f1b319b2a9
+  FRONTEND_MOLECULAR_REF: 198546399d62ca815782ed70cfea1c8dd8a94781
+  FRONTEND_PATIENT_REF: 435a40bfb96de988d63ab7726dd61efbb22a28c5
+  FRONTEND_STUDY_REF: 3f9428e7d8650dd34d510ff7f976add8e08285d1
+  FRONTEND_INTEGRATION_REF: a9a8e978e8fbaac6d2ee8f80fb894241df7ffef2
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
   TEST_STACK_REPOSITORY: cBioPortal/cbioportal-test
@@ -95,19 +95,19 @@ jobs:
       matrix:
         include:
           - name: foundation
-            ref: 11a2d20713342385038951caa4ed771c9918ad2e
+            ref: c4f0fae883e1d26da6b12f84fd35f8f1b319b2a9
             jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
             browser: tests/wsi-foundation-mocked.spec.ts
           - name: molecular
-            ref: 89bbbd40f139b2dee86ebb61dd52d2cf1b37c433
+            ref: 198546399d62ca815782ed70cfea1c8dd8a94781
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-foundation-mocked.spec.ts
           - name: patient
-            ref: a2f8e27e9d7f779f99555865985aff394d9d7a40
+            ref: 435a40bfb96de988d63ab7726dd61efbb22a28c5
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
             browser: tests/wsi-pathology-mocked.spec.ts --grep-invert "reference[- ]sample"
           - name: study
-            ref: c4d9ecfd53c799aedfc3e819eeff339d64850dac
+            ref: 3f9428e7d8650dd34d510ff7f976add8e08285d1
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/wsi-foundation-mocked.spec.ts
     steps:
