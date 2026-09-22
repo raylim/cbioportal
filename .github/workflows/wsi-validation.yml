@@ -11,10 +11,10 @@ permissions:
 env:
   BRANCH_ENV: master
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
-  FRONTEND_FOUNDATION_REF: aa653e9cbbaf1bb70f772e141b9b8022919c3d25
-  FRONTEND_MOLECULAR_REF: 764e1aea1f364822149627cbeed2139e9aa04cae
+  FRONTEND_FOUNDATION_REF: 94d70382bdb0831b4c4b745b4673d74b5c0220b7
+  FRONTEND_MOLECULAR_REF: 1eae2d2de76a4c44224566ca8d0293e88d2d47bc
   FRONTEND_PATIENT_REF: 53cb0a3cb8821b89b047c5e202fecf272bacbab4
-  FRONTEND_STUDY_REF: fb7ab6b9add7c7cb0581233a40a004bfebb5db50
+  FRONTEND_STUDY_REF: e2d90b31b5a8672068d24732e6d569b3540a9e3f
   FRONTEND_INTEGRATION_REF: 2137359a277ee1f05650758bcb1bfc4963e80f26
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: c178bb7daf8999194e82b09d387eca3ab39a4b65
@@ -88,11 +88,11 @@ jobs:
       matrix:
         include:
           - name: foundation
-            ref: aa653e9cbbaf1bb70f772e141b9b8022919c3d25
+            ref: 94d70382bdb0831b4c4b745b4673d74b5c0220b7
             jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
             browser: tests/wsi-foundation-route.spec.ts
           - name: molecular
-            ref: 764e1aea1f364822149627cbeed2139e9aa04cae
+            ref: 1eae2d2de76a4c44224566ca8d0293e88d2d47bc
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-foundation-route.spec.ts
           - name: patient
@@ -100,7 +100,7 @@ jobs:
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
             browser: tests/wsi-foundation-route.spec.ts tests/pathology-summary.spec.ts tests/pathology-timing-contract.spec.ts
           - name: study
-            ref: fb7ab6b9add7c7cb0581233a40a004bfebb5db50
+            ref: e2d90b31b5a8672068d24732e6d569b3540a9e3f
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/wsi-foundation-route.spec.ts tests/pathology-study-clinical-data.spec.ts
     steps:
