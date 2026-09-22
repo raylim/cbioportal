@@ -1293,7 +1293,7 @@ jobs:
                   WSI_TIMING_RECORDED_SLIDE_ID=3020726 \
                   WSI_TIMING_RECORDED_DATE_DAYS=-17 \
                   WSI_TIMING_RECORDED_DATE_SOURCE=RECORDED_PROCEDURE_DATE \
-                  pnpm exec playwright test $browser_specs --grep-invert 'private MSK-IMPACT'
+                  pnpm exec playwright test --config=playwright.wsi.config.ts $browser_specs --grep-invert 'private MSK-IMPACT'
                   test -s test-results/report.json
                   python3 -c 'import json; from pathlib import Path; report=json.loads(Path("test-results/report.json").read_text()); stats=report.get("stats", {}); assert stats.get("expected", 0) > 0, stats; assert stats.get("skipped", 0) == 0, stats; assert stats.get("unexpected", 0) == 0, stats; print("required child browser cases executed:", stats)'
                 cleanup_child_server
@@ -1469,7 +1469,7 @@ jobs:
               cd /tmp/repos/cbioportal-frontend-wsi/end-to-end-test-playwright
               rm -rf test-results
               if [ "${WSI_RUN_BROWSER_E2E}" = "true" ]; then
-                pnpm exec playwright test \
+                pnpm exec playwright test --config=playwright.wsi.config.ts \
                   tests/wsi-foundation-route.spec.ts \
                   tests/wsi-viewer.spec.ts \
                   tests/wsi-pathology-mocked.spec.ts \
