@@ -21,8 +21,12 @@ env:
   # Keep every cross-repository input as a full immutable commit pin.
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: 217e7bbbdf89402b30b4f446f7b9e66bccefad19
+  TILE_REPOSITORY: cBioPortal/cbioportal-tile-server
+  TILE_REF: 082c3f77ec7eb091bc4a17b96d89cf6d1618d73c
   TEST_STACK_REPOSITORY: cBioPortal/cbioportal-test
   TEST_STACK_REF: a450018f8fdadf5fe568d66d41154e9f25281dfb
+  COMPOSE_REPOSITORY: cBioPortal/cbioportal-docker-compose
+  COMPOSE_REF: 85099cb96ae0acd28f34af4f593709a7b892306f
 
 jobs:
   fixture-contract:
@@ -37,8 +41,12 @@ jobs:
           BACKEND_FOUNDATION_REF: ${{ env.BACKEND_FOUNDATION_REF }}
           BACKEND_VALIDATION_REF: ${{ env.BACKEND_VALIDATION_REF }}
           CORE_REF: ${{ env.CORE_REF }}
+          TILE_REPOSITORY: ${{ env.TILE_REPOSITORY }}
+          TILE_REF: ${{ env.TILE_REF }}
           TEST_STACK_REF: ${{ env.TEST_STACK_REF }}
           TEST_STACK_REPOSITORY: ${{ env.TEST_STACK_REPOSITORY }}
+          COMPOSE_REF: ${{ env.COMPOSE_REF }}
+          COMPOSE_REPOSITORY: ${{ env.COMPOSE_REPOSITORY }}
           FRONTEND_FOUNDATION_REF: ${{ env.FRONTEND_FOUNDATION_REF }}
           FRONTEND_MOLECULAR_REF: ${{ env.FRONTEND_MOLECULAR_REF }}
           FRONTEND_PATIENT_REF: ${{ env.FRONTEND_PATIENT_REF }}
@@ -64,6 +72,8 @@ jobs:
           assert os.environ['CORE_REF'] == manifest['core']['ref']
           assert os.environ['TEST_STACK_REF'] == manifest['testStack']['ref']
           assert os.environ['TEST_STACK_REPOSITORY'] == manifest['testStack']['repository']
+          assert os.environ['COMPOSE_REF'] == manifest['compose']['ref']
+          assert os.environ['COMPOSE_REPOSITORY'] == manifest['compose']['repository']
           assert os.environ['FRONTEND_FOUNDATION_REF'] == manifest['frontend']['foundation']
           assert os.environ['FRONTEND_MOLECULAR_REF'] == manifest['frontend']['molecular']
           assert os.environ['FRONTEND_PATIENT_REF'] == manifest['frontend']['patient']
@@ -82,9 +92,10 @@ jobs:
               )
               assert match, f'missing immutable matrix ref for {name}'
               assert match.group(1) == manifest['frontend'][name]
-          assert manifest['tile']['repository'] == 'cBioPortal/cbioportal-tile-server'
-          assert len(manifest['tile']['ref']) == 40
-          print('fixture metadata and source pins are present; live authorization is covered by the CircleCI API job')
+          assert os.environ['TILE_REPOSITORY'] == manifest['tile']['repository']
+          assert len(os.environ['TILE_REF']) == 40
+          assert os.environ['TILE_REF'] == manifest['tile']['ref']
+          print('fixture metadata and source pins are present; live authorization is covered by the full-stack validation job')
           PY
 
   core-import-validation:
@@ -268,3 +279,69 @@ jobs:
           }
           console.log(`combined WSI browser contract passed: ${report.stats.expected} tests`);
           NODE
+
+  full-stack-wsi-validation:
+    name: Full-stack WSI validation (import/access/lifecycle/browser)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    needs:
+      - fixture-contract
+      - core-import-validation
+      - combined-frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          path: cbioportal-validation
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TEST_STACK_REPOSITORY }}
+          ref: ${{ env.TEST_STACK_REF }}
+          path: cbioportal-test
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.FRONTEND_REPOSITORY }}
+          ref: ${{ env.FRONTEND_INTEGRATION_REF }}
+          path: cbioportal-frontend
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          ref: ${{ env.CORE_REF }}
+          path: cbioportal-core
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TILE_REPOSITORY }}
+          ref: ${{ env.TILE_REF }}
+          path: cbioportal-tile-server
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - name: Enable pinned JavaScript package managers
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+          corepack prepare yarn@1.22.22 --activate
+      - name: Run import, authorization, lifecycle, tile, and browser contracts
+        working-directory: cbioportal-validation
+        env:
+          TEST_STACK_DIR: ${{ github.workspace }}/cbioportal-test
+          FRONTEND_DIR: ${{ github.workspace }}/cbioportal-frontend
+          TILE_DIR: ${{ github.workspace }}/cbioportal-tile-server
+          CORE_REPOSITORY: ${{ env.CORE_REPOSITORY }}
+          CORE_REF: ${{ env.CORE_REF }}
+          COMPOSE_REPOSITORY: ${{ env.COMPOSE_REPOSITORY }}
+          COMPOSE_REF: ${{ env.COMPOSE_REF }}
+          WSI_PORTAL_IMAGE: cbioportal-wsi-validation:${{ github.sha }}
+          COMPOSE_PROJECT_NAME: wsi-validation-${{ github.run_id }}
+        run: ./scripts/run_wsi_full_stack_validation.sh
+      - name: Upload full-stack diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wsi-full-stack-diagnostics
+          path: |
+            ${{ runner.temp }}/wsi-*.log
+            ${{ runner.temp }}/wsi-*.txt
+          if-no-files-found: ignore

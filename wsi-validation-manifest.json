@@ -8,6 +8,10 @@
     "repository": "cBioPortal/cbioportal-test",
     "ref": "a450018f8fdadf5fe568d66d41154e9f25281dfb"
   },
+  "compose": {
+    "repository": "cBioPortal/cbioportal-docker-compose",
+    "ref": "85099cb96ae0acd28f34af4f593709a7b892306f"
+  },
   "core": {
     "repository": "raylim/cbioportal-core",
     "ref": "217e7bbbdf89402b30b4f446f7b9e66bccefad19"
