@@ -29,6 +29,7 @@ FRONTEND_LOG="${RUNNER_TEMP:-/tmp}/wsi-frontend.log"
 COMPOSE_LOG="${RUNNER_TEMP:-/tmp}/wsi-compose.log"
 TILE_LOG="${RUNNER_TEMP:-/tmp}/wsi-tile.log"
 ACTIVE_COMPOSE_FILES=()
+STACK_STARTED=false
 
 log() {
   printf '[wsi-full-stack] %s\n' "$*"
@@ -75,6 +76,16 @@ stop_compose() {
 
 cleanup() {
   set +e
+  if [[ "$STACK_STARTED" == true ]]; then
+    {
+      echo '--- compose ps ---'
+      compose ps
+      echo '--- cbioportal logs ---'
+      compose logs --no-color cbioportal
+      echo '--- migration logs ---'
+      compose logs --no-color cbioportal-migration
+    } >>"$COMPOSE_LOG" 2>&1
+  fi
   stop_compose
 }
 trap cleanup EXIT
@@ -182,6 +193,7 @@ start_compose() {
   log "starting ${mode} portal stack"
   ACTIVE_COMPOSE_FILES=("${compose_files[@]}")
   compose "${compose_files[@]}" up -d >"$COMPOSE_LOG" 2>&1
+  STACK_STARTED=true
   wait_http http://127.0.0.1:8080/api/health 180
 }
 
