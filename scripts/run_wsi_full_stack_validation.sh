@@ -366,6 +366,8 @@ run_browser_tests() {
     WSI_VIEWER_BASE_URL="https://localhost:${FRONTEND_PORT}" \
     WSI_AUTH_PORTAL_URL=http://localhost:8080 \
     WSI_AUTHENTICATED_E2E="$authenticated_e2e" \
+    WSI_BASIC_LOGIN_USERNAME=wsi-ci-user \
+    WSI_BASIC_LOGIN_PASSWORD=wsi-ci-password \
     WSI_PROXY_REHEARSAL=1 \
     WSI_TIMING_STUDY_ID=msk_spectrum_tme_2022 \
     WSI_TIMING_UNDATED_PATIENT_ID=P-0055908 \
