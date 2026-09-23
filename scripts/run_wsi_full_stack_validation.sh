@@ -232,7 +232,7 @@ import_fixture_and_check_lifecycle() {
     export CLICKHOUSE_HOST="${CLICKHOUSE_HOST:-cbioportal-database}"
     export CLICKHOUSE_NATIVE_PORT="${CLICKHOUSE_NATIVE_PORT:-9000}"
     export CLICKHOUSE_DB="${CLICKHOUSE_DB:-cbioportal}"
-    export JAVA_OPTS="-Dspring.datasource.url=$CLICKHOUSE_URL -Dspring.datasource.username=$CLICKHOUSE_USER -Dspring.datasource.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver"
+    export JAVA_OPTS="-Dspring.datasource.url=$CLICKHOUSE_URL -Dspring.datasource.username=$CLICKHOUSE_USER -Dspring.datasource.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver -Dspring.datasource.clickhouse.url=$CLICKHOUSE_URL -Dspring.datasource.clickhouse.username=$CLICKHOUSE_USER -Dspring.datasource.clickhouse.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.clickhouse.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver"
     python3 /core/scripts/importer/metaImport.py -s /tmp/wsi-loader-fixture -n -o --derived-table-sql /tmp/wsi-clickhouse.sql
   '
   docker exec cbioportal-container sh -lc '
@@ -240,7 +240,7 @@ import_fixture_and_check_lifecycle() {
     export CLICKHOUSE_HOST="${CLICKHOUSE_HOST:-cbioportal-database}"
     export CLICKHOUSE_NATIVE_PORT="${CLICKHOUSE_NATIVE_PORT:-9000}"
     export CLICKHOUSE_DB="${CLICKHOUSE_DB:-cbioportal}"
-    export JAVA_OPTS="-Dspring.datasource.url=$CLICKHOUSE_URL -Dspring.datasource.username=$CLICKHOUSE_USER -Dspring.datasource.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver"
+    export JAVA_OPTS="-Dspring.datasource.url=$CLICKHOUSE_URL -Dspring.datasource.username=$CLICKHOUSE_USER -Dspring.datasource.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver -Dspring.datasource.clickhouse.url=$CLICKHOUSE_URL -Dspring.datasource.clickhouse.username=$CLICKHOUSE_USER -Dspring.datasource.clickhouse.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.clickhouse.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver"
     python3 /core/scripts/importer/metaImport.py -s /tmp/wsi-loader-control-fixture -n -o --derived-table-sql /tmp/wsi-clickhouse.sql
   '
   local slide_count
@@ -255,7 +255,7 @@ import_fixture_and_check_lifecycle() {
     export CLICKHOUSE_HOST="${CLICKHOUSE_HOST:-cbioportal-database}"
     export CLICKHOUSE_NATIVE_PORT="${CLICKHOUSE_NATIVE_PORT:-9000}"
     export CLICKHOUSE_DB="${CLICKHOUSE_DB:-cbioportal}"
-    export JAVA_OPTS="-Dspring.datasource.url=$CLICKHOUSE_URL -Dspring.datasource.username=$CLICKHOUSE_USER -Dspring.datasource.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver"
+    export JAVA_OPTS="-Dspring.datasource.url=$CLICKHOUSE_URL -Dspring.datasource.username=$CLICKHOUSE_USER -Dspring.datasource.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver -Dspring.datasource.clickhouse.url=$CLICKHOUSE_URL -Dspring.datasource.clickhouse.username=$CLICKHOUSE_USER -Dspring.datasource.clickhouse.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.clickhouse.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver"
     cbioportalImporter.py -c remove-study -id msk_spectrum_tme_2022
   '
   local remaining
@@ -268,7 +268,7 @@ import_fixture_and_check_lifecycle() {
     export CLICKHOUSE_HOST="${CLICKHOUSE_HOST:-cbioportal-database}"
     export CLICKHOUSE_NATIVE_PORT="${CLICKHOUSE_NATIVE_PORT:-9000}"
     export CLICKHOUSE_DB="${CLICKHOUSE_DB:-cbioportal}"
-    export JAVA_OPTS="-Dspring.datasource.url=$CLICKHOUSE_URL -Dspring.datasource.username=$CLICKHOUSE_USER -Dspring.datasource.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver"
+    export JAVA_OPTS="-Dspring.datasource.url=$CLICKHOUSE_URL -Dspring.datasource.username=$CLICKHOUSE_USER -Dspring.datasource.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver -Dspring.datasource.clickhouse.url=$CLICKHOUSE_URL -Dspring.datasource.clickhouse.username=$CLICKHOUSE_USER -Dspring.datasource.clickhouse.password=$CLICKHOUSE_PASSWORD -Dspring.datasource.clickhouse.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver"
     python3 /core/scripts/importer/metaImport.py -s /tmp/wsi-loader-fixture -n -o --derived-table-sql /tmp/wsi-clickhouse.sql
   '
   local reimported
