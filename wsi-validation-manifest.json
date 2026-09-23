@@ -1,7 +1,7 @@
 {
   "backend": {
     "repository": "raylim/cbioportal",
-    "validation": "4dd62b4a9325718beff5ce455a2d502bde948240",
+    "validation": "5641c0420e9986f4b823f3adbe99da595c95c78b",
     "foundation": "93e9b8c9b4a127b0ae7de4fcecf98192faac068f"
   },
   "testStack": {
@@ -26,6 +26,6 @@
     "molecular": "da67a208617b0f1734a1b458636caad86a19ccf6",
     "patient": "b25c135ce37c3b7627acd41fdff4035b940e0986",
     "study": "7e29888e90cf7980ab4f6e1a232f5cb1073a3b3f",
-    "integration": "de691430f685a0954ea48275a0c5e2b39d43d528"
+    "integration": "2b16d40be8b002b76c80572c2f84df411e91bccd"
   }
 }
