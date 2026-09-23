@@ -142,7 +142,7 @@ CLICKHOUSE_OPTIMIZE_BACKOFF_SECS=0
 CLICKHOUSE_SETTINGS_PATH=./data/clickhouse_user_settings.xml
 CBIOPORTAL_SERVER_PORT=8080
 SHOW_DEBUG_INFO=true
-APPLICATION_PROPERTIES_PATH=./config/application.properties
+APPLICATION_PROPERTIES_PATH=./application.properties
 SESSION_SERVICE_SERVER_PORT=5001
 SESSION_SERVICE_JAVA_OPTS=-Dspring.data.mongodb.uri=mongodb://cbioportal-session-database:27017/session-service
 MONGO_INITDB_DATABASE=session_service
