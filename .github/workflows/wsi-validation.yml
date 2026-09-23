@@ -15,9 +15,9 @@ env:
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
   FRONTEND_FOUNDATION_REF: 5122f777c490ebf428c3469029bc2162d1c72d10
   FRONTEND_MOLECULAR_REF: 0ad344ca645539c86d9d8bfb59fa3292a9c91e84
-  FRONTEND_PATIENT_REF: 275ace446e1a0c8fa6a2a53d6fc19aefdf79dfe4
+  FRONTEND_PATIENT_REF: 6ca93b8ec3d4cc001f3d9036b25f3a146ef17fe6
   FRONTEND_STUDY_REF: 61a8a76b53481445d76b523e20803286fc29205f
-  FRONTEND_INTEGRATION_REF: c0e84d6fc9d205ba7a0f73464e34e8d3f8fc8e15
+  FRONTEND_INTEGRATION_REF: 78b297d9625e144a650044d5d3ad95e1f4e04ee4
   # Keep every cross-repository input as a full immutable commit pin.
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: 3bb22e59722a06cc7d42c204487a1aff1bad2ac3
@@ -151,7 +151,7 @@ jobs:
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-molecular-mocked.spec.ts
           - name: patient
-            ref: 275ace446e1a0c8fa6a2a53d6fc19aefdf79dfe4
+            ref: 6ca93b8ec3d4cc001f3d9036b25f3a146ef17fe6
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
             browser: tests/wsi-pathology-mocked.spec.ts
           - name: study
