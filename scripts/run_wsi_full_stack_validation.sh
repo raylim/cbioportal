@@ -60,6 +60,11 @@ compose() {
 
 stop_frontend() {
   if [[ -n "${FRONTEND_PID:-}" ]]; then
+    # rspack is started through pnpm, which leaves descendants behind when
+    # only the shell wrapper is terminated.  Start the server in its own
+    # session and terminate the entire process group so the next auth mode
+    # cannot reuse the previous mode's frontend.
+    kill -- "-${FRONTEND_PID}" 2>/dev/null || true
     kill "$FRONTEND_PID" 2>/dev/null || true
     wait "$FRONTEND_PID" 2>/dev/null || true
     unset FRONTEND_PID
@@ -287,6 +292,15 @@ import_fixture_and_check_lifecycle() {
     clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" --database "$CLICKHOUSE_DB" --query "SELECT count() FROM wsi_slide AS slide INNER JOIN cancer_study AS study ON study.cancer_study_id = slide.cancer_study_id WHERE study.cancer_study_identifier = '\''msk_spectrum_tme_2022'\''"
   ')"
   test "$reimported" = 4
+
+  # The portal's default authorization cache is populated at application
+  # startup.  The importer runs after compose startup, so restart the portal
+  # once the fixture studies exist before exercising authenticated WSI access.
+  # This keeps the validation faithful to the production cache contract while
+  # making the dynamically imported restricted-study assertion deterministic.
+  log "restarting portal to rebuild authorization cache after import"
+  compose restart cbioportal >"$COMPOSE_LOG" 2>&1
+  wait_http http://127.0.0.1:8080/api/health 180
 }
 
 start_frontend() {
@@ -298,7 +312,7 @@ start_frontend() {
     CBIOPORTAL_URL="https://localhost:${FRONTEND_PORT}" \
     CBIOPORTAL_PROXY_TARGET=http://localhost:8080 \
     WSI_TILE_PROXY_TARGET="http://localhost:${tile_port}" \
-    pnpm exec rspack serve -c rspack.config.js >"$FRONTEND_LOG" 2>&1) &
+    exec setsid pnpm exec rspack serve -c rspack.config.js >"$FRONTEND_LOG" 2>&1) &
   FRONTEND_PID=$!
   wait_http "https://127.0.0.1:${FRONTEND_PORT}/" 120 true
 }
