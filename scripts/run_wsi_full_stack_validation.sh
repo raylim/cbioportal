@@ -28,8 +28,14 @@ COMPOSE_AUTH_OVERRIDE="${ROOT_DIR}/src/e2e/js/test/WsiHierarchyController/wsi_ci
 FRONTEND_LOG="${RUNNER_TEMP:-/tmp}/wsi-frontend.log"
 COMPOSE_LOG="${RUNNER_TEMP:-/tmp}/wsi-compose.log"
 TILE_LOG="${RUNNER_TEMP:-/tmp}/wsi-tile.log"
+FULL_STACK_LOG="${RUNNER_TEMP:-/tmp}/wsi-full-stack.log"
 ACTIVE_COMPOSE_FILES=()
 STACK_STARTED=false
+
+# Keep the command-level trace alongside the service logs.  The compose log
+# contains container output, but importer/API/browser failures happen in this
+# shell and otherwise leave only an exit code in the Actions UI.
+exec > >(tee -a "$FULL_STACK_LOG") 2>&1
 
 log() {
   printf '[wsi-full-stack] %s\n' "$*"
