@@ -52,3 +52,4 @@ services:
       - ${CBIOPORTAL_SOURCE_DIR}/src/main/resources/db-scripts/clickhouse/init/schema.sql:/data/schema.sql:ro
       - ${CBIOPORTAL_SOURCE_DIR}/src/main/resources/db-scripts/clickhouse/init/seed-cbioportal_hg19_hg38_v2.14.5.sql.gz:/data/seed.sql.gz:ro
       - ${CBIOPORTAL_SOURCE_DIR}/src/main/resources/db-scripts/clickhouse/populate_derived_tables.sql:/data/clickhouse.sql:ro
+      - ${CBIOPORTAL_SOURCE_DIR}/src/e2e/js/test/WsiHierarchyController/wsi_ci_clickhouse_users.xml:/etc/clickhouse-server/users.d/wsi-ci.xml:ro

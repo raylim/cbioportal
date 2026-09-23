@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<clickhouse>
+  <profiles>
+    <default>
+      <!-- WSI lifecycle validation deletes imported rows. ClickHouse 24.7+
+           otherwise rejects lightweight deletes on tables with projections. -->
+      <lightweight_mutation_projection_mode>drop</lightweight_mutation_projection_mode>
+    </default>
+  </profiles>
+</clickhouse>
