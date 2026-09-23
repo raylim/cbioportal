@@ -172,7 +172,12 @@ WSI_ALLOWED_SOURCE_PREFIXES=file:///app/testdata/
 WSI_ALLOWED_THUMBNAIL_PREFIXES=file:///app/testdata/
 EOF
   mkdir -p "$COMPOSE_DIR/study"
-  (cd "$COMPOSE_DIR" && ./config/init.sh && ./data/init.sh)
+  # The pinned compose helper resolves its environment file relative to the
+  # directory containing each script. Invoke both helpers from their own
+  # directories so the generated application properties and fixture SQL are
+  # complete before any service starts.
+  (cd "$COMPOSE_DIR/config" && ./init.sh)
+  (cd "$COMPOSE_DIR/data" && ./init.sh)
 }
 
 start_compose() {
@@ -205,8 +210,8 @@ start_compose() {
 
   log "starting ${mode} portal stack"
   ACTIVE_COMPOSE_FILES=("${compose_files[@]}")
-  compose "${compose_files[@]}" up -d >"$COMPOSE_LOG" 2>&1
   STACK_STARTED=true
+  compose "${compose_files[@]}" up -d >"$COMPOSE_LOG" 2>&1
   wait_http http://127.0.0.1:8080/api/health 180
   log "checking ClickHouse projection-delete setting"
   docker inspect cbioportal-database-container \
