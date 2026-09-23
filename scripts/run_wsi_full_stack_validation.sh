@@ -146,6 +146,7 @@ prepare_compose() {
   cat >"$COMPOSE_DIR/.env" <<EOF
 DOCKER_IMAGE_CBIOPORTAL=${IMAGE}
 DOCKER_IMAGE_SESSION_SERVICE=cbioportal/session-service:0.6.4
+DOCKER_IMAGE_MYSQL=mysql:8.1.0
 DOCKER_IMAGE_CLICKHOUSE=clickhouse/clickhouse-server:24.10
 CLICKHOUSE_DB=cbioportal
 CLICKHOUSE_USER=cbio_user
