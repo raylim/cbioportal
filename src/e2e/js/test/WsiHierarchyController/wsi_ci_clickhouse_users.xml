@@ -13,6 +13,8 @@
   </profiles>
   <users>
     <cbio_user>
+      <!-- Make the JDBC importer use the projection-safe profile explicitly. -->
+      <profile>client_user_profile</profile>
       <settings>
         <lightweight_mutation_projection_mode>drop</lightweight_mutation_projection_mode>
       </settings>
