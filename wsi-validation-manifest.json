@@ -24,8 +24,8 @@
     "repository": "raylim/cbioportal-frontend",
     "foundation": "3c847c05000e020c4de60eb6e3a2b6eca358b3c6",
     "molecular": "d7c5aecd4e2a6e9961b367695f4b7abe8de571d5",
-    "patient": "f53341a43844f75087c8848202f7b38f7e83dc93",
+    "patient": "7009e4fd654e31dfa30cea39127ce34d94a75067",
     "study": "1d2359499900148abc0253670eeb60139d3f1046",
-    "integration": "76394757ca65f491667353183813cdf201f38397"
+    "integration": "b6cc4cd1866da0fb3f7183009bcec9fb57819545"
   }
 }
