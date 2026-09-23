@@ -154,7 +154,9 @@ CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
 CLICKHOUSE_HOST=cbioportal-database
 CLICKHOUSE_HTTP_PORT=8123
 CLICKHOUSE_NATIVE_PORT=9000
-CLICKHOUSE_URL=jdbc:ch://cbioportal-database:8123/cbioportal
+# The ClickHouse JDBC driver does not inherit the server profile for this
+# setting. Pass it explicitly so lifecycle DELETE uses projection-safe mode.
+CLICKHOUSE_URL=jdbc:ch://cbioportal-database:8123/cbioportal?custom_settings=lightweight_mutation_projection_mode%3Ddrop
 CLICKHOUSE_OPTIMIZE_BACKOFF_SECS=0
 CLICKHOUSE_SETTINGS_PATH=./data/clickhouse_user_settings.xml
 CBIOPORTAL_SERVER_PORT=8080
