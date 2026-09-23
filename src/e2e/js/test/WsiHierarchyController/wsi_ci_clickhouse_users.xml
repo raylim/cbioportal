@@ -11,4 +11,11 @@
       <lightweight_mutation_projection_mode>drop</lightweight_mutation_projection_mode>
     </default>
   </profiles>
+  <users>
+    <cbio_user>
+      <settings>
+        <lightweight_mutation_projection_mode>drop</lightweight_mutation_projection_mode>
+      </settings>
+    </cbio_user>
+  </users>
 </clickhouse>

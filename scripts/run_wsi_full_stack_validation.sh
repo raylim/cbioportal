@@ -201,6 +201,18 @@ start_compose() {
   compose "${compose_files[@]}" up -d >"$COMPOSE_LOG" 2>&1
   STACK_STARTED=true
   wait_http http://127.0.0.1:8080/api/health 180
+  log "checking ClickHouse projection-delete setting"
+  docker inspect cbioportal-database-container \
+    --format '{{range .Mounts}}{{println .Source " -> " .Destination}}{{end}}' \
+    | tee -a "$COMPOSE_LOG"
+  docker exec cbioportal-database-container \
+    sh -lc 'cat /etc/clickhouse-server/users.d/wsi-ci.xml' \
+    | tee -a "$COMPOSE_LOG"
+  docker exec cbioportal-database-container sh -lc '
+    clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" \
+      --database "$CLICKHOUSE_DB" \
+      --query "SELECT name, value, changed FROM system.settings WHERE name = '\''lightweight_mutation_projection_mode'\''"
+  ' | tee -a "$COMPOSE_LOG"
 }
 
 import_fixture_and_check_lifecycle() {
