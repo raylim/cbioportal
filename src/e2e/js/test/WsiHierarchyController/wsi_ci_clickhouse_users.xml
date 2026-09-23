@@ -1,6 +1,10 @@
 <?xml version="1.0"?>
 <clickhouse>
   <profiles>
+    <client_user_profile>
+      <!-- The pinned compose stack assigns cbio_user to this profile. -->
+      <lightweight_mutation_projection_mode>drop</lightweight_mutation_projection_mode>
+    </client_user_profile>
     <default>
       <!-- WSI lifecycle validation deletes imported rows. ClickHouse 24.7+
            otherwise rejects lightweight deletes on tables with projections. -->
