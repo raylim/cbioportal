@@ -13,11 +13,11 @@ env:
   BACKEND_VALIDATION_REF: 5641c0420e9986f4b823f3adbe99da595c95c78b
   BACKEND_FOUNDATION_REF: 93e9b8c9b4a127b0ae7de4fcecf98192faac068f
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
-  FRONTEND_FOUNDATION_REF: f7fdb5490990280fe508b0ac201ff7bb9d817853
-  FRONTEND_MOLECULAR_REF: ae627bae2b0735ecd2c573d96935c7229e182606
-  FRONTEND_PATIENT_REF: 3febb95e20d55436913796c8d5506dc5fd5023f1
-  FRONTEND_STUDY_REF: 50acf3a6fed497a7c398c0eecc78dcd15982932f
-  FRONTEND_INTEGRATION_REF: 7a07bbedce1a26fca9273246eed3c891d16aef70
+  FRONTEND_FOUNDATION_REF: 5122f777c490ebf428c3469029bc2162d1c72d10
+  FRONTEND_MOLECULAR_REF: 0ad344ca645539c86d9d8bfb59fa3292a9c91e84
+  FRONTEND_PATIENT_REF: 275ace446e1a0c8fa6a2a53d6fc19aefdf79dfe4
+  FRONTEND_STUDY_REF: 61a8a76b53481445d76b523e20803286fc29205f
+  FRONTEND_INTEGRATION_REF: c0e84d6fc9d205ba7a0f73464e34e8d3f8fc8e15
   # Keep every cross-repository input as a full immutable commit pin.
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: 3bb22e59722a06cc7d42c204487a1aff1bad2ac3
@@ -143,19 +143,19 @@ jobs:
       matrix:
         include:
           - name: foundation
-            ref: f7fdb5490990280fe508b0ac201ff7bb9d817853
+            ref: 5122f777c490ebf428c3469029bc2162d1c72d10
             jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
             browser: tests/wsi-foundation-mocked.spec.ts
           - name: molecular
-            ref: ae627bae2b0735ecd2c573d96935c7229e182606
+            ref: 0ad344ca645539c86d9d8bfb59fa3292a9c91e84
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-molecular-mocked.spec.ts
           - name: patient
-            ref: 3febb95e20d55436913796c8d5506dc5fd5023f1
+            ref: 275ace446e1a0c8fa6a2a53d6fc19aefdf79dfe4
             jest: src/shared/components/wsiViewer/wsiNavPanel.spec.tsx src/pages/patientView/PatientViewPageTabs.spec.tsx src/pages/patientView/PatientViewUrlWrapper.spec.ts
             browser: tests/wsi-pathology-mocked.spec.ts
           - name: study
-            ref: 50acf3a6fed497a7c398c0eecc78dcd15982932f
+            ref: 61a8a76b53481445d76b523e20803286fc29205f
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/wsi-study-mocked.spec.ts
     steps:
