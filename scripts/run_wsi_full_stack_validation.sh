@@ -217,7 +217,17 @@ start_compose() {
   log "starting ${mode} portal stack"
   ACTIVE_COMPOSE_FILES=("${compose_files[@]}")
   STACK_STARTED=true
-  compose "${compose_files[@]}" up -d >"$COMPOSE_LOG" 2>&1
+  local compose_attempt
+  for compose_attempt in 1 2 3; do
+    if compose "${compose_files[@]}" up -d >>"$COMPOSE_LOG" 2>&1; then
+      break
+    fi
+    if [[ "$compose_attempt" == 3 ]]; then
+      return 1
+    fi
+    log "compose startup attempt ${compose_attempt} failed; waiting for ClickHouse and retrying"
+    sleep 10
+  done
   wait_http http://127.0.0.1:8080/api/health 180
   log "checking ClickHouse projection-delete setting"
   docker inspect cbioportal-database-container \
