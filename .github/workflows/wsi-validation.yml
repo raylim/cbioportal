@@ -20,7 +20,7 @@ env:
   FRONTEND_INTEGRATION_REF: 85f81abf42688a0873ebb92bde0a805a80b9f833
   # Keep every cross-repository input as a full immutable commit pin.
   CORE_REPOSITORY: raylim/cbioportal-core
-  CORE_REF: 9a5413813c498f31283a4a5ad6bfa27f1ca166b3
+  CORE_REF: 039f6bbc69990c020138f3737a44a01219e52793
   TILE_REPOSITORY: cBioPortal/cbioportal-tile-server
   TILE_REF: 082c3f77ec7eb091bc4a17b96d89cf6d1618d73c
   TEST_STACK_REPOSITORY: cBioPortal/cbioportal-test
