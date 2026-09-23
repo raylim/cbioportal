@@ -184,7 +184,12 @@ start_compose() {
 
   export WSI_AUTHENTICATE="$portal_authenticate"
   export WSI_LOCAL_AUTH_BYPASS="$local_bypass"
-  export WSI_TILE_SERVER_URL="http://localhost:${tile_port}"
+  # The browser must receive the deployed same-origin tile URL.  The
+  # validation frontend proxies that path to the pinned tile service below;
+  # API tests continue to use WSI_TILE_SERVER_PORT directly.  Keeping these
+  # URLs separate catches an accidental cross-origin tile configuration while
+  # preserving the backend/tile service contract.
+  export WSI_TILE_SERVER_URL="https://localhost:${FRONTEND_PORT}/wsi"
   export WSI_BASIC_USERNAME=wsi-ci-user
   export WSI_BASIC_PASSWORD='$2b$10$7MoXjWmDD/mrvq7hF9D0RuFewhTzl8KYATtySCSZX7tMV.614kO3.'
   export WSI_BASIC_AUTHORITIES=PUBLIC_STUDIES
