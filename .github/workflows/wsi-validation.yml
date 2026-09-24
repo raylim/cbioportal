@@ -12,11 +12,11 @@ env:
   BACKEND_REPOSITORY: raylim/cbioportal
   BACKEND_FOUNDATION_REF: 94107c3c3bb95a27d2a99c1d20e0620a5bfe4c0d
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
-  FRONTEND_FOUNDATION_REF: 2b326086b049beea79d730c9866de23c10119598
-  FRONTEND_MOLECULAR_REF: 3979a06cafca6cb35fcd1df340d3af91daabe059
-  FRONTEND_PATIENT_REF: cd28e385e3c260921dbf266c327203235cd3bdff
-  FRONTEND_STUDY_REF: bcbda67f9903d77232ebef2c76465125d1077c00
-  FRONTEND_INTEGRATION_REF: ad20c2ae1aa4bae2be0580197f6ee39bd3df5aab
+  FRONTEND_FOUNDATION_REF: 6b1eae09f802f5e5987e7c111d042b7643d231fc
+  FRONTEND_MOLECULAR_REF: 5be0025ef57c0f7a039a0c11e0131a7f1985ac75
+  FRONTEND_PATIENT_REF: 0332e3f63f90214c8ec9752217b3ae9d9f049396
+  FRONTEND_STUDY_REF: 143f24e937ca95b70e176237aea27d119101fe50
+  FRONTEND_INTEGRATION_REF: 1a6a9ecac31519494c2d75186e671f0333cab531
   # Keep every cross-repository input as a full immutable commit pin.
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: ef7a5584016271dc5ad12d0f0b2dc664ae01ae24
@@ -150,15 +150,15 @@ jobs:
       matrix:
         include:
           - name: foundation
-            ref: 2b326086b049beea79d730c9866de23c10119598
+            ref: 6b1eae09f802f5e5987e7c111d042b7643d231fc
             jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
             browser: tests/wsi-foundation-mocked.spec.ts
           - name: molecular
-            ref: 3979a06cafca6cb35fcd1df340d3af91daabe059
+            ref: 5be0025ef57c0f7a039a0c11e0131a7f1985ac75
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-molecular-mocked.spec.ts
           - name: patient
-            ref: cd28e385e3c260921dbf266c327203235cd3bdff
+            ref: 0332e3f63f90214c8ec9752217b3ae9d9f049396
             jest: >-
               src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
               src/pages/patientView/PatientViewPageTabs.spec.tsx
@@ -171,7 +171,7 @@ jobs:
               src/pages/patientView/timeline/clinicalEventSignatureUtils.spec.ts
             browser: tests/wsi-pathology-mocked.spec.ts
           - name: study
-            ref: bcbda67f9903d77232ebef2c76465125d1077c00
+            ref: 143f24e937ca95b70e176237aea27d119101fe50
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/pathology-study-clinical-data.spec.ts
     steps:
@@ -325,15 +325,15 @@ jobs:
       matrix:
         include:
           - variant: foundation
-            ref: 2b326086b049beea79d730c9866de23c10119598
+            ref: 6b1eae09f802f5e5987e7c111d042b7643d231fc
           - variant: molecular
-            ref: 3979a06cafca6cb35fcd1df340d3af91daabe059
+            ref: 5be0025ef57c0f7a039a0c11e0131a7f1985ac75
           - variant: patient
-            ref: cd28e385e3c260921dbf266c327203235cd3bdff
+            ref: 0332e3f63f90214c8ec9752217b3ae9d9f049396
           - variant: study
-            ref: bcbda67f9903d77232ebef2c76465125d1077c00
+            ref: 143f24e937ca95b70e176237aea27d119101fe50
           - variant: combined
-            ref: ad20c2ae1aa4bae2be0580197f6ee39bd3df5aab
+            ref: 1a6a9ecac31519494c2d75186e671f0333cab531
     needs:
       - fixture-contract
       - core-import-validation
