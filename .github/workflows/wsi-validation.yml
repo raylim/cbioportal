@@ -12,11 +12,11 @@ env:
   BACKEND_REPOSITORY: raylim/cbioportal
   BACKEND_FOUNDATION_REF: 95e4111e104660752fee5e32dfd39960474fb17c
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
-  FRONTEND_FOUNDATION_REF: 365a4c4273188fd034e3b133c537eae800b4c298
+  FRONTEND_FOUNDATION_REF: 48c61d46b67c917586ca2689525d38596af36057
   FRONTEND_MOLECULAR_REF: cf7d81ffc266723d42887c8ab470bbfebd099914
-  FRONTEND_PATIENT_REF: 9adb535e1ea207dade9cbda5b186fc60b21d3773
+  FRONTEND_PATIENT_REF: fa8056b74dadcf8ed9eb827c30cccd3ef9a9f7ed
   FRONTEND_STUDY_REF: 7655351866bf5573e3b2a0adf9a8b51ec912f63b
-  FRONTEND_INTEGRATION_REF: 994be3fe9f53d38ef65214ebb96c52b7f3d428dd
+  FRONTEND_INTEGRATION_REF: dc17ee641141c8f4c5bc1e1d2417a6b538379e3d
   # Keep every cross-repository input as a full immutable commit pin.
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: ef7a5584016271dc5ad12d0f0b2dc664ae01ae24
@@ -150,7 +150,7 @@ jobs:
       matrix:
         include:
           - name: foundation
-            ref: 365a4c4273188fd034e3b133c537eae800b4c298
+            ref: 48c61d46b67c917586ca2689525d38596af36057
             jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
             browser: tests/wsi-foundation-mocked.spec.ts
           - name: molecular
@@ -158,7 +158,7 @@ jobs:
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-molecular-mocked.spec.ts
           - name: patient
-            ref: 9adb535e1ea207dade9cbda5b186fc60b21d3773
+            ref: fa8056b74dadcf8ed9eb827c30cccd3ef9a9f7ed
             jest: >-
               src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
               src/pages/patientView/PatientViewPageTabs.spec.tsx
@@ -325,15 +325,15 @@ jobs:
       matrix:
         include:
           - variant: foundation
-            ref: 365a4c4273188fd034e3b133c537eae800b4c298
+            ref: 48c61d46b67c917586ca2689525d38596af36057
           - variant: molecular
             ref: cf7d81ffc266723d42887c8ab470bbfebd099914
           - variant: patient
-            ref: 9adb535e1ea207dade9cbda5b186fc60b21d3773
+            ref: fa8056b74dadcf8ed9eb827c30cccd3ef9a9f7ed
           - variant: study
             ref: 7655351866bf5573e3b2a0adf9a8b51ec912f63b
           - variant: combined
-            ref: 994be3fe9f53d38ef65214ebb96c52b7f3d428dd
+            ref: dc17ee641141c8f4c5bc1e1d2417a6b538379e3d
     needs:
       - fixture-contract
       - core-import-validation
