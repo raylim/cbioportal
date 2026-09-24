@@ -150,15 +150,15 @@ jobs:
       matrix:
         include:
           - name: foundation
-            ref: 88e65ea6b94772671126d2de6e4ab17e117120bc
+            ref: 0b570ff24d0587ef13dd3f1693e50abb14d9ed83
             jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
             browser: tests/wsi-foundation-mocked.spec.ts
           - name: molecular
-            ref: 34a07e35ae0f3d5219238e9658f8754f9da492b2
+            ref: 7cf235a91a9975564a35e4187960c61cc5ccf3fa
             jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
             browser: tests/wsi-molecular-mocked.spec.ts
           - name: patient
-            ref: 5adb5ee8bade874a671fca9b87b4582a1ed9c05b
+            ref: 4faf5a2017480537e43d42a679ae5e73114bbdb2
             jest: >-
               src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
               src/pages/patientView/PatientViewPageTabs.spec.tsx
@@ -171,7 +171,7 @@ jobs:
               src/pages/patientView/timeline/clinicalEventSignatureUtils.spec.ts
             browser: tests/wsi-pathology-mocked.spec.ts
           - name: study
-            ref: 9f0c06f595e9310f57e59b972b5e910c545915c0
+            ref: 6c68955894d8836bb328e5e54322421937be2ff6
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/wsi-study-mocked.spec.ts
     steps:
@@ -325,15 +325,15 @@ jobs:
       matrix:
         include:
           - variant: foundation
-            ref: 88e65ea6b94772671126d2de6e4ab17e117120bc
+            ref: 0b570ff24d0587ef13dd3f1693e50abb14d9ed83
           - variant: molecular
-            ref: 34a07e35ae0f3d5219238e9658f8754f9da492b2
+            ref: 7cf235a91a9975564a35e4187960c61cc5ccf3fa
           - variant: patient
-            ref: 5adb5ee8bade874a671fca9b87b4582a1ed9c05b
+            ref: 4faf5a2017480537e43d42a679ae5e73114bbdb2
           - variant: study
-            ref: 9f0c06f595e9310f57e59b972b5e910c545915c0
+            ref: 6c68955894d8836bb328e5e54322421937be2ff6
           - variant: combined
-            ref: baf190c1fd3efbd64d788e877fa1cff7e28fb0ad
+            ref: 96eed1e3cfbecf5b32a788335722cb387a5a63d1
     needs:
       - fixture-contract
       - core-import-validation
