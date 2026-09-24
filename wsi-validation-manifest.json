@@ -1,0 +1,30 @@
+{
+  "backend": {
+    "repository": "raylim/cbioportal",
+    "foundation": "b4986e198eb9ba512ac852a44569216561d7e155"
+  },
+  "testStack": {
+    "repository": "cBioPortal/cbioportal-test",
+    "ref": "a450018f8fdadf5fe568d66d41154e9f25281dfb"
+  },
+  "compose": {
+    "repository": "cBioPortal/cbioportal-docker-compose",
+    "ref": "85099cb96ae0acd28f34af4f593709a7b892306f"
+  },
+  "core": {
+    "repository": "raylim/cbioportal-core",
+    "ref": "ef7a5584016271dc5ad12d0f0b2dc664ae01ae24"
+  },
+  "tile": {
+    "repository": "cBioPortal/cbioportal-tile-server",
+    "ref": "082c3f77ec7eb091bc4a17b96d89cf6d1618d73c"
+  },
+  "frontend": {
+    "repository": "raylim/cbioportal-frontend",
+    "foundation": "0b570ff24d0587ef13dd3f1693e50abb14d9ed83",
+    "molecular": "7cf235a91a9975564a35e4187960c61cc5ccf3fa",
+    "patient": "4faf5a2017480537e43d42a679ae5e73114bbdb2",
+    "study": "6c68955894d8836bb328e5e54322421937be2ff6",
+    "integration": "96eed1e3cfbecf5b32a788335722cb387a5a63d1"
+  }
+}
