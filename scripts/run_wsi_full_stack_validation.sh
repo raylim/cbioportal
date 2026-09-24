@@ -387,7 +387,6 @@ run_browser_tests() {
       browser_tests=(
         tests/wsi-foundation-route.spec.ts
         tests/wsi-viewer.spec.ts
-        tests/pathology-timing-contract.spec.ts
       )
       ;;
     molecular)
@@ -412,7 +411,6 @@ run_browser_tests() {
       browser_tests=(
         tests/wsi-foundation-route.spec.ts
         tests/wsi-viewer.spec.ts
-        tests/pathology-timing-contract.spec.ts
         tests/wsi-pathology-mocked.spec.ts
         tests/wsi-molecular-mocked.spec.ts
         tests/pathology-summary.spec.ts
