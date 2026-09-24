@@ -1,7 +1,7 @@
 {
   "backend": {
     "repository": "raylim/cbioportal",
-    "foundation": "9a03d27d3aba7166ce794ca14df41d292c7fe32e"
+    "foundation": "94107c3c3bb95a27d2a99c1d20e0620a5bfe4c0d"
   },
   "testStack": {
     "repository": "cBioPortal/cbioportal-test",
