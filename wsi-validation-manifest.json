@@ -1,7 +1,7 @@
 {
   "backend": {
     "repository": "raylim/cbioportal",
-    "foundation": "b4986e198eb9ba512ac852a44569216561d7e155"
+    "foundation": "b68ceb85423b2d533b121c7d8a2613eedc7e9148"
   },
   "testStack": {
     "repository": "cBioPortal/cbioportal-test",
@@ -21,10 +21,10 @@
   },
   "frontend": {
     "repository": "raylim/cbioportal-frontend",
-    "foundation": "0b570ff24d0587ef13dd3f1693e50abb14d9ed83",
-    "molecular": "7cf235a91a9975564a35e4187960c61cc5ccf3fa",
-    "patient": "4faf5a2017480537e43d42a679ae5e73114bbdb2",
-    "study": "6c68955894d8836bb328e5e54322421937be2ff6",
-    "integration": "96eed1e3cfbecf5b32a788335722cb387a5a63d1"
+    "foundation": "debc8abcca86df797e3bb6d47995a2557edafe88",
+    "molecular": "45b3f01f70e450afad0eab14e984cd9087158fbc",
+    "patient": "da85a4d4a1431717d6078b4c326d79f1a1c38e7d",
+    "study": "8f46fe2eaf1394af755cdaf0708e2e80e209fc12",
+    "integration": "a01020f4c28c262540310795113b2bc6d7c1fb72"
   }
 }
