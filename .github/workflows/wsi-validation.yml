@@ -15,8 +15,8 @@ env:
   FRONTEND_FOUNDATION_REF: debc8abcca86df797e3bb6d47995a2557edafe88
   FRONTEND_MOLECULAR_REF: 45b3f01f70e450afad0eab14e984cd9087158fbc
   FRONTEND_PATIENT_REF: 1bd00d7fa472b762718dba1c946e138e8c54c1f5
-  FRONTEND_STUDY_REF: 8f46fe2eaf1394af755cdaf0708e2e80e209fc12
-  FRONTEND_INTEGRATION_REF: a4db1d23d5dc2f52c5610f45c9f117e34faf9154
+  FRONTEND_STUDY_REF: 063bf605a1369e8b7884b23d4da9edc61ebdffe2
+  FRONTEND_INTEGRATION_REF: 07399c8292991a2c9b4a05a31f76ccf39a973b59
   # Keep every cross-repository input as a full immutable commit pin.
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: ef7a5584016271dc5ad12d0f0b2dc664ae01ae24
@@ -171,7 +171,7 @@ jobs:
               src/pages/patientView/timeline/clinicalEventSignatureUtils.spec.ts
             browser: tests/wsi-pathology-mocked.spec.ts
           - name: study
-            ref: 8f46fe2eaf1394af755cdaf0708e2e80e209fc12
+            ref: 063bf605a1369e8b7884b23d4da9edc61ebdffe2
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
             browser: tests/pathology-study-clinical-data.spec.ts
     steps:
@@ -331,9 +331,9 @@ jobs:
           - variant: patient
             ref: 1bd00d7fa472b762718dba1c946e138e8c54c1f5
           - variant: study
-            ref: 8f46fe2eaf1394af755cdaf0708e2e80e209fc12
+            ref: 063bf605a1369e8b7884b23d4da9edc61ebdffe2
           - variant: combined
-            ref: a4db1d23d5dc2f52c5610f45c9f117e34faf9154
+            ref: 07399c8292991a2c9b4a05a31f76ccf39a973b59
     needs:
       - fixture-contract
       - core-import-validation
