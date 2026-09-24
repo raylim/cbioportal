@@ -720,7 +720,7 @@ CREATE TABLE resource_definition (
 CREATE TABLE resource_data (
     `RESOURCE_DATA_ID` Int64,
     `RESOURCE_ID`      String,
-    `CANCER_STUDY_ID`  Int64,
+    `CANCER_STUDY_ID`  Int32,
     `ENTITY_TYPE`      String,
     `PATIENT_ID`       Nullable(String),
     `SAMPLE_ID`        Nullable(String),

@@ -727,8 +727,10 @@ CREATE TABLE resource_definition (
 ) ENGINE = MergeTree ORDER BY (resource_id, cancer_study_id);
 
 -- Unified resource table covering every entity level. Replaces the resource_sample,
--- resource_patient and resource_study split; nothing reads those any more, and the 3.0.1
--- migration drops them once their contents have been carried over.
+-- resource_patient and resource_study split; nothing reads those any more, and the 3.5.0
+-- migration drops them once their contents have been carried over. The patient-inclusive sort
+-- key matches the 3.6.0 migration, which rebuilds databases created with the earlier
+-- (CANCER_STUDY_ID, RESOURCE_ID, RESOURCE_DATA_ID) key.
 CREATE TABLE resource_data (
     `RESOURCE_DATA_ID` Int64,
     `RESOURCE_ID` String,
@@ -864,4 +866,4 @@ CREATE TABLE users (
     `enabled` Int32
 ) ENGINE = MergeTree ORDER BY (email);
 
-INSERT INTO info (`db_schema_version`, `geneset_version`, `gene_table_version`) VALUES ('3.4.0', 'msigdb_v2025.1.Hs', 'hgnc_v7_2025.10.7');
+INSERT INTO info (`db_schema_version`, `geneset_version`, `gene_table_version`) VALUES ('3.6.0', 'msigdb_v2025.1.Hs', 'hgnc_v7_2025.10.7');
