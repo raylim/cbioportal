@@ -1,0 +1,36 @@
+services:
+  cbioportal:
+    # The authenticated WSI validation job layers this command on top of the
+    # shared fixture override. Keycloak's compose extension supplies the
+    # generated metadata and signing material at these classpath locations.
+    command: >-
+      /bin/sh -c
+      "java -Xms2g -Xmx4g
+      -cp '/cbioportal-webapp:/cbioportal-webapp/lib/*'
+      org.cbioportal.PortalApplication
+      --spring.config.location=file:/cbioportal-webapp/application.properties
+      --authenticate=saml_plus_basic
+      --basic.username=$${WSI_BASIC_USERNAME}
+      --basic.password=$${WSI_BASIC_PASSWORD}
+      --basic.authorities=$${WSI_BASIC_AUTHORITIES}
+      --filter_groups_by_appname=false
+      --spring.security.saml2.relyingparty.registration.cbio-idp.assertingparty.metadata-uri=classpath:/client-tailored-saml-idp-metadata.xml
+      --spring.security.saml2.relyingparty.registration.cbio-idp.entity-id=cbioportal
+      --spring.security.saml2.relyingparty.registration.cbio-idp.signing.credentials[0].certificate-location=classpath:/local.crt
+      --spring.security.saml2.relyingparty.registration.cbio-idp.signing.credentials[0].private-key-location=classpath:/local.key
+      --session.service.url=http://cbioportal-session:5001/api/sessions/my_portal/
+      --spring.datasource.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver
+      --spring.datasource.url=$${CLICKHOUSE_URL}
+      --spring.datasource.username=$${CLICKHOUSE_USER}
+      --spring.datasource.password=$${CLICKHOUSE_PASSWORD}
+      --spring.datasource.clickhouse.url=$${CLICKHOUSE_URL}
+      --spring.datasource.clickhouse.username=$${CLICKHOUSE_USER}
+      --spring.datasource.clickhouse.password=$${CLICKHOUSE_PASSWORD}
+      --spring.datasource.clickhouse.driver-class-name=com.clickhouse.jdbc.ClickHouseDriver
+      --bitly.access.token=local-ci-unused-token
+      --wsi.access-token-secret=$${WSI_AUTH_SECRET}
+      --wsi.access-token-audience=$${WSI_AUTH_AUDIENCE}
+      --wsi.local-auth-bypass=false
+      --msk.wsi.tile_server.url=$${WSI_TILE_SERVER_URL}
+      --clickhouse_mode=true
+      --spring.profiles.active=clickhouse"
