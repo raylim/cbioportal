@@ -173,7 +173,7 @@ jobs:
           - name: study
             ref: 8f46fe2eaf1394af755cdaf0708e2e80e209fc12
             jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
-            browser: tests/wsi-study-mocked.spec.ts
+            browser: tests/pathology-study-clinical-data.spec.ts
     steps:
       - uses: actions/checkout@v4
         with:
