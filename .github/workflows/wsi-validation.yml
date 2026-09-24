@@ -16,7 +16,7 @@ env:
   FRONTEND_MOLECULAR_REF: cf7d81ffc266723d42887c8ab470bbfebd099914
   FRONTEND_PATIENT_REF: 9adb535e1ea207dade9cbda5b186fc60b21d3773
   FRONTEND_STUDY_REF: 7655351866bf5573e3b2a0adf9a8b51ec912f63b
-  FRONTEND_INTEGRATION_REF: ff74c96cca7ffe5b999f57a2436db261cbcae739
+  FRONTEND_INTEGRATION_REF: 994be3fe9f53d38ef65214ebb96c52b7f3d428dd
   # Keep every cross-repository input as a full immutable commit pin.
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: ef7a5584016271dc5ad12d0f0b2dc664ae01ae24
@@ -333,7 +333,7 @@ jobs:
           - variant: study
             ref: 7655351866bf5573e3b2a0adf9a8b51ec912f63b
           - variant: combined
-            ref: ff74c96cca7ffe5b999f57a2436db261cbcae739
+            ref: 994be3fe9f53d38ef65214ebb96c52b7f3d428dd
     needs:
       - fixture-contract
       - core-import-validation
