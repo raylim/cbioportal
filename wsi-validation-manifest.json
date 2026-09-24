@@ -21,10 +21,10 @@
   },
   "frontend": {
     "repository": "raylim/cbioportal-frontend",
-    "foundation": "37ca82415004c399fe494e0b4b33895e1822b663",
-    "molecular": "32552530e887f1d2fdb451ae4f4a0fee76ef37af",
-    "patient": "66210f981958793c3c84f602ac7d76091c008f93",
-    "study": "06ae8128bb35c84cb75d293e417e22198f61b424",
-    "integration": "c52ddab4cf7b332f06dca79f35e4684d1f62f096"
+    "foundation": "38c0449b35ffd7d0652338065b43c1b116f87cea",
+    "molecular": "d39d8cc461152b0ea5c54c859fc2dbad87d40597",
+    "patient": "4a9ee4167eb4a7fd247a28391f33dae290b9bb89",
+    "study": "e8f800f86e96f2aa1a800173028dc1cc495af4b0",
+    "integration": "f3558fb794fdcb0c573fc6723c93b4ca05ab57be"
   }
 }
