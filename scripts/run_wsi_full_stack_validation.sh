@@ -437,6 +437,7 @@ run_browser_tests() {
     WSI_VIEWER_BASE_URL="https://localhost:${FRONTEND_PORT}" \
     WSI_AUTH_PORTAL_URL=http://localhost:8080 \
     WSI_AUTHENTICATED_E2E="$authenticated_e2e" \
+    WSI_ALLOW_BASIC_FALLBACK=true \
     WSI_BASIC_LOGIN_USERNAME=wsi-ci-user \
     WSI_BASIC_LOGIN_PASSWORD=wsi-ci-password \
     WSI_PROXY_REHEARSAL=1 \
