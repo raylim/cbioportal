@@ -1,0 +1,437 @@
+name: WSI validation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BRANCH_ENV: master
+  BACKEND_REPOSITORY: raylim/cbioportal
+  BACKEND_FOUNDATION_REF: 41c7be0d7fdcb0d0cc555bc22cbd59d7616d8e3e
+  FRONTEND_REPOSITORY: raylim/cbioportal-frontend
+  FRONTEND_FOUNDATION_REF: 95ce1ecfd5fabf1cc0ab79fd4c2f33c46e533457
+  FRONTEND_MOLECULAR_REF: e7be5157442aa217df4c95e43d22cfaa812a50d0
+  FRONTEND_PATIENT_REF: cef8a029e9c0337f20d3f3615fd0d87ad54bfbbc
+  FRONTEND_STUDY_REF: d3cb44774cc0fce70f8507b6211fbca22ff7b0a9
+  FRONTEND_INTEGRATION_REF: 1ae6ed407fbc31ed8527019e4eab4c8b2a0dddf6
+  # Keep every cross-repository input as a full immutable commit pin.
+  CORE_REPOSITORY: raylim/cbioportal-core
+  CORE_REF: ef7a5584016271dc5ad12d0f0b2dc664ae01ae24
+  TILE_REPOSITORY: cBioPortal/cbioportal-tile-server
+  TILE_REF: 082c3f77ec7eb091bc4a17b96d89cf6d1618d73c
+  TEST_STACK_REPOSITORY: cBioPortal/cbioportal-test
+  TEST_STACK_REF: a450018f8fdadf5fe568d66d41154e9f25281dfb
+  COMPOSE_REPOSITORY: cBioPortal/cbioportal-docker-compose
+  COMPOSE_REF: 85099cb96ae0acd28f34af4f593709a7b892306f
+
+jobs:
+  fixture-contract:
+    name: Verify WSI fixture and source pins
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate fixture metadata and immutable pins
+        working-directory: .
+        env:
+          BACKEND_FOUNDATION_REF: ${{ env.BACKEND_FOUNDATION_REF }}
+          CORE_REF: ${{ env.CORE_REF }}
+          TILE_REPOSITORY: ${{ env.TILE_REPOSITORY }}
+          TILE_REF: ${{ env.TILE_REF }}
+          TEST_STACK_REF: ${{ env.TEST_STACK_REF }}
+          TEST_STACK_REPOSITORY: ${{ env.TEST_STACK_REPOSITORY }}
+          COMPOSE_REF: ${{ env.COMPOSE_REF }}
+          COMPOSE_REPOSITORY: ${{ env.COMPOSE_REPOSITORY }}
+          FRONTEND_FOUNDATION_REF: ${{ env.FRONTEND_FOUNDATION_REF }}
+          FRONTEND_MOLECULAR_REF: ${{ env.FRONTEND_MOLECULAR_REF }}
+          FRONTEND_PATIENT_REF: ${{ env.FRONTEND_PATIENT_REF }}
+          FRONTEND_STUDY_REF: ${{ env.FRONTEND_STUDY_REF }}
+          FRONTEND_INTEGRATION_REF: ${{ env.FRONTEND_INTEGRATION_REF }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          manifest = json.loads(Path('wsi-validation-manifest.json').read_text())
+          allowed = Path('src/e2e/js/test/WsiHierarchyController/wsi_loader_fixture/meta_study.txt').read_text()
+          denied = Path('src/e2e/js/test/WsiHierarchyController/wsi_loader_control_fixture/meta_study.txt').read_text()
+          assert 'groups: PUBLIC_STUDIES' in allowed
+          assert 'groups: WSI_DENIED' in denied
+          assert os.environ['BACKEND_FOUNDATION_REF'] == manifest['backend']['foundation']
+          assert len(os.environ['BACKEND_FOUNDATION_REF']) == 40
+          assert os.environ['BACKEND_FOUNDATION_REF'] == manifest['backend']['foundation']
+          assert len(os.environ['CORE_REF']) == 40
+          assert os.environ['CORE_REF'] == manifest['core']['ref']
+          assert os.environ['TEST_STACK_REF'] == manifest['testStack']['ref']
+          assert os.environ['TEST_STACK_REPOSITORY'] == manifest['testStack']['repository']
+          assert os.environ['COMPOSE_REF'] == manifest['compose']['ref']
+          assert os.environ['COMPOSE_REPOSITORY'] == manifest['compose']['repository']
+          assert os.environ['FRONTEND_FOUNDATION_REF'] == manifest['frontend']['foundation']
+          assert os.environ['FRONTEND_MOLECULAR_REF'] == manifest['frontend']['molecular']
+          assert os.environ['FRONTEND_PATIENT_REF'] == manifest['frontend']['patient']
+          assert os.environ['FRONTEND_STUDY_REF'] == manifest['frontend']['study']
+          assert os.environ['FRONTEND_INTEGRATION_REF'] == manifest['frontend']['integration']
+          workflow = Path('.github/workflows/wsi-validation.yml').read_text()
+          for name, env_name in {
+              'foundation': 'FRONTEND_FOUNDATION_REF',
+              'molecular': 'FRONTEND_MOLECULAR_REF',
+              'patient': 'FRONTEND_PATIENT_REF',
+              'study': 'FRONTEND_STUDY_REF',
+              'combined': 'FRONTEND_INTEGRATION_REF',
+          }.items():
+              match = re.search(
+                  rf"- variant: {name}\s+ref: ([0-9a-f]{{40}})",
+                  workflow,
+              )
+              assert match, f'missing immutable matrix ref for {name}'
+              assert match.group(1) == os.environ[env_name]
+              manifest_name = 'integration' if name == 'combined' else name
+              assert match.group(1) == manifest['frontend'][manifest_name]
+          assert os.environ['TILE_REPOSITORY'] == manifest['tile']['repository']
+          assert len(os.environ['TILE_REF']) == 40
+          assert os.environ['TILE_REF'] == manifest['tile']['ref']
+          print('fixture metadata and source pins are present; live authorization is covered by the full-stack validation job')
+          PY
+
+  core-import-validation:
+    name: Core WSI validation and import tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          ref: ${{ env.CORE_REF }}
+          path: cbioportal-core
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BACKEND_REPOSITORY }}
+          ref: ${{ env.BACKEND_FOUNDATION_REF }}
+          path: cbioportal-foundation
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          path: cbioportal-validation
+      - name: Run backend fresh/migrated schema parity check
+        working-directory: cbioportal-validation/test
+        env:
+          WSI_SCHEMA_SOURCE_DIR: ${{ github.workspace }}/cbioportal-foundation
+        run: python3 test_clickhouse_wsi_schema_parity.py
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run WSI validator tests
+        working-directory: cbioportal-core/tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r ../requirements.txt pytest
+          PYTHONPATH=../scripts pytest -q unit_tests_validate_data.py -k wsi
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Run Java WSI import tests
+        working-directory: cbioportal-core
+        run: mvn -q -Dtest=ImportWsiDataTest test
+
+  frontend-children:
+    name: Frontend child (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: foundation
+            ref: 95ce1ecfd5fabf1cc0ab79fd4c2f33c46e533457
+            jest: src/shared/components/wsiViewer/WSIViewer.foundation.spec.tsx src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
+            browser: tests/wsi-foundation-mocked.spec.ts
+          - name: molecular
+            ref: e7be5157442aa217df4c95e43d22cfaa812a50d0
+            jest: src/shared/api/wsiOncoKbClientInstance.spec.ts src/shared/components/wsiViewer/wsiAnnotationDataUtils.spec.ts src/shared/components/wsiViewer/WSIViewer.spec.tsx
+            browser: tests/wsi-molecular-mocked.spec.ts
+          - name: patient
+            ref: cef8a029e9c0337f20d3f3615fd0d87ad54bfbbc
+            jest: >-
+              src/shared/components/wsiViewer/wsiNavPanel.spec.tsx
+              src/pages/patientView/PatientViewPageTabs.spec.tsx
+              src/pages/patientView/PatientViewUrlWrapper.spec.ts
+              src/pages/patientView/timeline/TimelineWrapper.spec.ts
+              src/pages/patientView/timeline/TimelineWrapperUtils.spec.ts
+              src/pages/patientView/timeline/timeline_helpers.spec.tsx
+              src/pages/patientView/timeline/usePathologyAugmentedClinicalEvents.spec.tsx
+              src/pages/patientView/timeline/ClinicalEventsTables.component.spec.tsx
+              src/pages/patientView/timeline/clinicalEventSignatureUtils.spec.ts
+            browser: tests/wsi-pathology-mocked.spec.ts
+          - name: study
+            ref: d3cb44774cc0fce70f8507b6211fbca22ff7b0a9
+            jest: src/pages/studyView/tabs/ClinicalDataTab.spec.ts
+            browser: tests/pathology-study-clinical-data.spec.ts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.FRONTEND_REPOSITORY }}
+          ref: ${{ matrix.ref }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck and build
+        run: |
+          git merge-base --is-ancestor "$FRONTEND_FOUNDATION_REF" HEAD
+          pnpm run typecheck
+          pnpm run build
+        env:
+          FRONTEND_FOUNDATION_REF: ${{ env.FRONTEND_FOUNDATION_REF }}
+      - name: Run child unit tests
+        run: |
+          if [ "${{ matrix.name }}" = "patient" ] || [ "${{ matrix.name }}" = "study" ]; then
+            pnpm exec jest ${{ matrix.jest }} --runInBand --env=jsdom --no-cache
+          else
+            pnpm exec jest ${{ matrix.jest }} --runInBand --no-cache
+          fi
+      - name: Check child browser contract is discoverable
+        working-directory: end-to-end-test-playwright
+        env:
+          PW_SUITE: wsi
+        run: |
+          pnpm install --frozen-lockfile --ignore-workspace
+          pnpm exec playwright test --config=playwright.wsi.config.ts ${{ matrix.browser }} --list
+      - name: Install Chromium for the child browser contract
+        working-directory: end-to-end-test-playwright
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Serve the child bundle
+        run: |
+          nohup node_modules/.bin/pushstate-server dist 3000 index.html >/tmp/wsi-child-server.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/wsi-child-server.log
+          exit 1
+      - name: Execute the child browser contract
+        working-directory: end-to-end-test-playwright
+        env:
+          CBIOPORTAL_URL: http://127.0.0.1:3000
+          LOCALDEV: '0'
+          PW_SUITE: wsi
+          WSI_MOCK_SKIP_LOGIN: '1'
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/report.json
+        run: |
+          pnpm exec playwright test --config=playwright.wsi.config.ts ${{ matrix.browser }} --reporter=line,json
+          node - <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('test-results/report.json', 'utf8'));
+          if (report.stats.expected === 0 || report.stats.skipped !== 0 || report.stats.unexpected !== 0) {
+            throw new Error(`child browser contract did not pass: ${JSON.stringify(report.stats)}`);
+          }
+          console.log(`child browser contract passed: ${report.stats.expected} tests`);
+          NODE
+
+  combined-frontend:
+    name: Combined frontend validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: frontend-children
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.FRONTEND_REPOSITORY }}
+          ref: ${{ env.FRONTEND_INTEGRATION_REF }}
+          fetch-depth: 0
+      - name: Verify integration contains the exact child revisions
+        run: |
+          git merge-base --is-ancestor "$FRONTEND_FOUNDATION_REF" HEAD
+          git fetch --no-tags origin "$FRONTEND_MOLECULAR_REF" "$FRONTEND_PATIENT_REF" "$FRONTEND_STUDY_REF"
+          git merge-base --is-ancestor "$FRONTEND_MOLECULAR_REF" HEAD
+          git merge-base --is-ancestor "$FRONTEND_PATIENT_REF" HEAD
+          git merge-base --is-ancestor "$FRONTEND_STUDY_REF" HEAD
+        env:
+          FRONTEND_FOUNDATION_REF: ${{ env.FRONTEND_FOUNDATION_REF }}
+          FRONTEND_MOLECULAR_REF: ${{ env.FRONTEND_MOLECULAR_REF }}
+          FRONTEND_PATIENT_REF: ${{ env.FRONTEND_PATIENT_REF }}
+          FRONTEND_STUDY_REF: ${{ env.FRONTEND_STUDY_REF }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+          cache: pnpm
+      - run: corepack enable && corepack prepare pnpm@10.33.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run build
+
+      - name: Install Playwright suite dependencies
+        working-directory: end-to-end-test-playwright
+        run: pnpm install --frozen-lockfile --ignore-workspace
+
+      - name: Install Chromium for the combined browser contract
+        working-directory: end-to-end-test-playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Serve the combined frontend bundle
+        run: |
+          nohup node_modules/.bin/pushstate-server dist 3000 index.html >/tmp/wsi-frontend-server.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/wsi-frontend-server.log
+          exit 1
+
+      - name: Run combined mocked WSI browser contract
+        working-directory: end-to-end-test-playwright
+        env:
+          CBIOPORTAL_URL: http://127.0.0.1:3000
+          LOCALDEV: '0'
+          PW_SUITE: wsi
+          WSI_MOCK_SKIP_LOGIN: '1'
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/report.json
+        run: |
+          pnpm exec playwright test --config=playwright.wsi.config.ts \
+            tests/wsi-pathology-mocked.spec.ts \
+            tests/wsi-molecular-mocked.spec.ts \
+            --reporter=line,json
+          node - <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('test-results/report.json', 'utf8'));
+          if (report.stats.expected === 0 || report.stats.skipped !== 0 || report.stats.unexpected !== 0) {
+            throw new Error(`combined WSI browser contract did not pass: ${JSON.stringify(report.stats)}`);
+          }
+          console.log(`combined WSI browser contract passed: ${report.stats.expected} tests`);
+          NODE
+
+  full-stack-wsi-validation:
+    name: Full-stack WSI validation (${{ matrix.variant }})
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: foundation
+            ref: 95ce1ecfd5fabf1cc0ab79fd4c2f33c46e533457
+          - variant: molecular
+            ref: e7be5157442aa217df4c95e43d22cfaa812a50d0
+          - variant: patient
+            ref: cef8a029e9c0337f20d3f3615fd0d87ad54bfbbc
+          - variant: study
+            ref: d3cb44774cc0fce70f8507b6211fbca22ff7b0a9
+          - variant: combined
+            ref: 1ae6ed407fbc31ed8527019e4eab4c8b2a0dddf6
+    needs:
+      - fixture-contract
+      - core-import-validation
+      - combined-frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          path: cbioportal-validation
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BACKEND_REPOSITORY }}
+          ref: ${{ env.BACKEND_FOUNDATION_REF }}
+          path: cbioportal-foundation
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TEST_STACK_REPOSITORY }}
+          ref: ${{ env.TEST_STACK_REF }}
+          path: cbioportal-test
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.FRONTEND_REPOSITORY }}
+          ref: ${{ matrix.ref }}
+          path: cbioportal-frontend
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          ref: ${{ env.CORE_REF }}
+          path: cbioportal-core
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TILE_REPOSITORY }}
+          ref: ${{ env.TILE_REF }}
+          path: cbioportal-tile-server
+      - name: Verify the checked-out frontend revision
+        working-directory: cbioportal-frontend
+        run: test "$(git rev-parse HEAD)" = "${{ matrix.ref }}"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - name: Enable pinned JavaScript package managers
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+          corepack prepare yarn@1.22.22 --activate
+      - name: Run import, authorization, lifecycle, tile, and browser contracts
+        working-directory: cbioportal-validation
+        env:
+          TEST_STACK_DIR: ${{ github.workspace }}/cbioportal-test
+          BACKEND_DIR: ${{ github.workspace }}/cbioportal-foundation
+          BACKEND_FOUNDATION_REF: ${{ env.BACKEND_FOUNDATION_REF }}
+          FRONTEND_DIR: ${{ github.workspace }}/cbioportal-frontend
+          FRONTEND_REF: ${{ matrix.ref }}
+          TILE_DIR: ${{ github.workspace }}/cbioportal-tile-server
+          CORE_REPOSITORY: ${{ env.CORE_REPOSITORY }}
+          CORE_REF: ${{ env.CORE_REF }}
+          COMPOSE_REPOSITORY: ${{ env.COMPOSE_REPOSITORY }}
+          COMPOSE_REF: ${{ env.COMPOSE_REF }}
+          WSI_PORTAL_IMAGE: cbioportal-wsi-validation:${{ github.sha }}-${{ matrix.variant }}
+          COMPOSE_PROJECT_NAME: wsi-validation-${{ github.run_id }}-${{ matrix.variant }}
+          WSI_VARIANT: ${{ matrix.variant }}
+        run: ./scripts/run_wsi_full_stack_validation.sh
+      - name: Upload full-stack diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wsi-full-stack-diagnostics-${{ matrix.variant }}
+          path: |
+            ${{ runner.temp }}/wsi-*.log
+            ${{ runner.temp }}/wsi-*.txt
+          if-no-files-found: ignore
+
+  acceptance:
+    name: WSI acceptance gate
+    if: always()
+    needs:
+      - fixture-contract
+      - core-import-validation
+      - frontend-children
+      - combined-frontend
+      - full-stack-wsi-validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every mandatory WSI gate
+        env:
+          FIXTURE_RESULT: ${{ needs.fixture-contract.result }}
+          CORE_RESULT: ${{ needs.core-import-validation.result }}
+          CHILD_RESULT: ${{ needs.frontend-children.result }}
+          COMBINED_RESULT: ${{ needs.combined-frontend.result }}
+          FULL_STACK_RESULT: ${{ needs.full-stack-wsi-validation.result }}
+        run: |
+          for result in "$FIXTURE_RESULT" "$CORE_RESULT" "$CHILD_RESULT" "$COMBINED_RESULT" "$FULL_STACK_RESULT"; do
+            test "$result" = success || {
+              echo "mandatory WSI gate result was $result" >&2
+              exit 1
+            }
+          done
