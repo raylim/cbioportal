@@ -1,0 +1,6 @@
+#Patient Identifier
+#Patient identifier
+#STRING
+#1
+PATIENT_ID
+WSI-CI-B-PATIENT

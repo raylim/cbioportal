@@ -1,6 +1,6 @@
-#Patient Identifier	Sample Identifier
-#Patient identifier	Sample identifier
-#STRING	STRING
-#1	1
-PATIENT_ID	SAMPLE_ID
-P-0055908	P-0055908-T01-IM6
+#Patient Identifier	Sample Identifier	WSI Slides per Sample	WSI Slides per Sample, Part-matched	WSI Slides per Sample, Block-matched
+#Patient identifier	Sample identifier	Associated pathology slide count for the sample.	Associated pathology slides matched to a specimen part.	Associated pathology slides matched to a specimen block.
+#STRING	STRING	NUMBER	NUMBER	NUMBER
+#1	1	1	1	1
+PATIENT_ID	SAMPLE_ID	WSI_SAMPLE_SLIDE_COUNT	WSI_SAMPLE_PART_MATCHED_SLIDE_COUNT	WSI_SAMPLE_BLOCK_MATCHED_SLIDE_COUNT
+P-0055908	P-0055908-T01-IM6	2	1	1
