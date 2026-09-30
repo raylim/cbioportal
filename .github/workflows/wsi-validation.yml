@@ -20,13 +20,13 @@ env:
   BACKEND_REPOSITORY: raylim/cbioportal
   BACKEND_REF: 065b4df5a887b38c9da829d0bbce1ca9f8765499
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
-  FRONTEND_PACKAGE_REF: 2e4897f635e2cf1e3bfd724cac8c11c5c9170058
-  FRONTEND_STUDY_REF: e3e2c65680caaf63391fd8d886482dcce539fa75
-  FRONTEND_PATIENT_REF: 56260cbd5ef746696cccd39f4a212e5fbddef3d9
-  FRONTEND_MOLECULAR_REF: 4d098cca8f44de64229cd3821f5cda85a5d1e70f
-  FRONTEND_ANNOTATIONS_REF: e10c5fa65e8679a2ce3c53b408d25f6dce94076b
-  FRONTEND_AGENT_REF: 1a2f928f7a2b806573335edb6fcc69e3e433ab6b
-  FRONTEND_INTEGRATION_REF: 87836551f98da0f707f7605eab01bda6a3ae9cf2
+  FRONTEND_PACKAGE_REF: 127fd99bebbc1b1737b4aa5c3b955d26a1b8e239
+  FRONTEND_STUDY_REF: fbd020348a58a1849338166b88f70d6b566689ce
+  FRONTEND_PATIENT_REF: 7c1591cf09379a3dffe31d0c3bb53d17e03dc396
+  FRONTEND_MOLECULAR_REF: fdd2e06a9709de7086700d00e5ce1f2382d47c94
+  FRONTEND_ANNOTATIONS_REF: fcecd6f35de0976aeb34a9471a89f67c0d77eefb
+  FRONTEND_AGENT_REF: d3dfe121345ccc4dd0570c8ccb9cd453e9bb0491
+  FRONTEND_INTEGRATION_REF: e1662a1e42a374de94a671b068d50af1f625cd23
   # Keep every cross-repository input as a full immutable commit pin.
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: 3e5bf6efa03a6f507f5fffd58480d277c05d785a
@@ -153,7 +153,7 @@ jobs:
       matrix:
         include:
           - name: package
-            ref: 2e4897f635e2cf1e3bfd724cac8c11c5c9170058
+            ref: 127fd99bebbc1b1737b4aa5c3b955d26a1b8e239
             # The viewer package's own suite plus the standalone viewer route and
             # app wiring; the package branch carries only the viewer and the
             # Pathology Slides tab (image-ID access).
@@ -165,7 +165,7 @@ jobs:
               src/shared/lib/assertWsiOsdBundle.spec.ts
             browser: tests/wsi-foundation-mocked.spec.ts
           - name: study
-            ref: e3e2c65680caaf63391fd8d886482dcce539fa75
+            ref: fbd020348a58a1849338166b88f70d6b566689ce
             unit: >-
               pnpm exec jest --env=jsdom --runInBand --no-cache
               src/pages/studyView/tabs/ClinicalDataTab.spec.ts
@@ -178,7 +178,7 @@ jobs:
           # Known gap: the child has no Playwright spec of its own, so its
           # browser contract is the foundation mock and the rest is Jest.
           - name: patient
-            ref: 56260cbd5ef746696cccd39f4a212e5fbddef3d9
+            ref: 7c1591cf09379a3dffe31d0c3bb53d17e03dc396
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -189,7 +189,7 @@ jobs:
               src/pages/wsi/WsiPatientViewRoute.spec.tsx
             browser: tests/wsi-foundation-mocked.spec.ts
           - name: molecular
-            ref: 4d098cca8f44de64229cd3821f5cda85a5d1e70f
+            ref: fdd2e06a9709de7086700d00e5ce1f2382d47c94
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -198,8 +198,8 @@ jobs:
             browser: tests/wsi-molecular-mocked.spec.ts
           # Checks out the agent pin, which must contain the annotations pin.
           - name: annotations-agent
-            ref: 1a2f928f7a2b806573335edb6fcc69e3e433ab6b
-            ancestor: e10c5fa65e8679a2ce3c53b408d25f6dce94076b
+            ref: d3dfe121345ccc4dd0570c8ccb9cd453e9bb0491
+            ancestor: fcecd6f35de0976aeb34a9471a89f67c0d77eefb
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -208,7 +208,7 @@ jobs:
               src/shared/lib/assertWsiOsdBundle.spec.ts
             browser: tests/wsi-annotation-agent.spec.ts tests/wsi-foundation-route.spec.ts
           - name: integration
-            ref: 87836551f98da0f707f7605eab01bda6a3ae9cf2
+            ref: e1662a1e42a374de94a671b068d50af1f625cd23
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -417,18 +417,18 @@ jobs:
       matrix:
         include:
           - variant: package
-            ref: 2e4897f635e2cf1e3bfd724cac8c11c5c9170058
+            ref: 127fd99bebbc1b1737b4aa5c3b955d26a1b8e239
           - variant: study
-            ref: e3e2c65680caaf63391fd8d886482dcce539fa75
+            ref: fbd020348a58a1849338166b88f70d6b566689ce
           - variant: patient
-            ref: 56260cbd5ef746696cccd39f4a212e5fbddef3d9
+            ref: 7c1591cf09379a3dffe31d0c3bb53d17e03dc396
           - variant: molecular
-            ref: 4d098cca8f44de64229cd3821f5cda85a5d1e70f
+            ref: fdd2e06a9709de7086700d00e5ce1f2382d47c94
           - variant: annotations-agent
-            ref: 1a2f928f7a2b806573335edb6fcc69e3e433ab6b
-            ancestor: e10c5fa65e8679a2ce3c53b408d25f6dce94076b
+            ref: d3dfe121345ccc4dd0570c8ccb9cd453e9bb0491
+            ancestor: fcecd6f35de0976aeb34a9471a89f67c0d77eefb
           - variant: integration
-            ref: 87836551f98da0f707f7605eab01bda6a3ae9cf2
+            ref: e1662a1e42a374de94a671b068d50af1f625cd23
     needs:
       - fixture-contract
       - core-import-validation
