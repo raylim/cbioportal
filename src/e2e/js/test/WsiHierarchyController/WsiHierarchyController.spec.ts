@@ -41,6 +41,11 @@ if (requireAuthenticatedWsiSetup && !hasAuthenticatedWsiSetup) {
 
 type Slide = {
   imageId: string;
+  // Resource-data identity of the slide: WSI_SAMPLE for sample-matched
+  // (PART/BLOCK) slides, WSI_PATIENT for unmatched ones. resourceDataId is the
+  // importer-allocated resource_data.RESOURCE_DATA_ID and is never hard-coded.
+  resourceId: 'WSI_SAMPLE' | 'WSI_PATIENT';
+  resourceDataId?: string;
   sampleId: string | null;
   matchLevel: 'PART' | 'BLOCK' | 'UNMATCHED';
   canServeTiles: boolean;
@@ -68,6 +73,36 @@ type HierarchyFixture = {
   patient_id: string;
   hierarchy: PatientHierarchy;
 };
+type ResourceTableRow = {
+  resourceId: string;
+  resourceDataId: string;
+  patientId: string | null;
+  sampleId: string | null;
+  url: string;
+  displayName: string | null;
+  type: string | null;
+  metadata: Record<string, unknown> | null;
+};
+type ResourceTableResult = {
+  columns: Array<{ id: string; label: string; source: string }>;
+  rows: ResourceTableRow[];
+  totalRowCount: number;
+};
+
+// A known patient in the public fixture study that has no WSI resource rows.
+const NO_SLIDES_PATIENT_ID = 'WSI-CI-NO-SLIDES-PATIENT';
+// Strings that only occur inside the private wsi_serving object of the
+// fixture rows (plus the object key itself). None may ever reach the generic
+// resource table API.
+const PRIVATE_SERVING_MARKERS = [
+  'wsi_serving',
+  's3://',
+  'file:///app/testdata',
+  'CMU-1-Small-Region',
+  'tile_metadata_json',
+  'source_url',
+  'thumbnail_url',
+];
 
 const currentDir = path.resolve(process.cwd(), 'test/WsiHierarchyController');
 const fixturePath = path.join(
@@ -97,6 +132,50 @@ function findSlide(
     .find(candidate => candidate.matchLevel === matchLevel);
   expect(slide, `missing ${matchLevel} slide`).to.not.equal(undefined);
   return slide!;
+}
+
+function allSlides(hierarchy: PatientHierarchy): Slide[] {
+  return hierarchy.sampleGroups
+    .flatMap(sample => sample.parts)
+    .flatMap(part => part.blocks)
+    .flatMap(block => block.slides);
+}
+
+/**
+ * resourceDataId is allocated by the importer, so the committed fixture omits
+ * it. Assert every live slide carries a positive integer id and strip it so the
+ * rest of the response can be compared with the fixture exactly.
+ */
+function withoutResourceDataIds(hierarchy: PatientHierarchy): PatientHierarchy {
+  const copy = JSON.parse(JSON.stringify(hierarchy)) as PatientHierarchy;
+  allSlides(copy).forEach(slide => {
+    expect(slide.resourceDataId, `resourceDataId for ${slide.imageId}`)
+      .to.be.a('string')
+      .and.match(/^[1-9][0-9]*$/);
+    delete slide.resourceDataId;
+  });
+  return copy;
+}
+
+function accessUrl(
+  studyId: string,
+  patientId: string,
+  resourceId: string,
+  resourceDataId: string
+): string {
+  return `${config.serverUrl}/api/wsi/v2/resources/${encodeURIComponent(studyId)}/${encodeURIComponent(patientId)}/${encodeURIComponent(resourceId)}/${encodeURIComponent(resourceDataId)}/access`;
+}
+
+function slideAccessUrl(slide: Slide): string {
+  expect(slide.resourceDataId, `live resourceDataId for ${slide.imageId}`).to.be.a('string');
+  return accessUrl(fixture.study_id, fixture.patient_id, slide.resourceId, slide.resourceDataId!);
+}
+
+function assertNoPrivateServingData(label: string, payload: unknown) {
+  const serialized = JSON.stringify(payload);
+  PRIVATE_SERVING_MARKERS.forEach(marker => {
+    expect(serialized, `${label} leaks ${marker}`).to.not.contain(marker);
+  });
 }
 
 function base64url(value: object): string {
@@ -182,7 +261,7 @@ async function statusOf(request: Promise<any>): Promise<number> {
   }
 }
 
-describe('Authenticated WsiHierarchyController and tile contract', () => {
+describe('Authenticated WsiHierarchyController (resource-data) and tile contract', () => {
   const hierarchyUrl = `${config.serverUrl}/api/wsi/v2/hierarchy/${fixture.study_id}/${fixture.patient_id}`;
   const frontendHierarchyUrl = `${config.frontendUrl}/api/wsi/v2/hierarchy/${fixture.study_id}/${fixture.patient_id}`;
   const blockSlide = findSlide(fixture.hierarchy, 'BLOCK');
@@ -192,13 +271,28 @@ describe('Authenticated WsiHierarchyController and tile contract', () => {
   const partTileSlideId = config.partTileSlideId || partSlide.imageId;
   const unmatchedTileSlideId = config.unmatchedTileSlideId || unmatchedSlide.imageId;
 
-  it('requires login before issuing a slide capability', async function () {
+  // The live hierarchy is the only source of resourceDataIds; fetch it with the
+  // same credentials each test uses.
+  async function liveHierarchy(requestOptions: any): Promise<PatientHierarchy> {
+    const response = await axios.get<PatientHierarchy>(hierarchyUrl, requestOptions);
+    expect(response.status).to.equal(200);
+    return response.data;
+  }
+
+  function liveSlide(hierarchy: PatientHierarchy, imageId: string): Slide {
+    const slide = allSlides(hierarchy).find(candidate => candidate.imageId === imageId);
+    expect(slide, `live hierarchy is missing slide ${imageId}`).to.not.equal(undefined);
+    return slide!;
+  }
+
+  it('requires login before returning the hierarchy or issuing a slide capability', async function () {
     if (!hasAuthenticatedWsiSetup) this.skip();
+    expect(await statusOf(axios.get(hierarchyUrl))).to.equal(401);
+    // The anonymous check precedes the row lookup, so any well-formed
+    // resource coordinates must be refused with 401.
     expect(
       await statusOf(
-        axios.get(
-          `${config.serverUrl}/api/wsi/v2/slides/${fixture.study_id}/${blockSlide.imageId}/access`
-        )
+        axios.get(accessUrl(fixture.study_id, fixture.patient_id, blockSlide.resourceId, '1'))
       )
     ).to.equal(401);
   });
@@ -206,10 +300,10 @@ describe('Authenticated WsiHierarchyController and tile contract', () => {
   it('issues a source-bound slide capability only after login and permission checks', async function () {
     if (!hasTileSetup) this.skip();
     const requestOptions = await authenticatedRequestOptions();
-    const authorized = await axios.get(
-      `${config.serverUrl}/api/wsi/v2/slides/${fixture.study_id}/${blockSlide.imageId}/access`,
-      requestOptions
-    );
+    const live = await liveHierarchy(requestOptions);
+    const liveBlock = liveSlide(live, blockSlide.imageId);
+    expect(liveBlock.resourceId).to.equal('WSI_SAMPLE');
+    const authorized = await axios.get(slideAccessUrl(liveBlock), requestOptions);
     expect(authorized.status).to.equal(200);
     expect(authorized.headers['cache-control']).to.contain('no-store');
     expect(authorized.data.imageId).to.equal(blockSlide.imageId);
@@ -219,23 +313,27 @@ describe('Authenticated WsiHierarchyController and tile contract', () => {
     );
 
     if (!localAuthBypass) {
+      // Study-level permission is evaluated before the row lookup, so the
+      // denied control study is refused whatever resource coordinates are used.
       expect(
         await statusOf(
           axios.get(
-            `${config.serverUrl}/api/wsi/v2/slides/wsi_ci_study_b/4020726/access`,
+            accessUrl('wsi_ci_study_b', 'WSI-CI-B-PATIENT', 'WSI_SAMPLE', liveBlock.resourceDataId!),
             requestOptions
           )
         )
       ).to.equal(403);
     }
-    expect(
-      await statusOf(
-        axios.get(
-          `${config.serverUrl}/api/wsi/v2/slides/${fixture.study_id}/missing-slide/access`,
-          requestOptions
-        )
-      )
-    ).to.equal(404);
+    // Unknown row, the right row under the wrong resource, the right row under
+    // another patient, and a non-numeric id all resolve to no servable slide.
+    for (const missing of [
+      accessUrl(fixture.study_id, fixture.patient_id, 'WSI_SAMPLE', '999999999999'),
+      accessUrl(fixture.study_id, fixture.patient_id, 'WSI_PATIENT', liveBlock.resourceDataId!),
+      accessUrl(fixture.study_id, NO_SLIDES_PATIENT_ID, 'WSI_SAMPLE', liveBlock.resourceDataId!),
+      accessUrl(fixture.study_id, fixture.patient_id, 'WSI_SAMPLE', 'missing-slide'),
+    ]) {
+      expect(await statusOf(axios.get(missing, requestOptions)), missing).to.equal(404);
+    }
   });
 
   it('returns the materialized hierarchy only for the authenticated study session', async function () {
@@ -246,7 +344,15 @@ describe('Authenticated WsiHierarchyController and tile contract', () => {
     expect(response.status).to.equal(200);
     expect(response.headers['content-type']).to.contain('application/json');
     expect(response.headers['cache-control']).to.contain('private');
-    expect(response.data).to.deep.equal(fixture.hierarchy);
+    expect(withoutResourceDataIds(response.data)).to.deep.equal(fixture.hierarchy);
+    allSlides(response.data).forEach(slide => {
+      expect(slide.resourceId, slide.imageId).to.equal(
+        slide.matchLevel === 'UNMATCHED' ? 'WSI_PATIENT' : 'WSI_SAMPLE'
+      );
+    });
+    // The hierarchy is public slide metadata only; serving URLs are issued by
+    // the access endpoint alone.
+    assertNoPrivateServingData('hierarchy', response.data);
     if (!localAuthBypass) {
       expect(
         await statusOf(
@@ -299,13 +405,15 @@ describe('Authenticated WsiHierarchyController and tile contract', () => {
       expect(slideIds).to.include(slide.imageId);
       if (slide.matchLevel === 'UNMATCHED') {
         expect(slide.sampleId).to.equal(null);
+        expect(slide.resourceId).to.equal('WSI_PATIENT');
       } else {
         expect(slide.sampleId).to.be.a('string').and.not.empty;
+        expect(slide.resourceId).to.equal('WSI_SAMPLE');
       }
     });
   });
 
-  it('sources slide timepoints from the imported WSI timing contract', async function () {
+  it('sources slide timepoints from the imported WSI resource metadata', async function () {
     if (!hasTileSetup) this.skip();
     const response = await axios.get<PatientHierarchy>(
       hierarchyUrl,
@@ -325,7 +433,7 @@ describe('Authenticated WsiHierarchyController and tile contract', () => {
     expect(unmatched.timepointSource).to.equal('MISSING_PROCEDURE_DATE');
   });
 
-  it('returns 404 for an unknown patient after authentication', async function () {
+  it('returns 404 for an unknown patient or study after authentication', async function () {
     if (!hasTileSetup) this.skip();
     const requestOptions = await authenticatedRequestOptions();
     expect(
@@ -336,6 +444,88 @@ describe('Authenticated WsiHierarchyController and tile contract', () => {
         )
       )
     ).to.equal(404);
+    const unknownStudyStatus = await statusOf(
+      axios.get(
+        `${config.serverUrl}/api/wsi/v2/hierarchy/missing_wsi_study/${fixture.patient_id}`,
+        requestOptions
+      )
+    );
+    if (localAuthBypass) {
+      expect(unknownStudyStatus).to.equal(404);
+    } else {
+      // With authentication on, the study permission evaluator runs first and
+      // cannot grant READ on a study it does not know, so a 403 is equally a
+      // refusal that reveals nothing; any 2xx is a failure.
+      expect([403, 404]).to.include(unknownStudyStatus);
+    }
+  });
+
+  it('returns an empty 200 hierarchy for a known patient without slides', async function () {
+    if (!hasTileSetup) this.skip();
+    const response = await axios.get<PatientHierarchy>(
+      `${config.serverUrl}/api/wsi/v2/hierarchy/${fixture.study_id}/${NO_SLIDES_PATIENT_ID}`,
+      await authenticatedRequestOptions()
+    );
+    expect(response.status).to.equal(200);
+    expect(response.headers['cache-control']).to.contain('private');
+    expect(response.data).to.deep.equal({ referenceSampleId: null, sampleGroups: [] });
+  });
+
+  it('never exposes wsi_serving through the generic resource table API', async function () {
+    if (!hasTileSetup) this.skip();
+    const requestOptions = await authenticatedRequestOptions();
+    const tabs = await axios.post(
+      `${config.serverUrl}/api/resource-table/tabs/fetch`,
+      { studyIds: [fixture.study_id] },
+      requestOptions
+    );
+    expect(tabs.status).to.equal(200);
+    expect(tabs.data.map((tab: { resourceId: string }) => tab.resourceId)).to.include.members([
+      'WSI_SAMPLE',
+      'WSI_PATIENT',
+    ]);
+    assertNoPrivateServingData('resource-table tabs', tabs.data);
+
+    const expectedImageIds: Record<string, string[]> = {
+      WSI_SAMPLE: ['3020726', '3020691'],
+      WSI_PATIENT: ['3020648', '3020649'],
+    };
+    for (const resourceId of Object.keys(expectedImageIds)) {
+      const query = await axios.post<ResourceTableResult>(
+        `${config.serverUrl}/api/resource-table/query/fetch`,
+        { studyIds: [fixture.study_id], resourceId, pageNumber: 0, pageSize: 50 },
+        requestOptions
+      );
+      expect(query.status).to.equal(200);
+      // Non-vacuous: the rows and public metadata are really there.
+      expect(query.data.rows.map(row => row.displayName ?? (row.metadata || {})['image_id']))
+        .to.have.members(expectedImageIds[resourceId]);
+      query.data.rows.forEach(row => {
+        expect(row.resourceId).to.equal(resourceId);
+        expect(row.type).to.equal('WHOLE_SLIDE_IMAGE');
+        expect(row.metadata).to.not.equal(null);
+        expect(row.metadata!).to.not.have.property('wsi_serving');
+      });
+      query.data.columns.forEach(column => {
+        expect(column.id).to.not.match(/wsi_serving/);
+      });
+      assertNoPrivateServingData(`resource-table ${resourceId} query`, query.data);
+
+      // Search must not match text that only exists inside wsi_serving.
+      const search = await axios.post<ResourceTableResult>(
+        `${config.serverUrl}/api/resource-table/query/fetch`,
+        {
+          studyIds: [fixture.study_id],
+          resourceId,
+          search: 'CMU-1-Small-Region',
+          pageNumber: 0,
+          pageSize: 50,
+        },
+        requestOptions
+      );
+      expect(search.status).to.equal(200);
+      expect(search.data.rows, `${resourceId} search matched private serving data`).to.deep.equal([]);
+    }
   });
 
   const tileIt = hasTileSetup ? it : it.skip;
@@ -390,14 +580,10 @@ describe('Authenticated WsiHierarchyController and tile contract', () => {
 
   tileIt('accepts a replacement token after refresh', async function () {
     const requestOptions = await authenticatedRequestOptions();
-    const first = await axios.get(
-      `${config.serverUrl}/api/wsi/v2/slides/${fixture.study_id}/${blockTileSlideId}/access`,
-      requestOptions
-    );
-    const second = await axios.get(
-      `${config.serverUrl}/api/wsi/v2/slides/${fixture.study_id}/${blockTileSlideId}/access`,
-      requestOptions
-    );
+    const liveBlock = liveSlide(await liveHierarchy(requestOptions), blockTileSlideId);
+    const first = await axios.get(slideAccessUrl(liveBlock), requestOptions);
+    expect(first.data.accessToken).to.be.a('string').and.not.empty;
+    const second = await axios.get(slideAccessUrl(liveBlock), requestOptions);
     // Issuance can occur within the same second, so a deterministic JWT may be
     // byte-identical.  The refresh contract is that the replacement is valid
     // and source-bound, not that its serialized value must differ.
@@ -426,25 +612,20 @@ describe('Authenticated WsiHierarchyController and tile contract', () => {
       unmatchedSlide.imageId,
     ]);
     const requestOptions = await authenticatedRequestOptions();
+    const live = await liveHierarchy(requestOptions);
     const metadataResponses = await Promise.all(
       servableSlides.map(slide =>
-        axios.get<SlideAccess>(
-          `${config.serverUrl}/api/wsi/v2/slides/${fixture.study_id}/${slide.imageId}/access`,
-          requestOptions
-        )
+        axios.get<SlideAccess>(slideAccessUrl(liveSlide(live, slide.imageId)), requestOptions)
       )
     );
     metadataResponses.forEach(response => {
       expect(response.status).to.equal(200);
       expect(response.data.tileMetadata.levels).to.be.greaterThan(0);
     });
-    expect(
-      await statusOf(
-        axios.get(
-          `${config.serverUrl}/api/wsi/v2/slides/${fixture.study_id}/${unmatchedTileSlideId}/access`,
-          requestOptions
-        )
-      )
-    ).to.equal(404);
+    // The non-servable unmatched slide is a WSI_PATIENT row with an empty
+    // wsi_serving object: it is listed in the hierarchy but never issued.
+    const nonServable = liveSlide(live, unmatchedTileSlideId);
+    expect(nonServable.resourceId).to.equal('WSI_PATIENT');
+    expect(await statusOf(axios.get(slideAccessUrl(nonServable), requestOptions))).to.equal(404);
   });
 });
