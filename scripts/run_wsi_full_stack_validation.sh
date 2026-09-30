@@ -488,9 +488,14 @@ run_browser_tests() {
     WSI_BASIC_LOGIN_PASSWORD=wsi-ci-password \
     WSI_PROXY_REHEARSAL=1 \
     PLAYWRIGHT_JSON_OUTPUT_NAME=test-results/report.json \
+    # The full stack serves a dev build, whose error overlay covers the page
+    # when the chunk-retry test fails the OpenSeadragon chunk on purpose, so
+    # the Retry click can't land. The frontend-children jobs run that test
+    # against a production build.
     pnpm exec playwright test --config=playwright.wsi.config.ts \
       "${browser_tests[@]}" \
-      --grep-invert 'private MSK-IMPACT' --reporter=line,json
+      --grep-invert 'private MSK-IMPACT|retries a failed OpenSeadragon chunk' \
+      --reporter=line,json
     python3 - <<'PY'
 import json
 from pathlib import Path
