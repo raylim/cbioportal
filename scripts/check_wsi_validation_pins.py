@@ -14,13 +14,16 @@ Fails (exit 1) when
   generated resource files and no legacy ``meta_wsi``/``data_wsi`` pair, while
   ``legacy_wsi_source/`` holds that pair as converter input only.
 
-Every problem is reported before exiting.  Requires PyYAML.
+Set WSI_FRONTEND_GIT_DIR to a frontend clone to also check the frontend
+ancestry locally.  Every problem is reported before exiting.  Requires PyYAML.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -151,6 +154,26 @@ def main() -> int:
         for name, value in (job.get("env") or {}).items():
             if isinstance(value, str) and PLACEHOLDER in value:
                 placeholders.append(f"{job_name}.env.{name}")
+
+    # 3b. Optional: with WSI_FRONTEND_GIT_DIR pointing at a frontend clone that
+    # has the pinned objects, check the ancestry the CI jobs enforce.
+    frontend_git = os.environ.get("WSI_FRONTEND_GIT_DIR")
+    frontend = manifest.get("frontend", {})
+    if frontend_git and not placeholders:
+        edges = [(frontend["package"], frontend[k], f"{k} contains package")
+                 for k in ("study", "patient", "molecular", "annotations", "agent", "integration")]
+        edges.append((frontend["annotations"], frontend["agent"], "agent contains annotations"))
+        edges += [(frontend[k], frontend["integration"], f"integration contains {k}")
+                  for k in ("study", "patient", "molecular", "annotations", "agent")]
+        for ancestor, descendant, label in edges:
+            result = subprocess.run(
+                ["git", "-C", frontend_git, "merge-base", "--is-ancestor", ancestor, descendant],
+                capture_output=True,
+            )
+            if result.returncode != 0:
+                errors.append(f"frontend ancestry check failed: {label} ({ancestor[:9]} -> {descendant[:9]})")
+            else:
+                print(f"ok frontend ancestry: {label}")
 
     # 4. Fixture authorization metadata and resource-data layout.
     allowed = (FIXTURE_DIR / "wsi_loader_fixture/meta_study.txt").read_text(encoding="utf-8")

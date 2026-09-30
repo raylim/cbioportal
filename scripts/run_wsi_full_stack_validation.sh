@@ -304,6 +304,7 @@ check_imported_wsi_resources() {
   local servable_rows="$4"
   local patient_id="$5"
   local undated_viewable="$6"
+  local patient_slides="$7"
   local study_db_id
   study_db_id="$(ch_query "SELECT cancer_study_id FROM cancer_study WHERE cancer_study_identifier = '${study}' FORMAT TSVRaw")"
   test -n "$study_db_id"
@@ -317,6 +318,11 @@ check_imported_wsi_resources() {
     "$(wsi_resource_count "$study" "JSONExtractString(ifNull(r.METADATA, '{}'), 'wsi_serving', 'source_url') != ''")"
   expect_count "${study} rows without a wsi_serving object" 0 \
     "$(wsi_resource_count "$study" "NOT JSONHas(ifNull(r.METADATA, '{}'), 'wsi_serving')")"
+  # The package shows the Pathology Slides tab only when WSI_PATIENT_SLIDE_COUNT
+  # > 0 (or it is the active tab), so the browser contracts rely on the
+  # imported patient count.
+  expect_count "${study} ${patient_id} WSI_PATIENT_SLIDE_COUNT" "$patient_slides" \
+    "$(ch_query "SELECT any(cp.attr_value) FROM clinical_patient AS cp INNER JOIN patient AS p ON p.internal_id = cp.internal_id WHERE p.cancer_study_id = ${study_db_id} AND p.stable_id = '${patient_id}' AND cp.attr_id = 'WSI_PATIENT_SLIDE_COUNT'")"
   # The converter's patient attribute counting viewable slides without a
   # procedure day (the frontend's undated notice reads it).
   expect_count "${study} ${patient_id} WSI_PATIENT_UNDATED_SLIDE_COUNT" "$undated_viewable" \
@@ -343,9 +349,11 @@ import_fixture_and_check_lifecycle() {
   done
   import_study /tmp/wsi-loader-fixture
   import_study /tmp/wsi-loader-control-fixture
-  check_imported_wsi_resources msk_spectrum_tme_2022 2 2 3 P-0055908 1
+  check_imported_wsi_resources msk_spectrum_tme_2022 2 2 3 P-0055908 1 4
   local study_db_id="$WSI_STUDY_DB_ID"
-  check_imported_wsi_resources wsi_ci_study_b 2 1 2 WSI-CI-B-PATIENT 0
+  expect_count "WSI-CI-NO-SLIDES-PATIENT WSI_PATIENT_SLIDE_COUNT rows (tab hidden)" 0 \
+    "$(ch_query "SELECT count() FROM clinical_patient AS cp INNER JOIN patient AS p ON p.internal_id = cp.internal_id WHERE p.cancer_study_id = ${study_db_id} AND p.stable_id = 'WSI-CI-NO-SLIDES-PATIENT' AND cp.attr_id = 'WSI_PATIENT_SLIDE_COUNT'")"
+  check_imported_wsi_resources wsi_ci_study_b 2 1 2 WSI-CI-B-PATIENT 0 3
 
   log "checking deletion and clean reimport"
   docker exec cbioportal-container sh -lc '
@@ -361,7 +369,7 @@ import_fixture_and_check_lifecycle() {
   expect_count "removed study resource_definition rows" 0 \
     "$(ch_query "SELECT count() FROM resource_definition WHERE cancer_study_id = ${study_db_id}")"
   import_study /tmp/wsi-loader-fixture
-  check_imported_wsi_resources msk_spectrum_tme_2022 2 2 3 P-0055908 1
+  check_imported_wsi_resources msk_spectrum_tme_2022 2 2 3 P-0055908 1 4
 
   # The portal's default authorization cache is populated at application
   # startup.  The importer runs after compose startup, so restart the portal
@@ -418,16 +426,18 @@ run_browser_tests() {
     authenticated_e2e=true
   fi
   local browser_tests=()
-  # Browser contracts per frontend variant.  The package branch carries the
-  # viewer and the Pathology Slides tab; the patient child (timeline track,
-  # undated notice, link scoping) and the annotations/agent children define
-  # their contracts on their successor branches.  Until then those variants
-  # (and integration, which includes them) fail closed.
+  # Browser contracts per frontend variant (file names checked at the pins).
+  # The package branch carries the viewer and the Pathology Slides tab; the
+  # patient child has no Playwright spec of its own (a known gap: its timeline
+  # track, undated notice and link scoping are covered by Jest in the
+  # frontend-children job), so its variant runs the package contracts plus the
+  # foundation mock.  The annotations/agent branch changes
+  # wsi-foundation-route.spec.ts, which every variant runs.
   local package_tests=(tests/wsi-foundation-route.spec.ts tests/wsi-viewer.spec.ts)
   local study_tests=(tests/pathology-study-clinical-data.spec.ts)
+  local patient_tests=(tests/wsi-foundation-mocked.spec.ts)
   local molecular_tests=(tests/wsi-molecular-mocked.spec.ts)
-  local patient_tests=() # TODO-successor: set with the codex/wsi-rd-patient pin
-  local annotations_agent_tests=() # TODO-successor: set with the annotations/agent pins
+  local annotations_agent_tests=(tests/wsi-annotation-agent.spec.ts)
   case "$WSI_VARIANT" in
     package)
       browser_tests=("${package_tests[@]}")
@@ -435,33 +445,23 @@ run_browser_tests() {
     study)
       browser_tests=(tests/wsi-foundation-route.spec.ts "${study_tests[@]}")
       ;;
+    patient)
+      browser_tests=("${package_tests[@]}" "${patient_tests[@]}")
+      ;;
     molecular)
       browser_tests=(tests/wsi-foundation-route.spec.ts "${molecular_tests[@]}")
       ;;
-    patient)
-      if [[ ${#patient_tests[@]} -eq 0 ]]; then
-        echo "browser contract for patient is a TODO-successor placeholder" >&2
-        exit 2
-      fi
-      browser_tests=(tests/wsi-foundation-route.spec.ts "${patient_tests[@]}")
+    annotations-agent)
+      browser_tests=(tests/wsi-foundation-route.spec.ts "${annotations_agent_tests[@]}")
       ;;
-    annotations-agent | integration)
-      if [[ ${#annotations_agent_tests[@]} -eq 0 ]] ||
-        [[ "$WSI_VARIANT" == integration && ${#patient_tests[@]} -eq 0 ]]; then
-        echo "browser contract for ${WSI_VARIANT} is a TODO-successor placeholder" >&2
-        exit 2
-      fi
-      if [[ "$WSI_VARIANT" == annotations-agent ]]; then
-        browser_tests=(tests/wsi-foundation-route.spec.ts "${annotations_agent_tests[@]}")
-      else
-        browser_tests=(
-          "${package_tests[@]}"
-          "${study_tests[@]}"
-          "${patient_tests[@]}"
-          "${molecular_tests[@]}"
-          "${annotations_agent_tests[@]}"
-        )
-      fi
+    integration)
+      browser_tests=(
+        "${package_tests[@]}"
+        "${study_tests[@]}"
+        "${patient_tests[@]}"
+        "${molecular_tests[@]}"
+        "${annotations_agent_tests[@]}"
+      )
       ;;
     *)
       echo "Unknown WSI_VARIANT: $WSI_VARIANT" >&2
@@ -487,14 +487,6 @@ run_browser_tests() {
     WSI_BASIC_LOGIN_USERNAME=wsi-ci-user \
     WSI_BASIC_LOGIN_PASSWORD=wsi-ci-password \
     WSI_PROXY_REHEARSAL=1 \
-    WSI_TIMING_STUDY_ID=msk_spectrum_tme_2022 \
-    WSI_TIMING_UNDATED_PATIENT_ID=P-0055908 \
-    WSI_UNDATED_PATIENT_ID=P-0055908 \
-    WSI_TIMING_UNDATED_SLIDE_COUNT=2 \
-    WSI_TIMING_RECORDED_PATIENT_ID=P-0055908 \
-    WSI_TIMING_RECORDED_SLIDE_ID=3020726 \
-    WSI_TIMING_RECORDED_DATE_DAYS=-17 \
-    WSI_TIMING_RECORDED_DATE_SOURCE=RECORDED_PROCEDURE_DATE \
     PLAYWRIGHT_JSON_OUTPUT_NAME=test-results/report.json \
     pnpm exec playwright test --config=playwright.wsi.config.ts \
       "${browser_tests[@]}" \

@@ -1,5 +1,5 @@
 {
-  "_note": "Immutable cross-repository tuple validated by .github/workflows/wsi-validation.yml for the resource-data WSI model. Every ref must be a full 40-character commit SHA; scripts/check_wsi_validation_pins.py fails on anything else, including the TODO-successor placeholders.",
+  "_note": "Immutable cross-repository tuple validated by .github/workflows/wsi-validation.yml for the resource-data WSI model. Every ref must be a full 40-character commit SHA; scripts/check_wsi_validation_pins.py fails on anything else, including TODO-successor placeholders.",
   "backend": {
     "repository": "raylim/cbioportal",
     "ref": "065b4df5a887b38c9da829d0bbce1ca9f8765499",
@@ -34,13 +34,22 @@
   },
   "frontend": {
     "repository": "raylim/cbioportal-frontend",
-    "package": "59df2b206d05a156648d89e68ea3acd1402bc0e3",
-    "study": "173c48e5b6424f7a00b4d7fd7e560bc4904024f5",
-    "patient": "TODO-successor",
-    "molecular": "TODO-successor",
-    "annotations": "TODO-successor",
-    "agent": "TODO-successor",
-    "integration": "TODO-successor",
-    "_note": "package = codex/wsi-viewer-package (#5732): the WSI viewer package and the Pathology Slides tab only, requesting slide access by image ID. study = codex/wsi-rd-study, rebased onto package. patient = codex/wsi-rd-patient (clinical-event loading, the pathology timeline track built from the WSI hierarchy, the undated notice and the tab's link scoping). patient, molecular, annotations, agent and integration are still being ported onto the package branch: their TODO-successor placeholders make the fixture-contract job, and therefore the acceptance gate, fail until each is replaced by a full commit SHA. The annotations-agent matrix row checks out the agent pin and requires the annotations pin as an ancestor; integration must contain every other frontend pin."
+    "package": "e55244daec8707188b5921de70cdb3db036a9b6b",
+    "study": "8cd4460f636183d8df5129e6a86c26997be1fc73",
+    "patient": "99990c8e6b05c8da134a1e59c99d7af9485d3d57",
+    "molecular": "4ad4b92c572d7fc0d0f8926fd54a14e5b08cab23",
+    "annotations": "531063c4ccf75052bb5e58f786c851f936e1fd39",
+    "agent": "50c61863f5057dbe429f00ba9a3a962812af2d81",
+    "integration": "4c3f354281d682e71629469dc7dc278bb71edbaa",
+    "branches": {
+      "package": "codex/wsi-viewer-package (#5732)",
+      "study": "codex/wsi-rd-study",
+      "patient": "codex/wsi-rd-patient",
+      "molecular": "codex/wsi-rd-molecular",
+      "annotations": "codex/wsi-rd-annotations",
+      "agent": "codex/wsi-rd-agent",
+      "integration": "codex/wsi-rd-integration"
+    },
+    "_note": "package = the WSI viewer package and the Pathology Slides tab only (image-ID access; the tab shows only when WSI_PATIENT_SLIDE_COUNT > 0 or it is the active tab). Every child contains the package pin; agent contains annotations (the annotations-agent matrix row checks out agent and requires annotations as an ancestor); integration = package + study + patient + molecular + agent. Known gap: the patient child (clinical-event loading, hierarchy-built pathology timeline track, undated notice, tab link scoping) has no Playwright spec; its browser contract is wsi-foundation-mocked.spec.ts and its behaviour is covered by its Jest specs (pathologySlidesTimeline, pathologySlidesTimelineLoader, PatientWsiSlidesTab, UndatedPathologySlidesNotice, WsiPatientViewRoute)."
   }
 }
