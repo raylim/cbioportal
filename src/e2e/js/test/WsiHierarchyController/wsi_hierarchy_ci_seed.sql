@@ -67,7 +67,7 @@ VALUES (990002, 'wsi_ci_study_b_all', 'all', 990002,
         'All WSI CI control samples', 'Authenticated WSI CI control sample list');
 INSERT INTO sample_list_list (list_id, sample_id) VALUES (990002, 990002);
 
--- The six WSI_* slide-count attributes the Core converter merges into the
+-- The seven WSI_* slide-count attributes the Core converter merges into the
 -- study's clinical sample and patient files. The slide-less patient/sample
 -- carry NA in the files and therefore no rows here.
 INSERT INTO clinical_attribute_meta
@@ -87,6 +87,8 @@ FROM (
          'Associated pathology slides matched to a specimen part for the patient.', 1
   UNION ALL SELECT 'WSI_PATIENT_BLOCK_MATCHED_SLIDE_COUNT', 'WSI Slides per Patient, Block-matched',
          'Associated pathology slides matched to a specimen block for the patient.', 1
+  UNION ALL SELECT 'WSI_PATIENT_UNDATED_SLIDE_COUNT', 'WSI Undated Viewable Slides per Patient',
+         'Viewable pathology slides without a procedure date, which the timeline does not show.', 1
 ) AS attrs
 CROSS JOIN (SELECT arrayJoin([990001, 990002]) AS study) AS studies;
 
@@ -104,74 +106,15 @@ VALUES
   (990001, 'WSI_PATIENT_SLIDE_COUNT', '4'),
   (990001, 'WSI_PATIENT_PART_MATCHED_SLIDE_COUNT', '1'),
   (990001, 'WSI_PATIENT_BLOCK_MATCHED_SLIDE_COUNT', '1'),
+  (990001, 'WSI_PATIENT_UNDATED_SLIDE_COUNT', '1'),
   (990002, 'WSI_PATIENT_SLIDE_COUNT', '3'),
   (990002, 'WSI_PATIENT_PART_MATCHED_SLIDE_COUNT', '1'),
-  (990002, 'WSI_PATIENT_BLOCK_MATCHED_SLIDE_COUNT', '1');
+  (990002, 'WSI_PATIENT_BLOCK_MATCHED_SLIDE_COUNT', '1'),
+  (990002, 'WSI_PATIENT_UNDATED_SLIDE_COUNT', '0');
 
--- Pathology procedure events belong to the standard clinical timeline, which
--- is imported unchanged next to the WSI resource rows (those carry their own
--- timing fields).  Keep one event per slide association so the timeline
--- retains the block/part/unmatched distinctions while all events share the
--- de-identified procedure offset.
-INSERT INTO clinical_event
-  (clinical_event_id, patient_id, start_date, stop_date, event_type)
-VALUES
-  (990001, 990001, -17, -17, 'PATHOLOGY SLIDES'),
-  (990002, 990001, -17, -17, 'PATHOLOGY SLIDES'),
-  (990003, 990001, -17, -17, 'PATHOLOGY SLIDES'),
-  (990005, 990001, -18, -18, 'PATHOLOGY SLIDES'),
-  (990004, 990002, -17, -17, 'PATHOLOGY SLIDES');
-INSERT INTO clinical_event_data (clinical_event_id, key, value)
-VALUES
-  (990001, 'IMAGE_COUNT', '1'),
-  (990001, 'NON_SERVABLE_IMAGE_COUNT', '0'),
-  (990001, 'TOTAL_IMAGE_COUNT', '1'),
-  (990001, 'SAMPLE_ID', 'P-0055908-T01-IM6'),
-  (990001, 'MATCH_LEVEL', 'Block'),
-  (990001, 'SPECIMEN', 'Part 27 / Block 4RO'),
-  (990001, 'SUBTYPE', 'H&E'),
-  (990001, 'TIMEPOINT_SOURCE', 'Procedure date relative to tumor sequencing'),
-  (990001, 'IMAGE_IDS', '["3020726"]'),
-  (990001, 'LINKOUT', '/patient/wsiHESlides?studyId=msk_spectrum_tme_2022&caseId=P-0055908&sampleId=P-0055908-T01-IM6&stainFilter=hne&matchLevel=BLOCK&specimenKey=block%3A%3A27%3A%3A4'),
-  (990002, 'IMAGE_COUNT', '1'),
-  (990002, 'NON_SERVABLE_IMAGE_COUNT', '0'),
-  (990002, 'TOTAL_IMAGE_COUNT', '1'),
-  (990002, 'SAMPLE_ID', 'P-0055908-T01-IM6'),
-  (990002, 'MATCH_LEVEL', 'Part'),
-  (990002, 'SPECIMEN', 'Part 27 / Block 1 RFIM'),
-  (990002, 'SUBTYPE', 'H&E'),
-  (990002, 'TIMEPOINT_SOURCE', 'Procedure date relative to tumor sequencing'),
-  (990002, 'IMAGE_IDS', '["3020691"]'),
-  (990002, 'LINKOUT', '/patient/wsiHESlides?studyId=msk_spectrum_tme_2022&caseId=P-0055908&sampleId=P-0055908-T01-IM6&stainFilter=hne&matchLevel=PART&specimenKey=part%3A%3A27'),
-  (990003, 'IMAGE_COUNT', '0'),
-  (990003, 'NON_SERVABLE_IMAGE_COUNT', '1'),
-  (990003, 'TOTAL_IMAGE_COUNT', '1'),
-  (990003, 'SAMPLE_ID', ''),
-  (990003, 'MATCH_LEVEL', 'Unmatched'),
-  (990003, 'SPECIMEN', 'Part 34 / Block 4RS'),
-  (990003, 'SUBTYPE', 'H&E'),
-  (990003, 'TIMEPOINT_SOURCE', 'Procedure date relative to tumor sequencing'),
-  (990003, 'IMAGE_IDS', '["3020648"]'),
-  (990005, 'IMAGE_COUNT', '1'),
-  (990005, 'NON_SERVABLE_IMAGE_COUNT', '0'),
-  (990005, 'TOTAL_IMAGE_COUNT', '1'),
-  (990005, 'SAMPLE_ID', ''),
-  (990005, 'MATCH_LEVEL', 'Unmatched'),
-  (990005, 'SPECIMEN', 'Part 35 / Block 5RS'),
-  (990005, 'SUBTYPE', 'H&E'),
-  (990005, 'TIMEPOINT_SOURCE', 'MISSING_PROCEDURE_DATE'),
-  (990005, 'IMAGE_IDS', '["3020649"]'),
-  (990005, 'LINKOUT', '/patient/wsiHESlides?studyId=msk_spectrum_tme_2022&caseId=P-0055908&stainFilter=hne&matchLevel=Unmatched&specimenKey=unmatched%3A%3A35%3A%3A5'),
-  (990004, 'IMAGE_COUNT', '1'),
-  (990004, 'NON_SERVABLE_IMAGE_COUNT', '0'),
-  (990004, 'TOTAL_IMAGE_COUNT', '1'),
-  (990004, 'SAMPLE_ID', 'WSI-CI-B-SAMPLE'),
-  (990004, 'MATCH_LEVEL', 'Block'),
-  (990004, 'SPECIMEN', 'Part 1 / Block 1'),
-  (990004, 'SUBTYPE', 'H&E'),
-  (990004, 'TIMEPOINT_SOURCE', 'Procedure date relative to tumor sequencing'),
-  (990004, 'IMAGE_IDS', '["4020726"]'),
-  (990004, 'LINKOUT', '/patient/wsiHESlides?studyId=wsi_ci_study_b&caseId=WSI-CI-B-PATIENT&sampleId=WSI-CI-B-SAMPLE&stainFilter=hne&matchLevel=BLOCK&specimenKey=block%3A%3A1%3A%3A1');
+-- Studies no longer load a PATHOLOGY SLIDES clinical-event (timeline) file:
+-- slide timing lives only in the resource METADATA (timeline_* fields), and the
+-- frontend builds its pathology track from the WSI hierarchy.
 
 -- WSI resources. Rows are the generated data_resource_sample.txt /
 -- data_resource_patient.txt contents of both fixture studies, verbatim, with
@@ -189,6 +132,22 @@ VALUES
   ('WSI_PATIENT', 'Pathology slides', 'Whole-slide images not matched to a sample', 'PATIENT', 0, 1, 990001, NULL),
   ('WSI_SAMPLE', 'Pathology slides', 'Whole-slide images matched to a sample', 'SAMPLE', 0, 1, 990002, NULL),
   ('WSI_PATIENT', 'Pathology slides', 'Whole-slide images not matched to a sample', 'PATIENT', 0, 1, 990002, NULL);
+
+-- A WHOLE_SLIDE_IMAGE row outside the WSI_SAMPLE/WSI_PATIENT resources, with a
+-- complete serving object: the image-ID access lookup must never serve it.
+INSERT INTO resource_definition
+  (resource_id, display_name, description, resource_type, open_by_default,
+   priority, cancer_study_id, custom_metadata)
+VALUES
+  ('WSI_CI_OTHER_SLIDES', 'Other slides', 'Slides outside the WSI resources', 'PATIENT', 0, 2, 990001, NULL);
+INSERT INTO resource_data
+  (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTITY_TYPE, PATIENT_ID,
+   SAMPLE_ID, URL, DISPLAY_NAME, TYPE, METADATA)
+VALUES
+  (990199, 'WSI_CI_OTHER_SLIDES', 990001, 'PATIENT', 'P-0055908', NULL,
+   'http://localhost:8080/wsi/patient/P-0055908?studyId=msk_spectrum_tme_2022&imageId=wsi-ci-other-slide',
+   'wsi-ci-other-slide', 'WHOLE_SLIDE_IMAGE',
+   '{"image_id":"wsi-ci-other-slide","can_serve_tiles":true,"wsi_serving":{"source_url":"file:///app/testdata/CMU-1-Small-Region.svs","thumbnail_content_type":"image/jpeg","thumbnail_height":232,"thumbnail_url":"file:///app/testdata/3020691.jpg","thumbnail_width":256,"tile_metadata_json":{"dimensions":{"height":2967,"width":2220},"level_dimensions":[{"height":2967,"width":2220}],"level_downsamples":[1.0],"levels":1,"max_zoom":4,"tile_size":256}}}');
 
 INSERT INTO resource_data
   (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTITY_TYPE, PATIENT_ID,
