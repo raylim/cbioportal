@@ -113,3 +113,21 @@ The generic resource table API (`/api/resource-table/tabs/fetch`,
 `/api/resource-table/query/fetch`) lists the same WSI rows as ordinary
 resources; the spec asserts its rows, columns and search never expose
 `wsi_serving`, `s3://`, or the private serving paths.
+
+## Frontend contracts and known gaps
+
+The pinned frontend tuple (see `wsi-validation-manifest.json`) is the viewer
+package (viewer and Pathology Slides tab), plus the study, patient, molecular,
+annotations/agent and integration children. The package shows the Pathology
+Slides tab only when the patient's `WSI_PATIENT_SLIDE_COUNT` is above 0 or the
+tab is active. The fixture patient `P-0055908` has a count of 4; the
+slide-less patient has no count row, so the tab stays hidden for it. The
+full-stack run checks both.
+
+Known gap: the patient child (clinical-event loading, the pathology timeline
+track built from the WSI hierarchy, the undated notice and the tab's link
+scoping) has no Playwright spec. Its browser contract is
+`wsi-foundation-mocked.spec.ts`, and its behaviour is covered only by its Jest
+specs (`pathologySlidesTimeline`, `pathologySlidesTimelineLoader`,
+`PatientWsiSlidesTab`, `UndatedPathologySlidesNotice`,
+`WsiPatientViewRoute`).
