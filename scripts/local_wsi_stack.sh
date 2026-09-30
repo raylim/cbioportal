@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Local all-in-one WSI stack (backend, frontend, tile server) for manual work.
+# WSI is served from resource_data rows (WSI_SAMPLE/WSI_PATIENT,
+# TYPE WHOLE_SLIDE_IMAGE): the study imported below must be a converted
+# resource-data study, e.g. src/e2e/js/test/WsiHierarchyController/wsi_loader_fixture
+# (regenerate with scripts/wsi_resource_fixtures.py --write), not a legacy
+# meta_wsi/data_wsi pair, which the pinned Core validator rejects.
+
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)"
 COMPOSE_DIR="${ROOT_DIR}/../cbioportal-docker-compose"
 FRONTEND_DIR="${ROOT_DIR}/../cbioportal-frontend"
