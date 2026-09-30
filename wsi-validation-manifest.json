@@ -2,10 +2,11 @@
   "_note": "Immutable cross-repository tuple validated by .github/workflows/wsi-validation.yml for the resource-data WSI model. Every ref must be a full 40-character commit SHA; scripts/check_wsi_validation_pins.py fails on anything else, including the TODO-successor placeholders.",
   "backend": {
     "repository": "raylim/cbioportal",
-    "ref": "6449a6494156468409e0fd4a9c2e95809ebca48c",
+    "ref": "065b4df5a887b38c9da829d0bbce1ca9f8765499",
     "branch": "codex/wsi-resource-data",
     "pullRequest": "cBioPortal/cbioportal#12378",
-    "dbSchemaVersion": "3.5.0"
+    "dbSchemaVersion": "3.5.0",
+    "slideAccess": "GET /api/wsi/v2/resources/{studyId}/{patientId}/access?imageId=<imageId>"
   },
   "testStack": {
     "repository": "cBioPortal/cbioportal-test",
@@ -17,7 +18,7 @@
   },
   "core": {
     "repository": "raylim/cbioportal-core",
-    "ref": "1fef103420c94774c576801405782a56121141a4",
+    "ref": "3e5bf6efa03a6f507f5fffd58480d277c05d785a",
     "branch": "codex/wsi-resource-data",
     "pullRequest": "cBioPortal/cbioportal-core#193"
   },
@@ -28,16 +29,18 @@
   "fixtures": {
     "generator": "scripts/wsi_resource_fixtures.py",
     "converter": "cbioportal-core scripts/importer/convertWsiToResources.py",
-    "portalBaseUrl": "http://localhost:8080"
+    "portalBaseUrl": "http://localhost:8080",
+    "timeline": "none: studies no longer load a PATHOLOGY SLIDES clinical-event file; v3 fixtures carry timing in the resource METADATA"
   },
   "frontend": {
     "repository": "raylim/cbioportal-frontend",
-    "package": "a5f3d4fe64341c2198de476e5df9abbd4904f4a5",
-    "study": "c55bc8d8acc5b459b29a6bf9c4fc76a701b29ad5",
+    "package": "59df2b206d05a156648d89e68ea3acd1402bc0e3",
+    "study": "173c48e5b6424f7a00b4d7fd7e560bc4904024f5",
+    "patient": "TODO-successor",
     "molecular": "TODO-successor",
     "annotations": "TODO-successor",
     "agent": "TODO-successor",
     "integration": "TODO-successor",
-    "_note": "package = codex/wsi-viewer-package (the WSI viewer package, replacing the old foundation child; the patient pathology views now live in it, so there is no separate patient child). study = codex/wsi-rd-study. molecular, annotations, agent and integration successors are still being ported onto the package branch: their TODO-successor placeholders make the fixture-contract job, and therefore the acceptance gate, fail until each is replaced by a full commit SHA. The annotations-agent matrix row checks out the agent pin and requires the annotations pin as an ancestor; integration must contain every other frontend pin."
+    "_note": "package = codex/wsi-viewer-package (#5732): the WSI viewer package and the Pathology Slides tab only, requesting slide access by image ID. study = codex/wsi-rd-study, rebased onto package. patient = codex/wsi-rd-patient (clinical-event loading, the pathology timeline track built from the WSI hierarchy, the undated notice and the tab's link scoping). patient, molecular, annotations, agent and integration are still being ported onto the package branch: their TODO-successor placeholders make the fixture-contract job, and therefore the acceptance gate, fail until each is replaced by a full commit SHA. The annotations-agent matrix row checks out the agent pin and requires the annotations pin as an ancestor; integration must contain every other frontend pin."
   }
 }

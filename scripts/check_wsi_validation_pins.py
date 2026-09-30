@@ -48,6 +48,7 @@ ENV_PINS = {
     "FRONTEND_REPOSITORY": ("frontend", "repository"),
     "FRONTEND_PACKAGE_REF": ("frontend", "package"),
     "FRONTEND_STUDY_REF": ("frontend", "study"),
+    "FRONTEND_PATIENT_REF": ("frontend", "patient"),
     "FRONTEND_MOLECULAR_REF": ("frontend", "molecular"),
     "FRONTEND_ANNOTATIONS_REF": ("frontend", "annotations"),
     "FRONTEND_AGENT_REF": ("frontend", "agent"),
@@ -59,6 +60,7 @@ COMMIT_PINS = [path for name, path in ENV_PINS.items() if name.endswith("_REF")]
 VARIANTS = {
     "package": ("package", None),
     "study": ("study", None),
+    "patient": ("patient", None),
     "molecular": ("molecular", None),
     "annotations-agent": ("agent", "annotations"),
     "integration": ("integration", None),
@@ -103,8 +105,6 @@ def main() -> int:
             placeholders.append(label)
         elif not isinstance(value, str) or not SHA.match(value):
             errors.append(f"manifest {label} is not a full commit SHA: {value!r}")
-    if "patient" in manifest.get("frontend", {}):
-        errors.append("manifest still pins a separate frontend patient child")
 
     # 2. Workflow env mirrors the manifest.
     for name, path in ENV_PINS.items():

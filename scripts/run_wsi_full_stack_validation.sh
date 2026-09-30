@@ -302,6 +302,8 @@ check_imported_wsi_resources() {
   local sample_rows="$2"
   local patient_rows="$3"
   local servable_rows="$4"
+  local patient_id="$5"
+  local undated_viewable="$6"
   local study_db_id
   study_db_id="$(ch_query "SELECT cancer_study_id FROM cancer_study WHERE cancer_study_identifier = '${study}' FORMAT TSVRaw")"
   test -n "$study_db_id"
@@ -315,6 +317,13 @@ check_imported_wsi_resources() {
     "$(wsi_resource_count "$study" "JSONExtractString(ifNull(r.METADATA, '{}'), 'wsi_serving', 'source_url') != ''")"
   expect_count "${study} rows without a wsi_serving object" 0 \
     "$(wsi_resource_count "$study" "NOT JSONHas(ifNull(r.METADATA, '{}'), 'wsi_serving')")"
+  # The converter's patient attribute counting viewable slides without a
+  # procedure day (the frontend's undated notice reads it).
+  expect_count "${study} ${patient_id} WSI_PATIENT_UNDATED_SLIDE_COUNT" "$undated_viewable" \
+    "$(ch_query "SELECT any(cp.attr_value) FROM clinical_patient AS cp INNER JOIN patient AS p ON p.internal_id = cp.internal_id WHERE p.cancer_study_id = ${study_db_id} AND p.stable_id = '${patient_id}' AND cp.attr_id = 'WSI_PATIENT_UNDATED_SLIDE_COUNT'")"
+  # Studies no longer load a PATHOLOGY SLIDES clinical-event file.
+  expect_count "${study} PATHOLOGY SLIDES clinical events" 0 \
+    "$(ch_query "SELECT count() FROM clinical_event AS e INNER JOIN patient AS p ON p.internal_id = e.patient_id WHERE p.cancer_study_id = ${study_db_id} AND e.event_type = 'PATHOLOGY SLIDES'")"
   # The native WSI tables are no longer written or read.
   local wsi_table
   for wsi_table in wsi_patient wsi_part wsi_block wsi_slide wsi_slide_placement wsi_slide_timing; do
@@ -334,9 +343,9 @@ import_fixture_and_check_lifecycle() {
   done
   import_study /tmp/wsi-loader-fixture
   import_study /tmp/wsi-loader-control-fixture
-  check_imported_wsi_resources msk_spectrum_tme_2022 2 2 3
+  check_imported_wsi_resources msk_spectrum_tme_2022 2 2 3 P-0055908 1
   local study_db_id="$WSI_STUDY_DB_ID"
-  check_imported_wsi_resources wsi_ci_study_b 2 1 2
+  check_imported_wsi_resources wsi_ci_study_b 2 1 2 WSI-CI-B-PATIENT 0
 
   log "checking deletion and clean reimport"
   docker exec cbioportal-container sh -lc '
@@ -352,7 +361,7 @@ import_fixture_and_check_lifecycle() {
   expect_count "removed study resource_definition rows" 0 \
     "$(ch_query "SELECT count() FROM resource_definition WHERE cancer_study_id = ${study_db_id}")"
   import_study /tmp/wsi-loader-fixture
-  check_imported_wsi_resources msk_spectrum_tme_2022 2 2 3
+  check_imported_wsi_resources msk_spectrum_tme_2022 2 2 3 P-0055908 1
 
   # The portal's default authorization cache is populated at application
   # startup.  The importer runs after compose startup, so restart the portal
@@ -409,13 +418,15 @@ run_browser_tests() {
     authenticated_e2e=true
   fi
   local browser_tests=()
-  # Browser contracts per frontend variant.  The patient pathology views live
-  # in the package branch, so there is no separate patient variant.  The
-  # annotations/agent contract is defined by its successor branch; until then
-  # the variant (and integration, which includes it) fails closed.
+  # Browser contracts per frontend variant.  The package branch carries the
+  # viewer and the Pathology Slides tab; the patient child (timeline track,
+  # undated notice, link scoping) and the annotations/agent children define
+  # their contracts on their successor branches.  Until then those variants
+  # (and integration, which includes them) fail closed.
   local package_tests=(tests/wsi-foundation-route.spec.ts tests/wsi-viewer.spec.ts)
   local study_tests=(tests/pathology-study-clinical-data.spec.ts)
   local molecular_tests=(tests/wsi-molecular-mocked.spec.ts)
+  local patient_tests=() # TODO-successor: set with the codex/wsi-rd-patient pin
   local annotations_agent_tests=() # TODO-successor: set with the annotations/agent pins
   case "$WSI_VARIANT" in
     package)
@@ -427,8 +438,16 @@ run_browser_tests() {
     molecular)
       browser_tests=(tests/wsi-foundation-route.spec.ts "${molecular_tests[@]}")
       ;;
+    patient)
+      if [[ ${#patient_tests[@]} -eq 0 ]]; then
+        echo "browser contract for patient is a TODO-successor placeholder" >&2
+        exit 2
+      fi
+      browser_tests=(tests/wsi-foundation-route.spec.ts "${patient_tests[@]}")
+      ;;
     annotations-agent | integration)
-      if [[ ${#annotations_agent_tests[@]} -eq 0 ]]; then
+      if [[ ${#annotations_agent_tests[@]} -eq 0 ]] ||
+        [[ "$WSI_VARIANT" == integration && ${#patient_tests[@]} -eq 0 ]]; then
         echo "browser contract for ${WSI_VARIANT} is a TODO-successor placeholder" >&2
         exit 2
       fi
@@ -438,6 +457,7 @@ run_browser_tests() {
         browser_tests=(
           "${package_tests[@]}"
           "${study_tests[@]}"
+          "${patient_tests[@]}"
           "${molecular_tests[@]}"
           "${annotations_agent_tests[@]}"
         )
