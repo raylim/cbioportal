@@ -26,8 +26,15 @@ login-only, including for public studies.
    - `data_resource_sample.txt`: sample-matched (`PART`/`BLOCK`) slides as
      `WSI_SAMPLE` rows;
    - `data_resource_patient.txt`: unmatched slides as `WSI_PATIENT` rows;
-   - clinical sample/patient files with the six `WSI_*` slide-count
-     attributes merged in.
+   - clinical sample/patient files with the seven `WSI_*` slide-count
+     attributes merged in, including the patient attribute
+     `WSI_PATIENT_UNDATED_SLIDE_COUNT` (viewable slides without a procedure
+     day).
+
+   Studies no longer load a `PATHOLOGY SLIDES` clinical-event (timeline)
+   file. The v3 fixtures carry their timing on every row, which the converter
+   writes into the resource METADATA, so no timeline file is kept, not even as
+   converter input (format v2 input would need one).
 
    Every resource row has TYPE `WHOLE_SLIDE_IMAGE`, a viewer URL, and a
    METADATA JSON object with the public hierarchy, stain and timing fields and
@@ -40,13 +47,17 @@ login-only, including for public studies.
    result.
 4. The full-stack job imports `wsi_loader_fixture` and
    `wsi_loader_control_fixture` with Core `metaImport.py`, asserts the
-   `resource_definition`/`resource_data` row counts (and that the native
-   `wsi_*` tables stay empty), removes and reimports the public study, and then
+   `resource_definition`/`resource_data` row counts, the undated count
+   attribute, that no `PATHOLOGY SLIDES` events exist and that the native
+   `wsi_*` tables stay empty, removes and reimports the public study, and then
    runs `WsiHierarchyController.spec.ts` and the frontend browser contracts.
 
 `wsi_hierarchy_ci_seed.sql` is the equivalent direct ClickHouse seed (the same
 resource rows with fixed `RESOURCE_DATA_ID`s) for isolated stacks that load
-data without the importer.
+data without the importer. It adds one row the converter cannot produce: a
+`WHOLE_SLIDE_IMAGE` row with a complete `wsi_serving` object under a non-WSI
+resource (`WSI_CI_OTHER_SLIDES`, image `wsi-ci-other-slide`), which the access
+endpoint must never serve.
 
 ## Public source
 
@@ -87,11 +98,14 @@ is used by the public fixture.
   allocated by the importer, so the fixture omits it and the spec asserts it
   is a positive integer before comparing the rest exactly.
 
-Capabilities are requested per resource row:
-`GET /api/wsi/v2/resources/{studyId}/{patientId}/{resourceId}/{resourceDataId}/access`
-returns the exact source URL, intrinsic tile metadata, thumbnail artifact, and
-a short-lived capability. The spec takes `resourceId`/`resourceDataId` from
-the live hierarchy, never from constants. The tile server receives only that
+Capabilities are requested by image ID:
+`GET /api/wsi/v2/resources/{studyId}/{patientId}/access?imageId=<imageId>`
+(a query parameter because image IDs may contain a slash) returns the exact
+source URL, intrinsic tile metadata, thumbnail artifact, and a short-lived
+capability. The lookup is restricted to the study, the patient, the
+`WSI_SAMPLE`/`WSI_PATIENT` resources and TYPE `WHOLE_SLIDE_IMAGE`: an image of
+another patient, an unknown image and the non-WSI row are 404s, a denied study
+is a 403 and an anonymous request a 401. The tile server receives only that
 bundle and serves `/tiles/zxy` and `/thumbnails`; it does not expose
 hierarchy, search, patient, or slide metadata routes.
 
