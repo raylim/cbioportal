@@ -1,7 +1,11 @@
 {
+  "_note": "Immutable cross-repository tuple validated by .github/workflows/wsi-validation.yml for the resource-data WSI model. Every ref must be a full 40-character commit SHA; scripts/check_wsi_validation_pins.py fails on anything else, including the TODO-successor placeholders.",
   "backend": {
     "repository": "raylim/cbioportal",
-    "foundation": "41c7be0d7fdcb0d0cc555bc22cbd59d7616d8e3e"
+    "ref": "6449a6494156468409e0fd4a9c2e95809ebca48c",
+    "branch": "codex/wsi-resource-data",
+    "pullRequest": "cBioPortal/cbioportal#12378",
+    "dbSchemaVersion": "3.5.0"
   },
   "testStack": {
     "repository": "cBioPortal/cbioportal-test",
@@ -13,18 +17,27 @@
   },
   "core": {
     "repository": "raylim/cbioportal-core",
-    "ref": "ef7a5584016271dc5ad12d0f0b2dc664ae01ae24"
+    "ref": "1fef103420c94774c576801405782a56121141a4",
+    "branch": "codex/wsi-resource-data",
+    "pullRequest": "cBioPortal/cbioportal-core#193"
   },
   "tile": {
     "repository": "cBioPortal/cbioportal-tile-server",
     "ref": "082c3f77ec7eb091bc4a17b96d89cf6d1618d73c"
   },
+  "fixtures": {
+    "generator": "scripts/wsi_resource_fixtures.py",
+    "converter": "cbioportal-core scripts/importer/convertWsiToResources.py",
+    "portalBaseUrl": "http://localhost:8080"
+  },
   "frontend": {
     "repository": "raylim/cbioportal-frontend",
-    "foundation": "95ce1ecfd5fabf1cc0ab79fd4c2f33c46e533457",
-    "molecular": "e7be5157442aa217df4c95e43d22cfaa812a50d0",
-    "patient": "cef8a029e9c0337f20d3f3615fd0d87ad54bfbbc",
-    "study": "d3cb44774cc0fce70f8507b6211fbca22ff7b0a9",
-    "integration": "1ae6ed407fbc31ed8527019e4eab4c8b2a0dddf6"
+    "package": "a5f3d4fe64341c2198de476e5df9abbd4904f4a5",
+    "study": "c55bc8d8acc5b459b29a6bf9c4fc76a701b29ad5",
+    "molecular": "TODO-successor",
+    "annotations": "TODO-successor",
+    "agent": "TODO-successor",
+    "integration": "TODO-successor",
+    "_note": "package = codex/wsi-viewer-package (the WSI viewer package, replacing the old foundation child; the patient pathology views now live in it, so there is no separate patient child). study = codex/wsi-rd-study. molecular, annotations, agent and integration successors are still being ported onto the package branch: their TODO-successor placeholders make the fixture-contract job, and therefore the acceptance gate, fail until each is replaced by a full commit SHA. The annotations-agent matrix row checks out the agent pin and requires the annotations pin as an ancestor; integration must contain every other frontend pin."
   }
 }
