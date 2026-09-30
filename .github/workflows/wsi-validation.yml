@@ -26,7 +26,7 @@ env:
   FRONTEND_MOLECULAR_REF: b51abced38786d0690fb1e482500934ef1c9a31f
   FRONTEND_ANNOTATIONS_REF: fcecd6f35de0976aeb34a9471a89f67c0d77eefb
   FRONTEND_AGENT_REF: d3dfe121345ccc4dd0570c8ccb9cd453e9bb0491
-  FRONTEND_INTEGRATION_REF: 432a228fb55e381166a0810b952d9a888c4e1260
+  FRONTEND_INTEGRATION_REF: 9cccc000eb1ba1720a3cdb4178332bb15319d3b2
   # Keep every cross-repository input as a full immutable commit pin.
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: 3e5bf6efa03a6f507f5fffd58480d277c05d785a
@@ -208,7 +208,7 @@ jobs:
               src/shared/lib/assertWsiOsdBundle.spec.ts
             browser: tests/wsi-annotation-agent.spec.ts tests/wsi-foundation-route.spec.ts
           - name: integration
-            ref: 432a228fb55e381166a0810b952d9a888c4e1260
+            ref: 9cccc000eb1ba1720a3cdb4178332bb15319d3b2
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -428,7 +428,7 @@ jobs:
             ref: d3dfe121345ccc4dd0570c8ccb9cd453e9bb0491
             ancestor: fcecd6f35de0976aeb34a9471a89f67c0d77eefb
           - variant: integration
-            ref: 432a228fb55e381166a0810b952d9a888c4e1260
+            ref: 9cccc000eb1ba1720a3cdb4178332bb15319d3b2
     needs:
       - fixture-contract
       - core-import-validation

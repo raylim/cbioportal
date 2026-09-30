@@ -40,7 +40,7 @@
     "molecular": "b51abced38786d0690fb1e482500934ef1c9a31f",
     "annotations": "fcecd6f35de0976aeb34a9471a89f67c0d77eefb",
     "agent": "d3dfe121345ccc4dd0570c8ccb9cd453e9bb0491",
-    "integration": "432a228fb55e381166a0810b952d9a888c4e1260",
+    "integration": "9cccc000eb1ba1720a3cdb4178332bb15319d3b2",
     "branches": {
       "package": "codex/wsi-viewer-package (#5732)",
       "study": "codex/wsi-rd-study",
