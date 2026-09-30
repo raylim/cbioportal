@@ -37,10 +37,10 @@
     "package": "127fd99bebbc1b1737b4aa5c3b955d26a1b8e239",
     "study": "fbd020348a58a1849338166b88f70d6b566689ce",
     "patient": "7c1591cf09379a3dffe31d0c3bb53d17e03dc396",
-    "molecular": "fdd2e06a9709de7086700d00e5ce1f2382d47c94",
+    "molecular": "b51abced38786d0690fb1e482500934ef1c9a31f",
     "annotations": "fcecd6f35de0976aeb34a9471a89f67c0d77eefb",
     "agent": "d3dfe121345ccc4dd0570c8ccb9cd453e9bb0491",
-    "integration": "e1662a1e42a374de94a671b068d50af1f625cd23",
+    "integration": "432a228fb55e381166a0810b952d9a888c4e1260",
     "branches": {
       "package": "codex/wsi-viewer-package (#5732)",
       "study": "codex/wsi-rd-study",
