@@ -20,14 +20,14 @@ env:
   BACKEND_REPOSITORY: raylim/cbioportal
   BACKEND_REF: 065b4df5a887b38c9da829d0bbce1ca9f8765499
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
-  FRONTEND_PACKAGE_REF: 6fead4eaee2b12ce52d59b42b202dcd3018f3998
-  FRONTEND_STUDY_REF: d1c29a34682f8b175ce5b393ba45d4114d83f39b
-  FRONTEND_PATIENT_REF: 52892ca238132bb75c8b5a8ac9b41d3e3f78e170
-  FRONTEND_MOLECULAR_REF: 1a34ba3b7ab9ff89fcdd08ce466798d79fe5b685
-  FRONTEND_ANNOTATIONS_REF: efa21d8c9fc7b86192cb2810c5970e00a480c67a
-  FRONTEND_AGENT_REF: 64ba59af8a5b26ad1c48be178c2879315ae07157
-  FRONTEND_STUDY_SLIDES_REF: b425ce26d3a6fa623f33333605fc5dc298a9a2c9
-  FRONTEND_INTEGRATION_REF: d03d43b004b03d46196dd0a6d23328d00206d13f
+  FRONTEND_PACKAGE_REF: cf196421bed128ed9cfea8459963bca3d5dce7af
+  FRONTEND_STUDY_REF: 72f363ad1e27cd50772e8377c7d1ed8412781e16
+  FRONTEND_PATIENT_REF: 441b13cb38a1fed227ab8c2531c090be4968eb31
+  FRONTEND_MOLECULAR_REF: c4ca06ee270801d7ccbe04f0b5fc0378285d5974
+  FRONTEND_ANNOTATIONS_REF: bf0dd3ea2475b0c1626d3357699aa9814fa8ecac
+  FRONTEND_AGENT_REF: 59f67c4afdf7c8fc7c97b146644b7d8c5dff85d2
+  FRONTEND_STUDY_SLIDES_REF: 8e191e1153baf26bd0917d7b83dd7e73e0746fca
+  FRONTEND_INTEGRATION_REF: 380e065875bfbc0ee223066975e8213ade56bd2a
   # Keep every cross-repository input as a full immutable commit pin.
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: 3e5bf6efa03a6f507f5fffd58480d277c05d785a
@@ -154,7 +154,7 @@ jobs:
       matrix:
         include:
           - name: package
-            ref: 6fead4eaee2b12ce52d59b42b202dcd3018f3998
+            ref: cf196421bed128ed9cfea8459963bca3d5dce7af
             # The viewer package's own suite plus the standalone viewer route and
             # app wiring; the package branch carries only the viewer and the
             # Pathology Slides tab (image-ID access).
@@ -166,7 +166,7 @@ jobs:
               src/shared/lib/assertWsiOsdBundle.spec.ts
             browser: tests/wsi-foundation-mocked.spec.ts
           - name: study
-            ref: d1c29a34682f8b175ce5b393ba45d4114d83f39b
+            ref: 72f363ad1e27cd50772e8377c7d1ed8412781e16
             unit: >-
               pnpm exec jest --env=jsdom --runInBand --no-cache
               src/pages/studyView/tabs/ClinicalDataTab.spec.ts
@@ -179,7 +179,7 @@ jobs:
           # Known gap: the child has no Playwright spec of its own, so its
           # browser contract is the foundation mock and the rest is Jest.
           - name: patient
-            ref: 52892ca238132bb75c8b5a8ac9b41d3e3f78e170
+            ref: 441b13cb38a1fed227ab8c2531c090be4968eb31
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -190,7 +190,7 @@ jobs:
               src/pages/wsi/WsiPatientViewRoute.spec.tsx
             browser: tests/wsi-foundation-mocked.spec.ts
           - name: molecular
-            ref: 1a34ba3b7ab9ff89fcdd08ce466798d79fe5b685
+            ref: c4ca06ee270801d7ccbe04f0b5fc0378285d5974
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -199,8 +199,8 @@ jobs:
             browser: tests/wsi-molecular-mocked.spec.ts
           # Checks out the agent pin, which must contain the annotations pin.
           - name: annotations-agent
-            ref: 64ba59af8a5b26ad1c48be178c2879315ae07157
-            ancestor: efa21d8c9fc7b86192cb2810c5970e00a480c67a
+            ref: 59f67c4afdf7c8fc7c97b146644b7d8c5dff85d2
+            ancestor: bf0dd3ea2475b0c1626d3357699aa9814fa8ecac
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -212,7 +212,7 @@ jobs:
           # backend endpoint is the backend child raylim/cbioportal#11, outside
           # the pinned backend; the browser contract mocks the study and WSI APIs.
           - name: study-slides
-            ref: b425ce26d3a6fa623f33333605fc5dc298a9a2c9
+            ref: 8e191e1153baf26bd0917d7b83dd7e73e0746fca
             unit: >-
               pnpm exec jest --env=jsdom --runInBand --no-cache
               src/pages/studyView/tabs/pathologySlides
@@ -220,7 +220,7 @@ jobs:
               src/shared/lib/assertWsiOsdBundle.spec.ts
             browser: tests/wsi-study-slides-mocked.spec.ts
           - name: integration
-            ref: d03d43b004b03d46196dd0a6d23328d00206d13f
+            ref: 380e065875bfbc0ee223066975e8213ade56bd2a
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -431,20 +431,20 @@ jobs:
       matrix:
         include:
           - variant: package
-            ref: 6fead4eaee2b12ce52d59b42b202dcd3018f3998
+            ref: cf196421bed128ed9cfea8459963bca3d5dce7af
           - variant: study
-            ref: d1c29a34682f8b175ce5b393ba45d4114d83f39b
+            ref: 72f363ad1e27cd50772e8377c7d1ed8412781e16
           - variant: patient
-            ref: 52892ca238132bb75c8b5a8ac9b41d3e3f78e170
+            ref: 441b13cb38a1fed227ab8c2531c090be4968eb31
           - variant: molecular
-            ref: 1a34ba3b7ab9ff89fcdd08ce466798d79fe5b685
+            ref: c4ca06ee270801d7ccbe04f0b5fc0378285d5974
           - variant: annotations-agent
-            ref: 64ba59af8a5b26ad1c48be178c2879315ae07157
-            ancestor: efa21d8c9fc7b86192cb2810c5970e00a480c67a
+            ref: 59f67c4afdf7c8fc7c97b146644b7d8c5dff85d2
+            ancestor: bf0dd3ea2475b0c1626d3357699aa9814fa8ecac
           - variant: study-slides
-            ref: b425ce26d3a6fa623f33333605fc5dc298a9a2c9
+            ref: 8e191e1153baf26bd0917d7b83dd7e73e0746fca
           - variant: integration
-            ref: d03d43b004b03d46196dd0a6d23328d00206d13f
+            ref: 380e065875bfbc0ee223066975e8213ade56bd2a
     needs:
       - fixture-contract
       - core-import-validation
