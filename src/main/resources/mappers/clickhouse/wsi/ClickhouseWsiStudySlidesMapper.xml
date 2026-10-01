@@ -19,7 +19,13 @@
                 stored_slide_type = 'UNKNOWN', 'Unknown',
                 'Other'
             ) AS stain_group,
-            JSONExtractBool(ifNull(r.METADATA, '{}'), 'can_serve_tiles') AS viewable
+            JSONExtractBool(ifNull(r.METADATA, '{}'), 'can_serve_tiles') AS viewable,
+            multiIf(
+                r.SAMPLE_ID IS NULL, 'UNMATCHED',
+                JSONExtractString(ifNull(r.METADATA, '{}'), 'match_level') IN ('PART', 'UNMATCHED'),
+                JSONExtractString(ifNull(r.METADATA, '{}'), 'match_level'),
+                'BLOCK'
+            ) AS match_level
         FROM resource_data r
         INNER JOIN cancer_study cs ON cs.cancer_study_id = r.CANCER_STUDY_ID
         PREWHERE r.CANCER_STUDY_ID IN (
@@ -37,8 +43,15 @@
           <if test="query.viewableOnly">
               AND JSONExtractBool(ifNull(r.METADATA, '{}'), 'can_serve_tiles')
           </if>
-          <if test="query.patientIdPrefix != null and query.patientIdPrefix != ''">
-              AND startsWith(assumeNotNull(r.PATIENT_ID), #{query.patientIdPrefix})
+          <if test="query.search != null and query.search != ''">
+              AND (
+                  positionCaseInsensitiveUTF8(assumeNotNull(r.PATIENT_ID), #{query.search}) &gt; 0
+                  OR positionCaseInsensitiveUTF8(ifNull(r.SAMPLE_ID, ''), #{query.search}) &gt; 0
+              )
+          </if>
+          <if test="query.matchLevels != null and !query.matchLevels.isEmpty()">
+              AND match_level IN
+              <foreach item="matchLevel" collection="query.matchLevels" open="(" separator="," close=")">#{matchLevel}</foreach>
           </if>
     </sql>
 
@@ -92,5 +105,38 @@
         GROUP BY study_id, patient_id
         ORDER BY study_id, patient_id
         LIMIT #{limit} OFFSET #{offset}
+    </select>
+    <!-- Patients per clinical value among the listed patients (those with a listed slide),
+         keeping the most frequent values of each attribute. -->
+    <select id="getCohortAttributeValueCounts" resultType="hashmap">
+        SELECT attribute_id, value, patient_count, value_count
+        FROM (
+            SELECT
+                attribute_name AS attribute_id,
+                attribute_value AS value,
+                uniqExact(patient_unique_id) AS patient_count,
+                count() OVER (PARTITION BY attribute_name) AS value_count
+            FROM clinical_data_derived
+            WHERE cancer_study_identifier IN
+                <foreach item="studyId" collection="studyIds" open="(" separator="," close=")">#{studyId}</foreach>
+              AND attribute_name IN
+                <foreach item="attributeId" collection="attributeIds" open="(" separator="," close=")">#{attributeId}</foreach>
+              AND upper(attribute_value) NOT IN ('NA', '')
+              AND patient_unique_id IN (
+                  SELECT concat(study_id, '_', patient_id)
+                  FROM (<include refid="cohortSlideRows"/>)
+                  WHERE <include refid="stainSelected"/>
+              )
+            GROUP BY attribute_name, attribute_value
+        )
+        ORDER BY attribute_id, patient_count DESC, value
+        LIMIT #{maxValues} BY attribute_id
+    </select>
+
+    <select id="getCohortMatchLevelCounts" resultType="hashmap">
+        SELECT match_level, uniqExact((study_id, patient_id)) AS patient_count
+        FROM (<include refid="cohortSlideRows"/>)
+        WHERE <include refid="stainSelected"/>
+        GROUP BY match_level
     </select>
 </mapper>

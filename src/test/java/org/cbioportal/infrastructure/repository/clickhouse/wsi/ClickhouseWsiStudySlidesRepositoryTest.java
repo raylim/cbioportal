@@ -7,6 +7,8 @@ import static org.junit.Assert.assertTrue;
 import java.util.List;
 import java.util.Map;
 import org.cbioportal.domain.studyview.StudyViewFilterFactory;
+import org.cbioportal.domain.wsi.WsiStudySlideFacets.WsiStudySlideAttributeFacet;
+import org.cbioportal.domain.wsi.WsiStudySlideFacets.WsiStudySlideFacetValue;
 import org.cbioportal.domain.wsi.WsiStudySlidePatient;
 import org.cbioportal.domain.wsi.WsiStudySlidesPage;
 import org.cbioportal.domain.wsi.WsiStudySlidesQuery;
@@ -75,11 +77,11 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
   }
 
   @Test
-  public void filtersByPatientIdPrefix() {
+  public void searchesPatientIds() {
     WsiStudySlidesPage page =
         fetch(
             studies(COHORT_STUDY),
-            new WsiStudySlidesQuery(false, List.of(), "COHORT", null, null, 0, 50));
+            new WsiStudySlidesQuery(false, List.of(), List.of(), "COHORT", null, null, 0, 50));
 
     assertEquals(2, page.totalPatients());
     assertEquals(
@@ -92,7 +94,7 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     WsiStudySlidesPage page =
         fetch(
             studies(COHORT_STUDY),
-            new WsiStudySlidesQuery(false, List.of("IHC"), null, null, null, 0, 50));
+            new WsiStudySlidesQuery(false, List.of("IHC"), List.of(), null, null, null, 0, 50));
 
     assertEquals(1, page.totalPatients());
     assertEquals(1, page.totalSlides());
@@ -107,7 +109,7 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     WsiStudySlidesPage second =
         fetch(
             studies(COHORT_STUDY),
-            new WsiStudySlidesQuery(false, List.of(), null, null, null, 1, 2));
+            new WsiStudySlidesQuery(false, List.of(), List.of(), null, null, null, 1, 2));
     assertEquals(3, second.totalPatients());
     assertEquals(
         List.of("OTHER-D"),
@@ -116,7 +118,7 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     WsiStudySlidesPage pastTheEnd =
         fetch(
             studies(COHORT_STUDY),
-            new WsiStudySlidesQuery(false, List.of(), null, null, null, 5, 2));
+            new WsiStudySlidesQuery(false, List.of(), List.of(), null, null, null, 5, 2));
     assertEquals(3, pastTheEnd.totalPatients());
     assertTrue(pastTheEnd.patients().isEmpty());
   }
@@ -126,13 +128,15 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     WsiStudySlidesPage located =
         fetch(
             studies(COHORT_STUDY),
-            new WsiStudySlidesQuery(false, List.of(), null, COHORT_STUDY, "OTHER-D", 0, 50));
+            new WsiStudySlidesQuery(
+                false, List.of(), List.of(), null, COHORT_STUDY, "OTHER-D", 0, 50));
     assertEquals(Long.valueOf(2), located.locatedIndex());
 
     WsiStudySlidesPage withoutSlides =
         fetch(
             studies(COHORT_STUDY),
-            new WsiStudySlidesQuery(false, List.of(), null, COHORT_STUDY, "COHORT-C", 0, 50));
+            new WsiStudySlidesQuery(
+                false, List.of(), List.of(), null, COHORT_STUDY, "COHORT-C", 0, 50));
     assertNull(withoutSlides.locatedIndex());
   }
 
@@ -154,7 +158,7 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     WsiStudySlidesPage page =
         fetch(
             studies(COHORT_STUDY),
-            new WsiStudySlidesQuery(true, List.of(), null, null, null, 0, 50));
+            new WsiStudySlidesQuery(true, List.of(), List.of(), null, null, null, 0, 50));
 
     assertEquals(3, page.totalPatients());
     assertEquals(4, page.totalSlides());
@@ -169,9 +173,69 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     WsiStudySlidesPage withTestStudy =
         fetch(
             studies("wsi_snapshot_study"),
-            new WsiStudySlidesQuery(true, List.of(), null, null, null, 0, 50));
+            new WsiStudySlidesQuery(true, List.of(), List.of(), null, null, null, 0, 50));
     assertEquals(0, withTestStudy.totalPatients());
     assertTrue(withTestStudy.patients().isEmpty());
+  }
+
+  @Test
+  public void searchesSampleIdsIgnoringCase() {
+    WsiStudySlidesPage page =
+        fetch(
+            studies(COHORT_STUDY),
+            new WsiStudySlidesQuery(false, List.of(), List.of(), "a-2", null, null, 0, 50));
+
+    assertEquals(1, page.totalPatients());
+    assertEquals("COHORT-A", page.patients().get(0).patientId());
+    // Only the slide of the matching sample.
+    assertEquals(1, page.patients().get(0).slideCount());
+  }
+
+  @Test
+  public void filtersByMatchLevel() {
+    WsiStudySlidesPage page =
+        fetch(
+            studies(COHORT_STUDY),
+            new WsiStudySlidesQuery(
+                false, List.of(), List.of("UNMATCHED"), null, null, null, 0, 50));
+
+    assertEquals(1, page.totalPatients());
+    assertEquals("COHORT-A", page.patients().get(0).patientId());
+    assertEquals(1, page.totalSlides());
+  }
+
+  @Test
+  public void countsPatientsPerClinicalValueAndMatchLevel() {
+    StudyViewFilter filter = studies(COHORT_STUDY);
+    List<String> studyIds = List.copyOf(filter.getUniqueStudyIds());
+    var context = StudyViewFilterFactory.make(filter, null, studyIds, null);
+
+    List<WsiStudySlideAttributeFacet> facets =
+        repository.getAttributeFacets(
+            context, studyIds, query(), List.of("CANCER_TYPE", "SEX", "MISSING"), 200);
+
+    assertEquals(List.of("CANCER_TYPE", "SEX"), facets.stream().map(f -> f.attributeId()).toList());
+    // COHORT-C's Breast Cancer sample has no slides; ties are ordered by value.
+    assertEquals(
+        List.of(
+            new WsiStudySlideFacetValue("Breast Cancer", 1),
+            new WsiStudySlideFacetValue("Colorectal Cancer", 1),
+            new WsiStudySlideFacetValue("Melanoma", 1)),
+        facets.get(0).values());
+    assertEquals(false, facets.get(0).truncated());
+    assertEquals(
+        List.of(new WsiStudySlideFacetValue("Female", 2), new WsiStudySlideFacetValue("Male", 1)),
+        facets.get(1).values());
+
+    List<WsiStudySlideAttributeFacet> truncated =
+        repository.getAttributeFacets(context, studyIds, query(), List.of("CANCER_TYPE"), 1);
+    assertEquals(1, truncated.get(0).values().size());
+    assertTrue(truncated.get(0).truncated());
+
+    // A slide without a sample is unmatched; a matched slide without a level is block-matched.
+    assertEquals(
+        Map.of("PART", 1L, "BLOCK", 3L, "UNMATCHED", 1L),
+        repository.getMatchLevelCounts(context, studyIds, query()));
   }
 
   @Test
@@ -197,7 +261,7 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
   }
 
   private static WsiStudySlidesQuery query() {
-    return new WsiStudySlidesQuery(false, List.of(), null, null, null, 0, 50);
+    return new WsiStudySlidesQuery(false, List.of(), List.of(), null, null, null, 0, 50);
   }
 
   private static Map<String, Long> stainCounts(long hne, long ihc, long other, long unknown) {

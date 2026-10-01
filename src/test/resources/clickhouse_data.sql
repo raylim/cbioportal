@@ -736,7 +736,7 @@ values ('WSI_SAMPLE',9006,'SAMPLE','Pathology slides','Whole-slide images linked
 insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
 values ('WSI_PATIENT',9006,'PATIENT','Pathology slides','Whole-slide images linked to patients',0,1);
 insert into resource_data (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTITY_TYPE, PATIENT_ID, SAMPLE_ID, URL, DISPLAY_NAME, TYPE, METADATA)
-values (900601,'WSI_SAMPLE',9006,'SAMPLE','COHORT-A','COHORT-A-1','https://portal.example.org/wsi/a1','cohort-a1','WHOLE_SLIDE_IMAGE','{"image_id":"cohort-a1","is_hne":true,"is_ihc":false,"slide_type":"H&E","can_serve_tiles":true,"wsi_serving":{"source_url":"s3://bucket/cohort-a1.svs"}}');
+values (900601,'WSI_SAMPLE',9006,'SAMPLE','COHORT-A','COHORT-A-1','https://portal.example.org/wsi/a1','cohort-a1','WHOLE_SLIDE_IMAGE','{"image_id":"cohort-a1","is_hne":true,"is_ihc":false,"slide_type":"H&E","match_level":"PART","can_serve_tiles":true,"wsi_serving":{"source_url":"s3://bucket/cohort-a1.svs"}}');
 insert into resource_data (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTITY_TYPE, PATIENT_ID, SAMPLE_ID, URL, DISPLAY_NAME, TYPE, METADATA)
 values (900602,'WSI_SAMPLE',9006,'SAMPLE','COHORT-A','COHORT-A-2','https://portal.example.org/wsi/a2','cohort-a2','WHOLE_SLIDE_IMAGE','{"image_id":"cohort-a2","is_hne":false,"is_ihc":true,"slide_type":"IHC","can_serve_tiles":false,"wsi_serving":{}}');
 insert into resource_data (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTITY_TYPE, PATIENT_ID, SAMPLE_ID, URL, DISPLAY_NAME, TYPE, METADATA)
@@ -745,6 +745,17 @@ insert into resource_data (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTIT
 values (900604,'WSI_SAMPLE',9006,'SAMPLE','COHORT-B','COHORT-B-1','https://portal.example.org/wsi/b1','cohort-b1','WHOLE_SLIDE_IMAGE','{"image_id":"cohort-b1","is_hne":false,"is_ihc":false,"slide_type":"Special stain","can_serve_tiles":true,"wsi_serving":{}}');
 insert into resource_data (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTITY_TYPE, PATIENT_ID, SAMPLE_ID, URL, DISPLAY_NAME, TYPE, METADATA)
 values (900605,'WSI_SAMPLE',9006,'SAMPLE','OTHER-D','OTHER-D-1','https://portal.example.org/wsi/d1','other-d1','WHOLE_SLIDE_IMAGE','{"image_id":"other-d1","is_hne":true,"is_ihc":false,"slide_type":"H&E","can_serve_tiles":true,"wsi_serving":{}}');
+-- Clinical values for study-slides facets: COHORT-C has no slides, so its value is not counted.
+insert into clinical_attribute_meta (attr_id,display_name,description,datatype,patient_attribute,priority,cancer_study_id) values ('CANCER_TYPE','Cancer Type','Cancer Type','STRING',0,'1',9006);
+insert into clinical_attribute_meta (attr_id,display_name,description,datatype,patient_attribute,priority,cancer_study_id) values ('SEX','Sex','Sex','STRING',1,'1',9006);
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9601,'CANCER_TYPE','Colorectal Cancer');
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9602,'CANCER_TYPE','Colorectal Cancer');
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9603,'CANCER_TYPE','Breast Cancer');
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9604,'CANCER_TYPE','Breast Cancer');
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9605,'CANCER_TYPE','Melanoma');
+insert into clinical_patient (internal_id,attr_id,attr_value) values (9601,'SEX','Female');
+insert into clinical_patient (internal_id,attr_id,attr_value) values (9602,'SEX','Female');
+insert into clinical_patient (internal_id,attr_id,attr_value) values (9604,'SEX','Male');
 -- A non-WSI resource row for COHORT-C, which must not count as a slide.
 insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
 values ('COHORT_NOTES',9006,'PATIENT','Notes','Not slides',0,2);
