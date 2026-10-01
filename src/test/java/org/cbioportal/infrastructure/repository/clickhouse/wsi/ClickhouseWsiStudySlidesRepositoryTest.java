@@ -78,7 +78,8 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
   public void filtersByPatientIdPrefix() {
     WsiStudySlidesPage page =
         fetch(
-            studies(COHORT_STUDY), new WsiStudySlidesQuery(List.of(), "COHORT", null, null, 0, 50));
+            studies(COHORT_STUDY),
+            new WsiStudySlidesQuery(false, List.of(), "COHORT", null, null, 0, 50));
 
     assertEquals(2, page.totalPatients());
     assertEquals(
@@ -91,7 +92,7 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     WsiStudySlidesPage page =
         fetch(
             studies(COHORT_STUDY),
-            new WsiStudySlidesQuery(List.of("IHC"), null, null, null, 0, 50));
+            new WsiStudySlidesQuery(false, List.of("IHC"), null, null, null, 0, 50));
 
     assertEquals(1, page.totalPatients());
     assertEquals(1, page.totalSlides());
@@ -104,14 +105,18 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
   @Test
   public void pagesInPatientOrder() {
     WsiStudySlidesPage second =
-        fetch(studies(COHORT_STUDY), new WsiStudySlidesQuery(List.of(), null, null, null, 1, 2));
+        fetch(
+            studies(COHORT_STUDY),
+            new WsiStudySlidesQuery(false, List.of(), null, null, null, 1, 2));
     assertEquals(3, second.totalPatients());
     assertEquals(
         List.of("OTHER-D"),
         second.patients().stream().map(WsiStudySlidePatient::patientId).toList());
 
     WsiStudySlidesPage pastTheEnd =
-        fetch(studies(COHORT_STUDY), new WsiStudySlidesQuery(List.of(), null, null, null, 5, 2));
+        fetch(
+            studies(COHORT_STUDY),
+            new WsiStudySlidesQuery(false, List.of(), null, null, null, 5, 2));
     assertEquals(3, pastTheEnd.totalPatients());
     assertTrue(pastTheEnd.patients().isEmpty());
   }
@@ -121,13 +126,13 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     WsiStudySlidesPage located =
         fetch(
             studies(COHORT_STUDY),
-            new WsiStudySlidesQuery(List.of(), null, COHORT_STUDY, "OTHER-D", 0, 50));
+            new WsiStudySlidesQuery(false, List.of(), null, COHORT_STUDY, "OTHER-D", 0, 50));
     assertEquals(Long.valueOf(2), located.locatedIndex());
 
     WsiStudySlidesPage withoutSlides =
         fetch(
             studies(COHORT_STUDY),
-            new WsiStudySlidesQuery(List.of(), null, COHORT_STUDY, "COHORT-C", 0, 50));
+            new WsiStudySlidesQuery(false, List.of(), null, COHORT_STUDY, "COHORT-C", 0, 50));
     assertNull(withoutSlides.locatedIndex());
   }
 
@@ -142,6 +147,31 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     // The OTHER_SLIDES whole-slide image is not a WSI resource and is not counted.
     assertEquals(2, last.slideCount());
     assertEquals(1, last.viewableSlideCount());
+  }
+
+  @Test
+  public void countsOnlyViewableSlidesWhenAsked() {
+    WsiStudySlidesPage page =
+        fetch(
+            studies(COHORT_STUDY),
+            new WsiStudySlidesQuery(true, List.of(), null, null, null, 0, 50));
+
+    assertEquals(3, page.totalPatients());
+    assertEquals(4, page.totalSlides());
+    assertEquals(4, page.totalViewableSlides());
+    // COHORT-A's IHC slide cannot be served, so no IHC slide is counted.
+    assertEquals(stainCounts(2, 0, 1, 1), page.stainGroupTotals());
+    WsiStudySlidePatient cohortA = page.patients().get(0);
+    assertEquals(2, cohortA.slideCount());
+    assertEquals(stainCounts(1, 0, 0, 1), cohortA.stainGroupCounts());
+
+    // A patient whose only slides cannot be served is not listed.
+    WsiStudySlidesPage withTestStudy =
+        fetch(
+            studies("wsi_snapshot_study"),
+            new WsiStudySlidesQuery(true, List.of(), null, null, null, 0, 50));
+    assertEquals(0, withTestStudy.totalPatients());
+    assertTrue(withTestStudy.patients().isEmpty());
   }
 
   @Test
@@ -167,7 +197,7 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
   }
 
   private static WsiStudySlidesQuery query() {
-    return new WsiStudySlidesQuery(List.of(), null, null, null, 0, 50);
+    return new WsiStudySlidesQuery(false, List.of(), null, null, null, 0, 50);
   }
 
   private static Map<String, Long> stainCounts(long hne, long ihc, long other, long unknown) {

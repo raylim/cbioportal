@@ -106,7 +106,7 @@ public class WsiStudySlidesControllerTest {
     allowStudyAccess(true);
     Map<String, Long> counts = Map.of("H&E", 1L, "IHC", 0L, "Other", 0L, "Unknown", 0L);
     WsiStudySlidesQuery expected =
-        new WsiStudySlidesQuery(List.of("H&E"), "P-1", "study", "P-1", 2, 25);
+        new WsiStudySlidesQuery(true, List.of("H&E"), "P-1", "study", "P-1", 2, 25);
     when(service.getStudySlides(
             argThat(filter -> filter.getStudyIds().equals(List.of("study"))), eq(expected)))
         .thenReturn(
@@ -122,7 +122,7 @@ public class WsiStudySlidesControllerTest {
 
     perform(
             STUDY_BODY
-                + ",\"stainGroups\":[\"H&E\"],\"patientIdPrefix\":\" P-1 \","
+                + ",\"viewableOnly\":true,\"stainGroups\":[\"H&E\"],\"patientIdPrefix\":\" P-1 \","
                 + "\"locateStudyId\":\"study\",\"locatePatientId\":\"P-1\","
                 + "\"pageNumber\":2,\"pageSize\":25}")
         .andExpect(status().isOk())

@@ -32,6 +32,7 @@ public class WsiStudySlidesController {
    * A study-view cohort plus list options.
    *
    * @param studyViewFilter the study-view filter defining the cohort
+   * @param viewableOnly counts and lists only slides the tile server can serve
    * @param stainGroups stain groups to keep ({@code H&E}, {@code IHC}, {@code Other}, {@code
    *     Unknown}); empty or null keeps all
    * @param patientIdPrefix keeps patients whose ID starts with this
@@ -42,6 +43,7 @@ public class WsiStudySlidesController {
    */
   public record WsiStudySlidesRequest(
       StudyViewFilter studyViewFilter,
+      Boolean viewableOnly,
       List<String> stainGroups,
       String patientIdPrefix,
       String locateStudyId,
@@ -107,6 +109,7 @@ public class WsiStudySlidesController {
     }
     boolean locate = request.locateStudyId() != null && request.locatePatientId() != null;
     return new WsiStudySlidesQuery(
+        Boolean.TRUE.equals(request.viewableOnly()),
         List.copyOf(stainGroups),
         prefix == null || prefix.isEmpty() ? null : prefix,
         locate ? request.locateStudyId() : null,
