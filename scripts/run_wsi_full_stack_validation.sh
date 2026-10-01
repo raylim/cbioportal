@@ -438,6 +438,8 @@ run_browser_tests() {
   local patient_tests=(tests/wsi-foundation-mocked.spec.ts)
   local molecular_tests=(tests/wsi-molecular-mocked.spec.ts)
   local annotations_agent_tests=(tests/wsi-annotation-agent.spec.ts)
+  # Mocks the study and WSI APIs: the pinned backend has no study-slides endpoint.
+  local study_slides_tests=(tests/wsi-study-slides-mocked.spec.ts)
   case "$WSI_VARIANT" in
     package)
       browser_tests=("${package_tests[@]}")
@@ -454,6 +456,9 @@ run_browser_tests() {
     annotations-agent)
       browser_tests=(tests/wsi-foundation-route.spec.ts "${annotations_agent_tests[@]}")
       ;;
+    study-slides)
+      browser_tests=(tests/wsi-foundation-route.spec.ts "${study_slides_tests[@]}")
+      ;;
     integration)
       browser_tests=(
         "${package_tests[@]}"
@@ -461,6 +466,7 @@ run_browser_tests() {
         "${patient_tests[@]}"
         "${molecular_tests[@]}"
         "${annotations_agent_tests[@]}"
+        "${study_slides_tests[@]}"
       )
       ;;
     *)

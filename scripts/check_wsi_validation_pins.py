@@ -55,6 +55,7 @@ ENV_PINS = {
     "FRONTEND_MOLECULAR_REF": ("frontend", "molecular"),
     "FRONTEND_ANNOTATIONS_REF": ("frontend", "annotations"),
     "FRONTEND_AGENT_REF": ("frontend", "agent"),
+    "FRONTEND_STUDY_SLIDES_REF": ("frontend", "studySlides"),
     "FRONTEND_INTEGRATION_REF": ("frontend", "integration"),
 }
 COMMIT_PINS = [path for name, path in ENV_PINS.items() if name.endswith("_REF")]
@@ -66,6 +67,7 @@ VARIANTS = {
     "patient": ("patient", None),
     "molecular": ("molecular", None),
     "annotations-agent": ("agent", "annotations"),
+    "study-slides": ("studySlides", None),
     "integration": ("integration", None),
 }
 FIXTURES = ("wsi_loader_fixture", "wsi_loader_control_fixture")
@@ -161,10 +163,10 @@ def main() -> int:
     frontend = manifest.get("frontend", {})
     if frontend_git and not placeholders:
         edges = [(frontend["package"], frontend[k], f"{k} contains package")
-                 for k in ("study", "patient", "molecular", "annotations", "agent", "integration")]
+                 for k in ("study", "patient", "molecular", "annotations", "agent", "studySlides", "integration")]
         edges.append((frontend["annotations"], frontend["agent"], "agent contains annotations"))
         edges += [(frontend[k], frontend["integration"], f"integration contains {k}")
-                  for k in ("study", "patient", "molecular", "annotations", "agent")]
+                  for k in ("study", "patient", "molecular", "annotations", "agent", "studySlides")]
         for ancestor, descendant, label in edges:
             result = subprocess.run(
                 ["git", "-C", frontend_git, "merge-base", "--is-ancestor", ancestor, descendant],
@@ -174,6 +176,12 @@ def main() -> int:
                 errors.append(f"frontend ancestry check failed: {label} ({ancestor[:9]} -> {descendant[:9]})")
             else:
                 print(f"ok frontend ancestry: {label}")
+
+    # 3c. Backend children are recorded, not checked out: full SHAs only.
+    for child, record in (manifest.get("backendChildren") or {}).items():
+        ref = record.get("ref") if isinstance(record, dict) else None
+        if not isinstance(ref, str) or not SHA.match(ref):
+            errors.append(f"manifest backendChildren.{child}.ref is not a full commit SHA: {ref!r}")
 
     # 4. Fixture authorization metadata and resource-data layout.
     allowed = (FIXTURE_DIR / "wsi_loader_fixture/meta_study.txt").read_text(encoding="utf-8")

@@ -40,7 +40,8 @@
     "molecular": "b51abced38786d0690fb1e482500934ef1c9a31f",
     "annotations": "fcecd6f35de0976aeb34a9471a89f67c0d77eefb",
     "agent": "d3dfe121345ccc4dd0570c8ccb9cd453e9bb0491",
-    "integration": "9cccc000eb1ba1720a3cdb4178332bb15319d3b2",
+    "studySlides": "7a214dc68c4ee24491afba6efcecf62daf493580",
+    "integration": "307ff9a8c013257530a4d0fc199836889ed90455",
     "branches": {
       "package": "codex/wsi-viewer-package (#5732)",
       "study": "codex/wsi-rd-study",
@@ -48,8 +49,19 @@
       "molecular": "codex/wsi-rd-molecular",
       "annotations": "codex/wsi-rd-annotations",
       "agent": "codex/wsi-rd-agent",
+      "studySlides": "codex/wsi-rd-study-slides",
       "integration": "codex/wsi-rd-integration"
     },
-    "_note": "package = the WSI viewer package and the Pathology Slides tab only (image-ID access; the tab shows only when WSI_PATIENT_SLIDE_COUNT > 0 or it is the active tab). Every child contains the package pin; agent contains annotations (the annotations-agent matrix row checks out agent and requires annotations as an ancestor); integration = package + study + patient + molecular + agent. Known gap: the patient child (clinical-event loading, hierarchy-built pathology timeline track, undated notice, tab link scoping) has no Playwright spec; its browser contract is wsi-foundation-mocked.spec.ts and its behaviour is covered by its Jest specs (pathologySlidesTimeline, pathologySlidesTimelineLoader, PatientWsiSlidesTab, UndatedPathologySlidesNotice, WsiPatientViewRoute)."
+    "_note": "package = the WSI viewer package and the Pathology Slides tab only (image-ID access; the tab shows only when WSI_PATIENT_SLIDE_COUNT > 0 or it is the active tab). Every child contains the package pin; agent contains annotations (the annotations-agent matrix row checks out agent and requires annotations as an ancestor); integration = package + study + patient + molecular + agent + studySlides. studySlides = the study-view Pathology Slides tab; it needs the backend child in backendChildren.studySlides (not the pinned backend), and its browser contract (wsi-study-slides-mocked.spec.ts) mocks the study and WSI APIs. Known gap: the patient child (clinical-event loading, hierarchy-built pathology timeline track, undated notice, tab link scoping) has no Playwright spec; its browser contract is wsi-foundation-mocked.spec.ts and its behaviour is covered by its Jest specs (pathologySlidesTimeline, pathologySlidesTimelineLoader, PatientWsiSlidesTab, UndatedPathologySlidesNotice, WsiPatientViewRoute)."
+  },
+  "backendChildren": {
+    "studySlides": {
+      "repository": "raylim/cbioportal",
+      "ref": "2e99ead7bfdbb350304641a668e8778dc2f86737",
+      "branch": "codex/wsi-rd-study-slides",
+      "pullRequest": "raylim/cbioportal#11",
+      "endpoint": "POST /api/wsi/v2/study-slides/patients/fetch",
+      "_note": "Recorded, not checked out: the gate runs the pinned backend. The child is a descendant of backend.ref and is covered by its own backend tests."
+    }
   }
 }

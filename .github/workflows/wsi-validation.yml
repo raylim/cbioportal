@@ -26,7 +26,8 @@ env:
   FRONTEND_MOLECULAR_REF: b51abced38786d0690fb1e482500934ef1c9a31f
   FRONTEND_ANNOTATIONS_REF: fcecd6f35de0976aeb34a9471a89f67c0d77eefb
   FRONTEND_AGENT_REF: d3dfe121345ccc4dd0570c8ccb9cd453e9bb0491
-  FRONTEND_INTEGRATION_REF: 9cccc000eb1ba1720a3cdb4178332bb15319d3b2
+  FRONTEND_STUDY_SLIDES_REF: 7a214dc68c4ee24491afba6efcecf62daf493580
+  FRONTEND_INTEGRATION_REF: 307ff9a8c013257530a4d0fc199836889ed90455
   # Keep every cross-repository input as a full immutable commit pin.
   CORE_REPOSITORY: raylim/cbioportal-core
   CORE_REF: 3e5bf6efa03a6f507f5fffd58480d277c05d785a
@@ -207,8 +208,19 @@ jobs:
               src/shared/components/wsiViewer/wsiAppConfig.spec.tsx
               src/shared/lib/assertWsiOsdBundle.spec.ts
             browser: tests/wsi-annotation-agent.spec.ts tests/wsi-foundation-route.spec.ts
+          # codex/wsi-rd-study-slides: the study-view Pathology Slides tab. Its
+          # backend endpoint is the backend child raylim/cbioportal#11, outside
+          # the pinned backend; the browser contract mocks the study and WSI APIs.
+          - name: study-slides
+            ref: 7a214dc68c4ee24491afba6efcecf62daf493580
+            unit: >-
+              pnpm exec jest --env=jsdom --runInBand --no-cache
+              src/pages/studyView/tabs/pathologySlides
+              src/shared/components/wsiViewer/wsiAppConfig.spec.tsx
+              src/shared/lib/assertWsiOsdBundle.spec.ts
+            browser: tests/wsi-study-slides-mocked.spec.ts
           - name: integration
-            ref: 9cccc000eb1ba1720a3cdb4178332bb15319d3b2
+            ref: 307ff9a8c013257530a4d0fc199836889ed90455
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -225,12 +237,14 @@ jobs:
               src/pages/patientView/timeline/UndatedPathologySlidesNotice.spec.tsx
               src/shared/api/wsiOncoKbClientInstance.spec.ts
               src/shared/components/MSKTabs/MSKTabs.spec.tsx
+              src/pages/studyView/tabs/pathologySlides
             browser: >-
               tests/wsi-foundation-mocked.spec.ts
               tests/pathology-study-clinical-data.spec.ts
               tests/wsi-molecular-mocked.spec.ts
               tests/wsi-annotation-agent.spec.ts
               tests/wsi-foundation-route.spec.ts
+              tests/wsi-study-slides-mocked.spec.ts
     steps:
       - name: Refuse unresolved successor pins
         env:
@@ -427,8 +441,10 @@ jobs:
           - variant: annotations-agent
             ref: d3dfe121345ccc4dd0570c8ccb9cd453e9bb0491
             ancestor: fcecd6f35de0976aeb34a9471a89f67c0d77eefb
+          - variant: study-slides
+            ref: 7a214dc68c4ee24491afba6efcecf62daf493580
           - variant: integration
-            ref: 9cccc000eb1ba1720a3cdb4178332bb15319d3b2
+            ref: 307ff9a8c013257530a4d0fc199836889ed90455
     needs:
       - fixture-contract
       - core-import-validation
