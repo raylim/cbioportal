@@ -40,8 +40,8 @@
     "molecular": "210693aadbce274d55a1f7771ff533c4e3f820ab",
     "annotations": "1dafe191ad19f81e4a6b45c31e8367d1ee4b20e7",
     "agent": "685b16cc20e06f4dd8a6d218225c49af65152b69",
-    "studySlides": "f25f42de676a036cebed2daf6f62177d83e7d964",
-    "integration": "b69bde32dae395f0b6c691af7ad154688fe6c29d",
+    "studySlides": "1cfc8ad844f9c2246153665b5b96b4887ef8a6fa",
+    "integration": "d9376d2134938c12294f466073fa48c14b81951c",
     "branches": {
       "package": "codex/wsi-viewer-package (#5732)",
       "study": "codex/wsi-rd-study",
@@ -57,10 +57,10 @@
   "backendChildren": {
     "studySlides": {
       "repository": "raylim/cbioportal",
-      "ref": "7b2ee02775e7036cd3191c3cf37fc18cbc5a48ca",
+      "ref": "06680eecea764d23d2e72ba8f1f7452d10bdcb49",
       "branch": "codex/wsi-rd-study-slides",
       "pullRequest": "raylim/cbioportal#11",
-      "endpoint": "POST /api/wsi/v2/study-slides/patients/fetch",
+      "endpoint": "POST /api/wsi/v2/study-slides/patients/fetch and /facets/fetch",
       "_note": "Recorded, not checked out: the gate runs the pinned backend. The child is a descendant of backend.ref and is covered by its own backend tests."
     }
   }
