@@ -34,14 +34,14 @@
   },
   "frontend": {
     "repository": "raylim/cbioportal-frontend",
-    "package": "127fd99bebbc1b1737b4aa5c3b955d26a1b8e239",
-    "study": "fbd020348a58a1849338166b88f70d6b566689ce",
-    "patient": "7c1591cf09379a3dffe31d0c3bb53d17e03dc396",
-    "molecular": "b51abced38786d0690fb1e482500934ef1c9a31f",
-    "annotations": "fcecd6f35de0976aeb34a9471a89f67c0d77eefb",
-    "agent": "d3dfe121345ccc4dd0570c8ccb9cd453e9bb0491",
-    "studySlides": "7a214dc68c4ee24491afba6efcecf62daf493580",
-    "integration": "307ff9a8c013257530a4d0fc199836889ed90455",
+    "package": "f480cf210cb89f2eea8c7cb02c7ac902308f6ab1",
+    "study": "05430c2e7af13c7faec18e1fcfffb5120b2812fe",
+    "patient": "c0651e31b505f88bcaba180d96a56c755f4d4435",
+    "molecular": "210693aadbce274d55a1f7771ff533c4e3f820ab",
+    "annotations": "1dafe191ad19f81e4a6b45c31e8367d1ee4b20e7",
+    "agent": "685b16cc20e06f4dd8a6d218225c49af65152b69",
+    "studySlides": "f25f42de676a036cebed2daf6f62177d83e7d964",
+    "integration": "b69bde32dae395f0b6c691af7ad154688fe6c29d",
     "branches": {
       "package": "codex/wsi-viewer-package (#5732)",
       "study": "codex/wsi-rd-study",
@@ -52,12 +52,12 @@
       "studySlides": "codex/wsi-rd-study-slides",
       "integration": "codex/wsi-rd-integration"
     },
-    "_note": "package = the WSI viewer package and the Pathology Slides tab only (image-ID access; the tab shows only when WSI_PATIENT_SLIDE_COUNT > 0 or it is the active tab). Every child contains the package pin; agent contains annotations (the annotations-agent matrix row checks out agent and requires annotations as an ancestor); integration = package + study + patient + molecular + agent + studySlides. studySlides = the study-view Pathology Slides tab; it needs the backend child in backendChildren.studySlides (not the pinned backend), and its browser contract (wsi-study-slides-mocked.spec.ts) mocks the study and WSI APIs. Known gap: the patient child (clinical-event loading, hierarchy-built pathology timeline track, undated notice, tab link scoping) has no Playwright spec; its browser contract is wsi-foundation-mocked.spec.ts and its behaviour is covered by its Jest specs (pathologySlidesTimeline, pathologySlidesTimelineLoader, PatientWsiSlidesTab, UndatedPathologySlidesNotice, WsiPatientViewRoute)."
+    "_note": "package = the WSI viewer package and the Pathology Slides tab only (image-ID access; hideable slide list and details panels; the tab shows when the patient's slide hierarchy has slides, or when it is the active tab). Every child contains the package pin; agent contains annotations (the annotations-agent matrix row checks out agent and requires annotations as an ancestor); integration = package + study + patient + molecular + agent + studySlides. studySlides = the study-view Pathology Slides tab; it needs the backend child in backendChildren.studySlides (not the pinned backend), and its browser contract (wsi-study-slides-mocked.spec.ts) mocks the study and WSI APIs. Known gap: the patient child (clinical-event loading, hierarchy-built pathology timeline track, undated notice counted from the same hierarchy, tab link scoping) has no Playwright spec; its browser contract is wsi-foundation-mocked.spec.ts and its behaviour is covered by its Jest specs (pathologySlidesTimeline, pathologySlidesTimelineLoader, PatientWsiSlidesTab, UndatedPathologySlidesNotice, WsiPatientViewRoute)."
   },
   "backendChildren": {
     "studySlides": {
       "repository": "raylim/cbioportal",
-      "ref": "2e99ead7bfdbb350304641a668e8778dc2f86737",
+      "ref": "7b2ee02775e7036cd3191c3cf37fc18cbc5a48ca",
       "branch": "codex/wsi-rd-study-slides",
       "pullRequest": "raylim/cbioportal#11",
       "endpoint": "POST /api/wsi/v2/study-slides/patients/fetch",
