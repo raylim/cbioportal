@@ -2,7 +2,7 @@
   "_note": "Immutable cross-repository tuple validated by .github/workflows/wsi-validation.yml for the resource-data WSI model. Every ref must be a full 40-character commit SHA; scripts/check_wsi_validation_pins.py fails on anything else, including TODO-successor placeholders.",
   "backend": {
     "repository": "raylim/cbioportal",
-    "ref": "065b4df5a887b38c9da829d0bbce1ca9f8765499",
+    "ref": "f1de815e5f15e61aba8e0151f3a448adc98a0ac0",
     "branch": "codex/wsi-resource-data",
     "pullRequest": "cBioPortal/cbioportal#12378",
     "dbSchemaVersion": "3.5.0",
@@ -18,7 +18,7 @@
   },
   "core": {
     "repository": "raylim/cbioportal-core",
-    "ref": "3e5bf6efa03a6f507f5fffd58480d277c05d785a",
+    "ref": "dfd3549dc770c1ba12e8f82401d0960d7463f590",
     "branch": "codex/wsi-resource-data",
     "pullRequest": "cBioPortal/cbioportal-core#193"
   },
@@ -34,14 +34,14 @@
   },
   "frontend": {
     "repository": "raylim/cbioportal-frontend",
-    "package": "b7a25b4876b2078cf3019d8ec129111c7b3a09b0",
-    "study": "d8731635435ba561d0e86de555dbbc1a0ab93f4b",
-    "patient": "38d5d32713970b34790186c3173c51a858156450",
-    "molecular": "4032446c13bbb25a2a1f4abfd9ceb0c0b41e495b",
-    "annotations": "4366404f9798366272bb756bc86bc8f33f72b8cc",
-    "agent": "66421e11564b2942bdb691ae4dd305c96ddc5794",
-    "studySlides": "5f71038d63335d8816e07d8ef4660fab15d69181",
-    "integration": "9aca7e87ce9a65bb50c60fc4c875b42eaefff096",
+    "package": "509caadee4bbba620d2f5dd2073eeaa22ac28c91",
+    "study": "e5df6a267c9fc929701d285808260c9ee25885cf",
+    "patient": "5ec90724e479f3b6d4bd4cb10264adbfa03594a3",
+    "molecular": "58b1295087dc14257661a0205383330d120555b7",
+    "annotations": "7f209e36f359d9d1badd0a1b76aaab9b0e0a839a",
+    "agent": "431bfdd10f45e75403384e992b06859f93a30701",
+    "studySlides": "986bfaa8fa69f9dc5037e7f3164b5a263acb1455",
+    "integration": "507ca750aa9f21b4858aa2d8ed4116e64e9ee6ac",
     "branches": {
       "package": "codex/wsi-viewer-package (#5732)",
       "study": "codex/wsi-rd-study",
@@ -52,12 +52,12 @@
       "studySlides": "codex/wsi-rd-study-slides",
       "integration": "codex/wsi-rd-integration"
     },
-    "_note": "package = the WSI viewer package and the Pathology Slides tab only (image-ID access; hideable slide list and details panels; collapsible details sections; a Clinical section of the study's default, populated clinical attributes; the tab shows when the patient's slide hierarchy has slides, or when it is the active tab). Every child contains the package pin; agent contains annotations (the annotations-agent matrix row checks out agent and requires annotations as an ancestor); integration = package + study + patient + molecular + agent + studySlides. studySlides = the study-view Pathology Slides tab; it needs the backend child in backendChildren.studySlides (not the pinned backend), and its browser contract (wsi-study-slides-mocked.spec.ts) mocks the study and WSI APIs. Known gap: the patient child (clinical-event loading, hierarchy-built pathology timeline track, undated notice counted from the same hierarchy, tab link scoping) has no Playwright spec; its browser contract is wsi-foundation-mocked.spec.ts and its behaviour is covered by its Jest specs (pathologySlidesTimeline, pathologySlidesTimelineLoader, PatientWsiSlidesTab, UndatedPathologySlidesNotice, WsiPatientViewRoute)."
+    "_note": "package = the WSI viewer package and the Pathology Slides tab only (image-ID access; hideable slide list and details panels; collapsible details sections; a Clinical section of the study's default, populated clinical attributes; the tab shows when the patient's slide hierarchy has slides, or when it is the active tab; the tab gate and the viewer share one hierarchy request; one OpenSeadragon viewer is reused across slide changes when it has no tile requests left; token refresh pauses while the viewer is hidden). Every child contains the package pin; agent contains annotations (the annotations-agent matrix row checks out agent and requires annotations as an ancestor); integration = package + study + patient + molecular + agent + studySlides. studySlides = the study-view Pathology Slides tab; it needs the backend child in backendChildren.studySlides (not the pinned backend), and its browser contract (wsi-study-slides-mocked.spec.ts) mocks the study and WSI APIs. Known gap: the patient child (clinical-event loading, hierarchy-built pathology timeline track, undated notice counted from the same hierarchy, tab link scoping) has no Playwright spec; its browser contract is wsi-foundation-mocked.spec.ts and its behaviour is covered by its Jest specs (pathologySlidesTimeline, pathologySlidesTimelineLoader, PatientWsiSlidesTab, UndatedPathologySlidesNotice, WsiPatientViewRoute)."
   },
   "backendChildren": {
     "studySlides": {
       "repository": "raylim/cbioportal",
-      "ref": "06680eecea764d23d2e72ba8f1f7452d10bdcb49",
+      "ref": "c69041e7bf09d92275b68617cde5801e3d3cef1d",
       "branch": "codex/wsi-rd-study-slides",
       "pullRequest": "raylim/cbioportal#11",
       "endpoint": "POST /api/wsi/v2/study-slides/patients/fetch and /facets/fetch",

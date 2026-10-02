@@ -18,19 +18,19 @@ permissions:
 env:
   BRANCH_ENV: master
   BACKEND_REPOSITORY: raylim/cbioportal
-  BACKEND_REF: 065b4df5a887b38c9da829d0bbce1ca9f8765499
+  BACKEND_REF: f1de815e5f15e61aba8e0151f3a448adc98a0ac0
   FRONTEND_REPOSITORY: raylim/cbioportal-frontend
-  FRONTEND_PACKAGE_REF: b7a25b4876b2078cf3019d8ec129111c7b3a09b0
-  FRONTEND_STUDY_REF: d8731635435ba561d0e86de555dbbc1a0ab93f4b
-  FRONTEND_PATIENT_REF: 38d5d32713970b34790186c3173c51a858156450
-  FRONTEND_MOLECULAR_REF: 4032446c13bbb25a2a1f4abfd9ceb0c0b41e495b
-  FRONTEND_ANNOTATIONS_REF: 4366404f9798366272bb756bc86bc8f33f72b8cc
-  FRONTEND_AGENT_REF: 66421e11564b2942bdb691ae4dd305c96ddc5794
-  FRONTEND_STUDY_SLIDES_REF: 5f71038d63335d8816e07d8ef4660fab15d69181
-  FRONTEND_INTEGRATION_REF: 9aca7e87ce9a65bb50c60fc4c875b42eaefff096
+  FRONTEND_PACKAGE_REF: 509caadee4bbba620d2f5dd2073eeaa22ac28c91
+  FRONTEND_STUDY_REF: e5df6a267c9fc929701d285808260c9ee25885cf
+  FRONTEND_PATIENT_REF: 5ec90724e479f3b6d4bd4cb10264adbfa03594a3
+  FRONTEND_MOLECULAR_REF: 58b1295087dc14257661a0205383330d120555b7
+  FRONTEND_ANNOTATIONS_REF: 7f209e36f359d9d1badd0a1b76aaab9b0e0a839a
+  FRONTEND_AGENT_REF: 431bfdd10f45e75403384e992b06859f93a30701
+  FRONTEND_STUDY_SLIDES_REF: 986bfaa8fa69f9dc5037e7f3164b5a263acb1455
+  FRONTEND_INTEGRATION_REF: 507ca750aa9f21b4858aa2d8ed4116e64e9ee6ac
   # Keep every cross-repository input as a full immutable commit pin.
   CORE_REPOSITORY: raylim/cbioportal-core
-  CORE_REF: 3e5bf6efa03a6f507f5fffd58480d277c05d785a
+  CORE_REF: dfd3549dc770c1ba12e8f82401d0960d7463f590
   TILE_REPOSITORY: cBioPortal/cbioportal-tile-server
   TILE_REF: 082c3f77ec7eb091bc4a17b96d89cf6d1618d73c
   TEST_STACK_REPOSITORY: cBioPortal/cbioportal-test
@@ -154,7 +154,7 @@ jobs:
       matrix:
         include:
           - name: package
-            ref: b7a25b4876b2078cf3019d8ec129111c7b3a09b0
+            ref: 509caadee4bbba620d2f5dd2073eeaa22ac28c91
             # The viewer package's own suite plus the standalone viewer route and
             # app wiring; the package branch carries only the viewer and the
             # Pathology Slides tab (image-ID access).
@@ -166,7 +166,7 @@ jobs:
               src/shared/lib/assertWsiOsdBundle.spec.ts
             browser: tests/wsi-foundation-mocked.spec.ts
           - name: study
-            ref: d8731635435ba561d0e86de555dbbc1a0ab93f4b
+            ref: e5df6a267c9fc929701d285808260c9ee25885cf
             unit: >-
               pnpm exec jest --env=jsdom --runInBand --no-cache
               src/pages/studyView/tabs/ClinicalDataTab.spec.ts
@@ -179,7 +179,7 @@ jobs:
           # Known gap: the child has no Playwright spec of its own, so its
           # browser contract is the foundation mock and the rest is Jest.
           - name: patient
-            ref: 38d5d32713970b34790186c3173c51a858156450
+            ref: 5ec90724e479f3b6d4bd4cb10264adbfa03594a3
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -190,7 +190,7 @@ jobs:
               src/pages/wsi/WsiPatientViewRoute.spec.tsx
             browser: tests/wsi-foundation-mocked.spec.ts
           - name: molecular
-            ref: 4032446c13bbb25a2a1f4abfd9ceb0c0b41e495b
+            ref: 58b1295087dc14257661a0205383330d120555b7
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -199,8 +199,8 @@ jobs:
             browser: tests/wsi-molecular-mocked.spec.ts
           # Checks out the agent pin, which must contain the annotations pin.
           - name: annotations-agent
-            ref: 66421e11564b2942bdb691ae4dd305c96ddc5794
-            ancestor: 4366404f9798366272bb756bc86bc8f33f72b8cc
+            ref: 431bfdd10f45e75403384e992b06859f93a30701
+            ancestor: 7f209e36f359d9d1badd0a1b76aaab9b0e0a839a
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -212,7 +212,7 @@ jobs:
           # backend endpoint is the backend child raylim/cbioportal#11, outside
           # the pinned backend; the browser contract mocks the study and WSI APIs.
           - name: study-slides
-            ref: 5f71038d63335d8816e07d8ef4660fab15d69181
+            ref: 986bfaa8fa69f9dc5037e7f3164b5a263acb1455
             unit: >-
               pnpm exec jest --env=jsdom --runInBand --no-cache
               src/pages/studyView/tabs/pathologySlides
@@ -220,7 +220,7 @@ jobs:
               src/shared/lib/assertWsiOsdBundle.spec.ts
             browser: tests/wsi-study-slides-mocked.spec.ts
           - name: integration
-            ref: 9aca7e87ce9a65bb50c60fc4c875b42eaefff096
+            ref: 507ca750aa9f21b4858aa2d8ed4116e64e9ee6ac
             unit: >-
               pnpm --filter cbioportal-wsi-viewer run test &&
               pnpm exec jest --env=jsdom --runInBand --no-cache
@@ -431,20 +431,20 @@ jobs:
       matrix:
         include:
           - variant: package
-            ref: b7a25b4876b2078cf3019d8ec129111c7b3a09b0
+            ref: 509caadee4bbba620d2f5dd2073eeaa22ac28c91
           - variant: study
-            ref: d8731635435ba561d0e86de555dbbc1a0ab93f4b
+            ref: e5df6a267c9fc929701d285808260c9ee25885cf
           - variant: patient
-            ref: 38d5d32713970b34790186c3173c51a858156450
+            ref: 5ec90724e479f3b6d4bd4cb10264adbfa03594a3
           - variant: molecular
-            ref: 4032446c13bbb25a2a1f4abfd9ceb0c0b41e495b
+            ref: 58b1295087dc14257661a0205383330d120555b7
           - variant: annotations-agent
-            ref: 66421e11564b2942bdb691ae4dd305c96ddc5794
-            ancestor: 4366404f9798366272bb756bc86bc8f33f72b8cc
+            ref: 431bfdd10f45e75403384e992b06859f93a30701
+            ancestor: 7f209e36f359d9d1badd0a1b76aaab9b0e0a839a
           - variant: study-slides
-            ref: 5f71038d63335d8816e07d8ef4660fab15d69181
+            ref: 986bfaa8fa69f9dc5037e7f3164b5a263acb1455
           - variant: integration
-            ref: 9aca7e87ce9a65bb50c60fc4c875b42eaefff096
+            ref: 507ca750aa9f21b4858aa2d8ed4116e64e9ee6ac
     needs:
       - fixture-contract
       - core-import-validation
