@@ -1,0 +1,67 @@
+{
+  "_note": "Immutable cross-repository tuple validated by .github/workflows/wsi-validation.yml for the resource-data WSI model. Every ref must be a full 40-character commit SHA; scripts/check_wsi_validation_pins.py fails on anything else, including TODO-successor placeholders.",
+  "backend": {
+    "repository": "raylim/cbioportal",
+    "ref": "f1de815e5f15e61aba8e0151f3a448adc98a0ac0",
+    "branch": "codex/wsi-resource-data",
+    "pullRequest": "cBioPortal/cbioportal#12378",
+    "dbSchemaVersion": "3.5.0",
+    "slideAccess": "GET /api/wsi/v2/resources/{studyId}/{patientId}/access?imageId=<imageId>"
+  },
+  "testStack": {
+    "repository": "cBioPortal/cbioportal-test",
+    "ref": "a450018f8fdadf5fe568d66d41154e9f25281dfb"
+  },
+  "compose": {
+    "repository": "cBioPortal/cbioportal-docker-compose",
+    "ref": "85099cb96ae0acd28f34af4f593709a7b892306f"
+  },
+  "core": {
+    "repository": "raylim/cbioportal-core",
+    "ref": "dfd3549dc770c1ba12e8f82401d0960d7463f590",
+    "branch": "codex/wsi-resource-data",
+    "pullRequest": "cBioPortal/cbioportal-core#193"
+  },
+  "tile": {
+    "repository": "cBioPortal/cbioportal-tile-server",
+    "ref": "082c3f77ec7eb091bc4a17b96d89cf6d1618d73c"
+  },
+  "fixtures": {
+    "generator": "scripts/wsi_resource_fixtures.py",
+    "converter": "cbioportal-core scripts/importer/convertWsiToResources.py",
+    "portalBaseUrl": "http://localhost:8080",
+    "timeline": "none: studies no longer load a PATHOLOGY SLIDES clinical-event file; v3 fixtures carry timing in the resource METADATA"
+  },
+  "frontend": {
+    "repository": "raylim/cbioportal-frontend",
+    "package": "509caadee4bbba620d2f5dd2073eeaa22ac28c91",
+    "study": "e5df6a267c9fc929701d285808260c9ee25885cf",
+    "patient": "5ec90724e479f3b6d4bd4cb10264adbfa03594a3",
+    "molecular": "58b1295087dc14257661a0205383330d120555b7",
+    "annotations": "7f209e36f359d9d1badd0a1b76aaab9b0e0a839a",
+    "agent": "431bfdd10f45e75403384e992b06859f93a30701",
+    "studySlides": "986bfaa8fa69f9dc5037e7f3164b5a263acb1455",
+    "integration": "507ca750aa9f21b4858aa2d8ed4116e64e9ee6ac",
+    "branches": {
+      "package": "codex/wsi-viewer-package (#5732)",
+      "study": "codex/wsi-rd-study",
+      "patient": "codex/wsi-rd-patient",
+      "molecular": "codex/wsi-rd-molecular",
+      "annotations": "codex/wsi-rd-annotations",
+      "agent": "codex/wsi-rd-agent",
+      "studySlides": "codex/wsi-rd-study-slides",
+      "integration": "codex/wsi-rd-integration"
+    },
+    "_note": "package = the WSI viewer package and the Pathology Slides tab only (image-ID access; hideable slide list and details panels; collapsible details sections; a Clinical section of the study's default, populated clinical attributes; the tab shows when the patient's slide hierarchy has slides, or when it is the active tab; the tab gate and the viewer share one hierarchy request; one OpenSeadragon viewer is reused across slide changes when it has no tile requests left; token refresh pauses while the viewer is hidden). Every child contains the package pin; agent contains annotations (the annotations-agent matrix row checks out agent and requires annotations as an ancestor); integration = package + study + patient + molecular + agent + studySlides. studySlides = the study-view Pathology Slides tab; it needs the backend child in backendChildren.studySlides (not the pinned backend), and its browser contract (wsi-study-slides-mocked.spec.ts) mocks the study and WSI APIs. Known gap: the patient child (clinical-event loading, hierarchy-built pathology timeline track, undated notice counted from the same hierarchy, tab link scoping) has no Playwright spec; its browser contract is wsi-foundation-mocked.spec.ts and its behaviour is covered by its Jest specs (pathologySlidesTimeline, pathologySlidesTimelineLoader, PatientWsiSlidesTab, UndatedPathologySlidesNotice, WsiPatientViewRoute)."
+  },
+  "backendChildren": {
+    "studySlides": {
+      "repository": "raylim/cbioportal",
+      "ref": "c69041e7bf09d92275b68617cde5801e3d3cef1d",
+      "branch": "codex/wsi-rd-study-slides",
+      "pullRequest": "raylim/cbioportal#11",
+      "endpoint": "POST /api/wsi/v2/study-slides/patients/fetch and /facets/fetch",
+      "_note": "Recorded, not checked out: the gate runs the pinned backend. The child is a descendant of backend.ref and is covered by its own backend tests."
+    }
+  }
+}
