@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.cbioportal.infrastructure.repository.clickhouse.wsi.ClickhouseWsiStudySlidesMapper">
+    <!-- One row per WSI slide of the cohort's patients: a patient is in the cohort when any of
+         their samples passes the study-view filter. Only aggregate-safe columns are read. -->
+    <sql id="cohortSlideRows">
+        SELECT
+            cs.cancer_study_identifier AS study_id,
+            assumeNotNull(r.PATIENT_ID) AS patient_id,
+            <!-- Same classification as the viewer's normalizeSlideType: the resolved flags first,
+                 then the stored slide type. -->
+            upper(trimBoth(JSONExtractString(ifNull(r.METADATA, '{}'), 'slide_type'))) AS stored_slide_type,
+            multiIf(
+                JSONExtractBool(ifNull(r.METADATA, '{}'), 'is_ihc'), 'IHC',
+                JSONExtractBool(ifNull(r.METADATA, '{}'), 'is_hne'), 'H&amp;E',
+                stored_slide_type = 'IHC', 'IHC',
+                stored_slide_type IN ('H&amp;E', 'HE'), 'H&amp;E',
+                stored_slide_type = 'UNKNOWN', 'Unknown',
+                'Other'
+            ) AS stain_group,
+            JSONExtractBool(ifNull(r.METADATA, '{}'), 'can_serve_tiles') AS viewable,
+            multiIf(
+                r.SAMPLE_ID IS NULL, 'UNMATCHED',
+                JSONExtractString(ifNull(r.METADATA, '{}'), 'match_level') IN ('PART', 'UNMATCHED'),
+                JSONExtractString(ifNull(r.METADATA, '{}'), 'match_level'),
+                'BLOCK'
+            ) AS match_level
+        FROM resource_data r
+        INNER JOIN cancer_study cs ON cs.cancer_study_id = r.CANCER_STUDY_ID
+        PREWHERE r.CANCER_STUDY_ID IN (
+            SELECT cancer_study_id FROM cancer_study WHERE cancer_study_identifier IN
+            <foreach item="studyId" collection="studyIds" open="(" separator="," close=")">#{studyId}</foreach>
+        )
+        WHERE r.RESOURCE_ID IN ('WSI_SAMPLE', 'WSI_PATIENT')
+          AND r.TYPE = 'WHOLE_SLIDE_IMAGE'
+          AND r.PATIENT_ID IS NOT NULL
+          AND concat(cs.cancer_study_identifier, '_', assumeNotNull(r.PATIENT_ID)) IN (
+              SELECT patient_unique_id
+              FROM sample_derived
+              WHERE sample_unique_id IN (<include refid="org.cbioportal.infrastructure.repository.clickhouse.studyview.ClickhouseStudyViewFilterMapper.sampleUniqueIdsFromStudyViewFilter"/>)
+          )
+          <if test="query.viewableOnly">
+              AND JSONExtractBool(ifNull(r.METADATA, '{}'), 'can_serve_tiles')
+          </if>
+          <if test="query.search != null and query.search != ''">
+              AND (
+                  positionCaseInsensitiveUTF8(assumeNotNull(r.PATIENT_ID), #{query.search}) &gt; 0
+                  OR positionCaseInsensitiveUTF8(ifNull(r.SAMPLE_ID, ''), #{query.search}) &gt; 0
+              )
+          </if>
+          <if test="query.matchLevels != null and !query.matchLevels.isEmpty()">
+              AND match_level IN
+              <foreach item="matchLevel" collection="query.matchLevels" open="(" separator="," close=")">#{matchLevel}</foreach>
+          </if>
+    </sql>
+
+    <sql id="stainSelected">
+        <choose>
+            <when test="query.stainGroups != null and !query.stainGroups.isEmpty()">
+                stain_group IN
+                <foreach item="stainGroup" collection="query.stainGroups" open="(" separator="," close=")">#{stainGroup}</foreach>
+            </when>
+            <otherwise>1</otherwise>
+        </choose>
+    </sql>
+
+    <select id="getCohortTotals" resultType="hashmap">
+        SELECT
+            uniqExactIf((study_id, patient_id), <include refid="stainSelected"/>) AS total_patients,
+            countIf(<include refid="stainSelected"/>) AS total_slides,
+            countIf(viewable AND <include refid="stainSelected"/>) AS total_viewable_slides,
+            countIf(stain_group = 'H&amp;E') AS hne,
+            countIf(stain_group = 'IHC') AS ihc,
+            countIf(stain_group = 'Other') AS other,
+            countIf(stain_group = 'Unknown') AS unknown
+            <if test="query.locateStudyId != null and query.locatePatientId != null">
+                ,
+                uniqExactIf(
+                    (study_id, patient_id),
+                    <include refid="stainSelected"/>
+                    AND (study_id, patient_id) &lt; (#{query.locateStudyId}, #{query.locatePatientId})
+                ) AS located_index,
+                countIf(
+                    <include refid="stainSelected"/>
+                    AND study_id = #{query.locateStudyId}
+                    AND patient_id = #{query.locatePatientId}
+                ) &gt; 0 AS located
+            </if>
+        FROM (<include refid="cohortSlideRows"/>)
+    </select>
+
+    <select id="getCohortPatients" resultType="hashmap">
+        SELECT
+            study_id,
+            patient_id,
+            count() AS slide_count,
+            countIf(viewable) AS viewable_slide_count,
+            countIf(stain_group = 'H&amp;E') AS hne,
+            countIf(stain_group = 'IHC') AS ihc,
+            countIf(stain_group = 'Other') AS other,
+            countIf(stain_group = 'Unknown') AS unknown
+        FROM (<include refid="cohortSlideRows"/>)
+        WHERE <include refid="stainSelected"/>
+        GROUP BY study_id, patient_id
+        ORDER BY study_id, patient_id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+    <!-- Patients per clinical value among the listed patients (those with a listed slide),
+         keeping the most frequent values of each attribute. -->
+    <select id="getCohortAttributeValueCounts" resultType="hashmap">
+        SELECT attribute_id, value, patient_count, value_count
+        FROM (
+            SELECT
+                attribute_name AS attribute_id,
+                attribute_value AS value,
+                uniqExact(patient_unique_id) AS patient_count,
+                count() OVER (PARTITION BY attribute_name) AS value_count
+            FROM clinical_data_derived
+            WHERE cancer_study_identifier IN
+                <foreach item="studyId" collection="studyIds" open="(" separator="," close=")">#{studyId}</foreach>
+              AND attribute_name IN
+                <foreach item="attributeId" collection="attributeIds" open="(" separator="," close=")">#{attributeId}</foreach>
+              AND upper(attribute_value) NOT IN ('NA', '')
+              AND patient_unique_id IN (
+                  SELECT concat(study_id, '_', patient_id)
+                  FROM (<include refid="cohortSlideRows"/>)
+                  WHERE <include refid="stainSelected"/>
+              )
+            GROUP BY attribute_name, attribute_value
+        )
+        ORDER BY attribute_id, patient_count DESC, value
+        LIMIT #{maxValues} BY attribute_id
+    </select>
+
+    <select id="getCohortMatchLevelCounts" resultType="hashmap">
+        SELECT match_level, uniqExact((study_id, patient_id)) AS patient_count
+        FROM (<include refid="cohortSlideRows"/>)
+        WHERE <include refid="stainSelected"/>
+        GROUP BY match_level
+    </select>
+</mapper>

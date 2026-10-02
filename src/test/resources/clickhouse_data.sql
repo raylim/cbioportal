@@ -718,6 +718,50 @@ values (900503,'PATHOLOGY_NOTES',9005,'PATIENT','WSI-TABLE-PATIENT',NULL,'https:
 insert into resource_data (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTITY_TYPE, PATIENT_ID, SAMPLE_ID, URL, DISPLAY_NAME, TYPE, METADATA)
 values (900504,'PATHOLOGY_NOTES',9005,'PATIENT','WSI-TABLE-PATIENT',NULL,'https://example.com/notes/2.pdf','Follow-up note',NULL,'{"note":"Follow-up imaging"}');
 
+-- Study-slides cohort fixture: four patients, three with slides, for cohort paging, prefix search,
+-- stain-group filtering and sample-identifier cohort restriction.
+insert into cancer_study (cancer_study_id,cancer_study_identifier,type_of_cancer_id,name,description,public)
+values (9006,'wsi_cohort_study','dummy','WSI cohort study','study slides fixture',1);
+insert into patient (internal_id,stable_id,cancer_study_id) values (9601,'COHORT-A',9006);
+insert into patient (internal_id,stable_id,cancer_study_id) values (9602,'COHORT-B',9006);
+insert into patient (internal_id,stable_id,cancer_study_id) values (9603,'COHORT-C',9006);
+insert into patient (internal_id,stable_id,cancer_study_id) values (9604,'OTHER-D',9006);
+insert into sample (internal_id,stable_id,sample_type,patient_id) values (9601,'COHORT-A-1','primary tumor',9601);
+insert into sample (internal_id,stable_id,sample_type,patient_id) values (9602,'COHORT-A-2','primary tumor',9601);
+insert into sample (internal_id,stable_id,sample_type,patient_id) values (9603,'COHORT-B-1','primary tumor',9602);
+insert into sample (internal_id,stable_id,sample_type,patient_id) values (9604,'COHORT-C-1','primary tumor',9603);
+insert into sample (internal_id,stable_id,sample_type,patient_id) values (9605,'OTHER-D-1','primary tumor',9604);
+insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
+values ('WSI_SAMPLE',9006,'SAMPLE','Pathology slides','Whole-slide images linked to samples',0,1);
+insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
+values ('WSI_PATIENT',9006,'PATIENT','Pathology slides','Whole-slide images linked to patients',0,1);
+insert into resource_data (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTITY_TYPE, PATIENT_ID, SAMPLE_ID, URL, DISPLAY_NAME, TYPE, METADATA)
+values (900601,'WSI_SAMPLE',9006,'SAMPLE','COHORT-A','COHORT-A-1','https://portal.example.org/wsi/a1','cohort-a1','WHOLE_SLIDE_IMAGE','{"image_id":"cohort-a1","is_hne":true,"is_ihc":false,"slide_type":"H&E","match_level":"PART","can_serve_tiles":true,"wsi_serving":{"source_url":"s3://bucket/cohort-a1.svs"}}');
+insert into resource_data (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTITY_TYPE, PATIENT_ID, SAMPLE_ID, URL, DISPLAY_NAME, TYPE, METADATA)
+values (900602,'WSI_SAMPLE',9006,'SAMPLE','COHORT-A','COHORT-A-2','https://portal.example.org/wsi/a2','cohort-a2','WHOLE_SLIDE_IMAGE','{"image_id":"cohort-a2","is_hne":false,"is_ihc":true,"slide_type":"IHC","can_serve_tiles":false,"wsi_serving":{}}');
+insert into resource_data (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTITY_TYPE, PATIENT_ID, SAMPLE_ID, URL, DISPLAY_NAME, TYPE, METADATA)
+values (900603,'WSI_PATIENT',9006,'PATIENT','COHORT-A',NULL,'https://portal.example.org/wsi/a3','cohort-a3','WHOLE_SLIDE_IMAGE','{"image_id":"cohort-a3","is_hne":false,"is_ihc":false,"slide_type":"Unknown","can_serve_tiles":true,"wsi_serving":{}}');
+insert into resource_data (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTITY_TYPE, PATIENT_ID, SAMPLE_ID, URL, DISPLAY_NAME, TYPE, METADATA)
+values (900604,'WSI_SAMPLE',9006,'SAMPLE','COHORT-B','COHORT-B-1','https://portal.example.org/wsi/b1','cohort-b1','WHOLE_SLIDE_IMAGE','{"image_id":"cohort-b1","is_hne":false,"is_ihc":false,"slide_type":"Special stain","can_serve_tiles":true,"wsi_serving":{}}');
+insert into resource_data (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTITY_TYPE, PATIENT_ID, SAMPLE_ID, URL, DISPLAY_NAME, TYPE, METADATA)
+values (900605,'WSI_SAMPLE',9006,'SAMPLE','OTHER-D','OTHER-D-1','https://portal.example.org/wsi/d1','other-d1','WHOLE_SLIDE_IMAGE','{"image_id":"other-d1","is_hne":true,"is_ihc":false,"slide_type":"H&E","can_serve_tiles":true,"wsi_serving":{}}');
+-- Clinical values for study-slides facets: COHORT-C has no slides, so its value is not counted.
+insert into clinical_attribute_meta (attr_id,display_name,description,datatype,patient_attribute,priority,cancer_study_id) values ('CANCER_TYPE','Cancer Type','Cancer Type','STRING',0,'1',9006);
+insert into clinical_attribute_meta (attr_id,display_name,description,datatype,patient_attribute,priority,cancer_study_id) values ('SEX','Sex','Sex','STRING',1,'1',9006);
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9601,'CANCER_TYPE','Colorectal Cancer');
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9602,'CANCER_TYPE','Colorectal Cancer');
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9603,'CANCER_TYPE','Breast Cancer');
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9604,'CANCER_TYPE','Breast Cancer');
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9605,'CANCER_TYPE','Melanoma');
+insert into clinical_patient (internal_id,attr_id,attr_value) values (9601,'SEX','Female');
+insert into clinical_patient (internal_id,attr_id,attr_value) values (9602,'SEX','Female');
+insert into clinical_patient (internal_id,attr_id,attr_value) values (9604,'SEX','Male');
+-- A non-WSI resource row for COHORT-C, which must not count as a slide.
+insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
+values ('COHORT_NOTES',9006,'PATIENT','Notes','Not slides',0,2);
+insert into resource_data (RESOURCE_DATA_ID, RESOURCE_ID, CANCER_STUDY_ID, ENTITY_TYPE, PATIENT_ID, SAMPLE_ID, URL, DISPLAY_NAME, TYPE, METADATA)
+values (900606,'COHORT_NOTES',9006,'PATIENT','COHORT-C',NULL,'https://example.com/notes/c.pdf','Note',NULL,'{}');
+
 -- WSI is served exclusively from generic resource_data. The nested wsi_serving object is
 -- intentionally absent from generic table responses and is read only by the access repository.
 insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
