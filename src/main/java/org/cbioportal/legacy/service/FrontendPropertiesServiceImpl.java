@@ -217,7 +217,7 @@ public class FrontendPropertiesServiceImpl implements FrontendPropertiesService 
     msk_wsi_annotation_api_url("msk.wsi.annotation_api.url", null),
     msk_wsi_agent_enabled("msk.wsi.agent.enabled", "false"),
     wsi_backend_git_sha("wsi.backend-git-sha", null),
-    wsi_serving_contract_version("wsi.serving-contract-version", "wsi-serving-v4");
+    wsi_serving_contract_version("wsi.serving-contract-version", "wsi-serving-v5");
 
     private final String propertyName;
     private final String defaultValue;
