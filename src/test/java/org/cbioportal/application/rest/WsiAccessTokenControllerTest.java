@@ -53,38 +53,65 @@ public class WsiAccessTokenControllerTest {
   }
 
   @Test
-  public void returnsAnnotationScopeWhenRequested() {
-    WsiAccessTokenController plainController = createStudyReaderController();
+  public void returnsAnnotationScopeWhenRequested() throws Exception {
+    WsiAccessTokenController controller = createStudyReaderController();
 
-    ResponseEntity<?> response = plainController.issueAccessToken("study-1", "annotations");
+    ResponseEntity<?> response = controller.issueAccessToken("study-1", "annotations");
 
     assertEquals(200, response.getStatusCode().value());
     Map<?, ?> body = (Map<?, ?>) response.getBody();
     assertNotNull(body);
     assertEquals("Bearer", body.get("token_type"));
-    String token = (String) body.get("access_token");
-    String payload = token.split("\\.")[1];
-    String decodedPayload =
-        new String(Base64.getUrlDecoder().decode(payload), StandardCharsets.UTF_8);
-    assertTrue(decodedPayload.contains("\"scope\":\"annotations:read annotations:write\""));
-    assertTrue(decodedPayload.contains("\"study_id\":\"study-1\""));
+    assertEquals(300, body.get("expires_in"));
+    JsonNode claims = claims((String) body.get("access_token"));
+    assertEquals("annotations:read annotations:write", claims.get("scope").asText());
+    assertEquals("study-1", claims.get("study_id").asText());
+    assertNoSlideClaims(claims);
   }
 
   @Test
-  public void returnsAgentScopesWhenRequested() {
-    WsiAccessTokenController plainController = createStudyReaderController();
+  public void returnsAgentScopesWhenRequested() throws Exception {
+    WsiAccessTokenController controller = createStudyReaderController();
 
-    ResponseEntity<?> response = plainController.issueAccessToken("study-1", "agent");
+    ResponseEntity<?> response = controller.issueAccessToken("study-1", "agent");
 
     assertEquals(200, response.getStatusCode().value());
-    Map<?, ?> body = (Map<?, ?>) response.getBody();
-    String token = (String) body.get("access_token");
-    String payload = token.split("\\.")[1];
-    String decodedPayload =
-        new String(Base64.getUrlDecoder().decode(payload), StandardCharsets.UTF_8);
-    assertTrue(decodedPayload.contains("agent:chat"));
-    assertTrue(decodedPayload.contains("research:read"));
-    assertTrue(decodedPayload.contains("annotations:write"));
+    JsonNode claims = claims((String) ((Map<?, ?>) response.getBody()).get("access_token"));
+    assertEquals(
+        "agent:chat research:read annotations:read annotations:write",
+        claims.get("scope").asText());
+    assertEquals("study-1", claims.get("study_id").asText());
+    assertNoSlideClaims(claims);
+  }
+
+  @Test
+  public void neverIssuesAStudyWideSlideCapability() {
+    WsiAccessTokenController controller = createStudyReaderController();
+
+    // Slide pixels are reachable only through the per-slide v3 resources access endpoint.
+    for (String purpose : new String[] {"wsi", "WSI", "Annotations", "tiles", "", " ", null}) {
+      assertEquals(
+          "purpose should be rejected: " + purpose,
+          400,
+          controller.issueAccessToken("study-1", purpose).getStatusCode().value());
+    }
+    verifyNoInteractions(cancerStudyPermissionEvaluator);
+  }
+
+  @Test
+  public void requiresLoginForAStudyCapability() {
+    WsiAccessTokenController controller = createStudyReaderController();
+    SecurityContextHolder.clearContext();
+
+    assertEquals(
+        401, controller.issueAccessToken("study-1", "annotations").getStatusCode().value());
+  }
+
+  @Test
+  public void refusesAStudyCapabilityWithoutStudyReadPermission() {
+    WsiAccessTokenController controller = createStudyReaderController();
+
+    assertEquals(403, controller.issueAccessToken("study-2", "agent").getStatusCode().value());
   }
 
   @Test
@@ -262,6 +289,30 @@ public class WsiAccessTokenControllerTest {
     authentication.setAuthenticated(true);
     SecurityContextHolder.getContext().setAuthentication(authentication);
     return controller;
+  }
+
+  private JsonNode claims(String token) throws Exception {
+    return objectMapper.readTree(
+        new String(Base64.getUrlDecoder().decode(token.split("\\.")[1]), StandardCharsets.UTF_8));
+  }
+
+  /** A study capability names no slide and cannot be presented to the tile service. */
+  private static void assertNoSlideClaims(JsonNode claims) {
+    for (String slideClaim :
+        List.of(
+            "slide_key",
+            "image_id",
+            "enc",
+            "wsi_auth_version",
+            "tile_source",
+            "thumbnail_source",
+            "tile_source_sha256",
+            "thumbnail_source_sha256",
+            "thumbnail_width",
+            "thumbnail_height")) {
+      assertFalse("study capability carries " + slideClaim, claims.has(slideClaim));
+    }
+    assertFalse(claims.get("scope").asText().contains("wsi:"));
   }
 
   private WsiAccessTokenController createStudyReaderController() {

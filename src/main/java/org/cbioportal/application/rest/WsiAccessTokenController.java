@@ -37,6 +37,16 @@ public class WsiAccessTokenController {
   /** Tile capability format: slide_key + encrypted source claim (contract wsi-serving-v5). */
   static final int WSI_AUTH_VERSION = 3;
 
+  /**
+   * Study-scoped capabilities by purpose. They name no slide and carry no {@code wsi_auth_version},
+   * so the tile service never accepts them: slide pixels are reachable only through the per-slide
+   * v3 capability from {@link #issueSlideAccess}.
+   */
+  static final Map<String, String> PURPOSE_SCOPES =
+      Map.of(
+          "annotations", "annotations:read annotations:write",
+          "agent", "agent:chat research:read annotations:read annotations:write");
+
   @Value("${wsi.access-token-secret:}")
   private String accessTokenSecret;
 
@@ -56,14 +66,18 @@ public class WsiAccessTokenController {
   @Autowired(required = false)
   private CancerStudyPermissionEvaluator cancerStudyPermissionEvaluator;
 
-  /** Issues a study-scoped capability for WSI or annotation access. */
+  /**
+   * Issues a study-scoped capability for the annotation service ({@code purpose=annotations}) or
+   * the slide assistant ({@code purpose=agent}). Any other or missing purpose is a 400: slide
+   * access is per slide, from the v3 resources access endpoint only.
+   */
   @GetMapping("/access-token")
   @PreAuthorize(
       "!isAuthenticated() or hasPermission(#studyId, 'CancerStudyId', "
           + "T(org.cbioportal.legacy.utils.security.AccessLevel).READ)")
   public ResponseEntity<?> issueAccessToken(
       @RequestParam(required = false) String studyId,
-      @RequestParam(required = false, defaultValue = "wsi") String purpose) {
+      @RequestParam(required = false) String purpose) {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
     boolean anonymous = isAnonymous(authentication);
     if (anonymous && !localAuthBypass) {
@@ -75,7 +89,7 @@ public class WsiAccessTokenController {
     if (studyId == null || studyId.isBlank()) {
       return ResponseEntity.badRequest().build();
     }
-    if (!"wsi".equals(purpose) && !"annotations".equals(purpose) && !"agent".equals(purpose)) {
+    if (purpose == null || !PURPOSE_SCOPES.containsKey(purpose)) {
       return ResponseEntity.badRequest().build();
     }
     if (!anonymous
@@ -198,13 +212,7 @@ public class WsiAccessTokenController {
     return Jwts.builder()
         .setSubject(authentication.getName())
         .setAudience(accessTokenAudience)
-        .claim(
-            "scope",
-            "annotations".equals(purpose)
-                ? "annotations:read annotations:write"
-                : "agent".equals(purpose)
-                    ? "agent:chat research:read annotations:read annotations:write"
-                    : "wsi:read")
+        .claim("scope", PURPOSE_SCOPES.get(purpose))
         .claim("study_id", studyId)
         .setIssuedAt(Date.from(issuedAt))
         .setExpiration(Date.from(expiresAt))
