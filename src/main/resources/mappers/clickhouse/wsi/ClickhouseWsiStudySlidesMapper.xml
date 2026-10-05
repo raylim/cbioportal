@@ -10,47 +10,47 @@
     <sql id="cohortSlideRows">
         SELECT
             cs.cancer_study_identifier AS study_id,
-            assumeNotNull(r.PATIENT_ID) AS patient_id,
+            assumeNotNull(r.patient_id) AS patient_id,
             <!-- Same classification as the viewer's normalizeSlideType: the resolved flags first,
                  then the stored slide type. -->
-            upper(trimBoth(JSONExtractString(ifNull(r.METADATA, '{}'), 'slide_type'))) AS stored_slide_type,
+            upper(trimBoth(JSONExtractString(ifNull(r.metadata, '{}'), 'slide_type'))) AS stored_slide_type,
             multiIf(
-                JSONExtractBool(ifNull(r.METADATA, '{}'), 'is_ihc'), 'IHC',
-                JSONExtractBool(ifNull(r.METADATA, '{}'), 'is_hne'), 'H&amp;E',
+                JSONExtractBool(ifNull(r.metadata, '{}'), 'is_ihc'), 'IHC',
+                JSONExtractBool(ifNull(r.metadata, '{}'), 'is_hne'), 'H&amp;E',
                 stored_slide_type = 'IHC', 'IHC',
                 stored_slide_type IN ('H&amp;E', 'HE'), 'H&amp;E',
                 stored_slide_type = 'UNKNOWN', 'Unknown',
                 'Other'
             ) AS stain_group,
-            JSONExtractBool(ifNull(r.METADATA, '{}'), 'can_serve_tiles') AS viewable,
+            JSONExtractBool(ifNull(r.metadata, '{}'), 'can_serve_tiles') AS viewable,
             multiIf(
-                r.SAMPLE_ID IS NULL, 'UNMATCHED',
-                JSONExtractString(ifNull(r.METADATA, '{}'), 'match_level') IN ('PART', 'UNMATCHED'),
-                JSONExtractString(ifNull(r.METADATA, '{}'), 'match_level'),
+                r.sample_id IS NULL, 'UNMATCHED',
+                JSONExtractString(ifNull(r.metadata, '{}'), 'match_level') IN ('PART', 'UNMATCHED'),
+                JSONExtractString(ifNull(r.metadata, '{}'), 'match_level'),
                 'BLOCK'
             ) AS match_level
         FROM resource_data r
-        INNER JOIN cancer_study cs ON cs.cancer_study_id = r.CANCER_STUDY_ID
-        PREWHERE r.CANCER_STUDY_ID IN (
+        INNER JOIN cancer_study cs ON cs.cancer_study_id = r.cancer_study_id
+        PREWHERE r.cancer_study_id IN (
             SELECT cancer_study_id FROM cancer_study WHERE cancer_study_identifier IN
             <foreach item="studyId" collection="studyIds" open="(" separator="," close=")">#{studyId}</foreach>
         )
-        WHERE r.RESOURCE_ID IN ('WSI_SAMPLE', 'WSI_PATIENT')
-          AND r.TYPE = 'WHOLE_SLIDE_IMAGE'
-          AND r.PATIENT_ID IS NOT NULL
-          AND match(JSONExtractString(ifNull(r.METADATA, '{}'), 'slide_key'), '^[0-9a-f]{32}$')
-          AND concat(cs.cancer_study_identifier, '_', assumeNotNull(r.PATIENT_ID)) IN (
+        WHERE r.resource_id IN ('WSI_SAMPLE', 'WSI_PATIENT')
+          AND r.type = 'WHOLE_SLIDE_IMAGE'
+          AND r.patient_id IS NOT NULL
+          AND match(JSONExtractString(ifNull(r.metadata, '{}'), 'slide_key'), '^[0-9a-f]{32}$')
+          AND concat(cs.cancer_study_identifier, '_', assumeNotNull(r.patient_id)) IN (
               SELECT patient_unique_id
               FROM sample_derived
               WHERE sample_unique_id IN (<include refid="org.cbioportal.infrastructure.repository.clickhouse.studyview.ClickhouseStudyViewFilterMapper.sampleUniqueIdsFromStudyViewFilter"/>)
           )
           <if test="query.viewableOnly">
-              AND JSONExtractBool(ifNull(r.METADATA, '{}'), 'can_serve_tiles')
+              AND JSONExtractBool(ifNull(r.metadata, '{}'), 'can_serve_tiles')
           </if>
           <if test="query.search != null and query.search != ''">
               AND (
-                  positionCaseInsensitiveUTF8(assumeNotNull(r.PATIENT_ID), #{query.search}) &gt; 0
-                  OR positionCaseInsensitiveUTF8(ifNull(r.SAMPLE_ID, ''), #{query.search}) &gt; 0
+                  positionCaseInsensitiveUTF8(assumeNotNull(r.patient_id), #{query.search}) &gt; 0
+                  OR positionCaseInsensitiveUTF8(ifNull(r.sample_id, ''), #{query.search}) &gt; 0
               )
           </if>
           <if test="query.matchLevels != null and !query.matchLevels.isEmpty()">
