@@ -3,7 +3,10 @@
 
 <mapper namespace="org.cbioportal.infrastructure.repository.clickhouse.wsi.ClickhouseWsiStudySlidesMapper">
     <!-- One row per WSI slide of the cohort's patients: a patient is in the cohort when any of
-         their samples passes the study-view filter. Only aggregate-safe columns are read. -->
+         their samples passes the study-view filter. Only aggregate-safe public METADATA keys are
+         read; slide identifiers (slide_key, image_id), URL, DISPLAY_NAME and wsi_serving are never
+         selected. A slide without a valid opaque slide_key is dropped by the hierarchy and cannot
+         be served, so it is not counted here either (same rule as WsiDeidentification.SLIDE_KEY). -->
     <sql id="cohortSlideRows">
         SELECT
             cs.cancer_study_identifier AS study_id,
@@ -35,6 +38,7 @@
         WHERE r.RESOURCE_ID IN ('WSI_SAMPLE', 'WSI_PATIENT')
           AND r.TYPE = 'WHOLE_SLIDE_IMAGE'
           AND r.PATIENT_ID IS NOT NULL
+          AND match(JSONExtractString(ifNull(r.METADATA, '{}'), 'slide_key'), '^[0-9a-f]{32}$')
           AND concat(cs.cancer_study_identifier, '_', assumeNotNull(r.PATIENT_ID)) IN (
               SELECT patient_unique_id
               FROM sample_derived
