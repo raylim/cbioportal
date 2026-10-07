@@ -435,7 +435,8 @@ public class ClickhouseResourceDataMapperTest {
     assertThat(pages.nonBlankCount()).isEqualTo(2);
     assertThat(pages.numericCount()).isEqualTo(2);
     assertThat(pages.isAutoDetectedNumeric()).isTrue();
-    assertThat(rangeFor(query, "pages")).isEqualTo(new ResourceMetadataRange("pages", 10.0, 25.0));
+    assertThat(rangeFor(query, "pages"))
+        .isEqualTo(new ResourceMetadataRange("pages", 10.0, 25.0));
   }
 
   @Test
@@ -978,6 +979,7 @@ public class ClickhouseResourceDataMapperTest {
     assertThat(mapper.getResourceTableMetadataKeyStats(query, 1, TEST_MAX_MEMORY))
         .allSatisfy(k -> assertThat(k.nonBlankCount()).isEqualTo(1));
 
-    assertThat(rangeFor(query, "score")).isEqualTo(new ResourceMetadataRange("score", 9.0, 100.0));
+    assertThat(rangeFor(query, "score"))
+        .isEqualTo(new ResourceMetadataRange("score", 9.0, 100.0));
   }
 }
