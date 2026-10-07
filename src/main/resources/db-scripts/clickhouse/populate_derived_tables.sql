@@ -541,7 +541,7 @@ SELECT resource_data_id, resource_id, cancer_study_id, entity_type, patient_id, 
        display_name, type,
        concat('{', arrayStringConcat(
          arrayMap(kv -> concat(toJSONString(kv.1), ':', kv.2),
-           arrayFilter(kv -> has(['stain_name', 'stain_group', 'magnification', 'part_description', 'block_label', 'match_level', 'timepoint_source', 'timeline_start_days', 'can_serve_tiles'], kv.1),
+           arrayFilter(kv -> has(['stain_name', 'stain_group', 'magnification', 'part_number', 'block_number', 'match_level', 'timepoint_source', 'timeline_start_days', 'can_serve_tiles'], kv.1),
              JSONExtractKeysAndValuesRaw(ifNull(metadata, '{}')))), ','), '}') AS metadata
 FROM resource_data
 WHERE resource_id = 'WSI_SAMPLE';

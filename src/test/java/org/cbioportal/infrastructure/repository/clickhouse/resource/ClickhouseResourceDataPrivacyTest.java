@@ -136,7 +136,8 @@ public class ClickhouseResourceDataPrivacyTest {
             row ->
                 assertThat(row.metadata().keySet())
                     .isSubsetOf(WsiDeidentification.STUDY_TABLE_METADATA_KEYS)
-                    .contains("stain_name", "part_description", "magnification"));
+                    .contains("stain_name", "part_number", "block_number", "magnification")
+                    .doesNotContain("part_description"));
     assertThat(rows.toString())
         .doesNotContain("hiddenblock")
         .doesNotContain("WSI-HIDDEN-REF")
@@ -147,10 +148,15 @@ public class ClickhouseResourceDataPrivacyTest {
   @Test
   public void slideTableSearchMatchesOnlyPublicText() {
     assertThat(ids(query(WSI, "Masson", null, null, null))).containsExactly("900501", "900502");
-    assertThat(ids(query(WSI, "liver wedge", null, null, null))).containsExactly("900501");
     assertThat(ids(query(WSI, "40x", null, null, null))).containsExactly("900501");
     for (String term :
-        List.of("hiddenblock", "WSI-HIDDEN-REF", "wsipath", "syn-img-t001", "block_key")) {
+        List.of(
+            "liver wedge",
+            "hiddenblock",
+            "WSI-HIDDEN-REF",
+            "wsipath",
+            "syn-img-t001",
+            "block_key")) {
       ResourceTableQuery query = query(WSI, term, null, null, null);
       assertThat(repository.getResourceTableRows(query)).as(term).isEmpty();
       assertThat(repository.getResourceTableCounts(query).rowCount()).as(term).isZero();
@@ -164,7 +170,8 @@ public class ClickhouseResourceDataPrivacyTest {
             new ResourceColumnFilter("metadata:block_key", "in", List.of("block:hiddenblockone")),
             new ResourceColumnFilter("metadata:reference_sample_id", "equals", List.of("x")),
             new ResourceColumnFilter("metadata:slide_key", "in", WSI_SLIDE_KEYS.subList(0, 1)),
-            new ResourceColumnFilter("metadata:wsi_serving", "contains", List.of("wsipath-1")))) {
+            new ResourceColumnFilter("metadata:wsi_serving", "contains", List.of("wsipath-1")),
+            new ResourceColumnFilter("metadata:part_description", "in", List.of("liver margin")))) {
       ResourceTableQuery filtered = query(WSI, null, null, null, List.of(filter));
       assertThat(ids(filtered)).as(filter.toString()).containsExactly("900501", "900502");
       assertThat(repository.getResourceTableCounts(filtered).rowCount())
@@ -195,6 +202,26 @@ public class ClickhouseResourceDataPrivacyTest {
   }
 
   @Test
+  public void slideTablePartAndBlockAreNumbers() {
+    // Part "10" (900501) and "2" (900502): text order would put 10 first.
+    assertThat(ids(query(WSI, null, "metadata:part_number", "ASC", null)))
+        .containsExactly("900502", "900501");
+    assertThat(ids(query(WSI, null, "metadata:part_number", "DESC", null)))
+        .containsExactly("900501", "900502");
+    assertThat(
+            ids(
+                query(
+                    WSI,
+                    null,
+                    null,
+                    null,
+                    List.of(
+                        new ResourceColumnFilter(
+                            "metadata:block_number", "between", List.of("2", "5"))))))
+        .containsExactly("900502");
+  }
+
+  @Test
   public void slideTableColumnsAreTheContractAndHiddenKeysAreNeverFaceted() {
     ResourceTableQuery query = query(WSI, null, null, null, null);
 
@@ -217,7 +244,7 @@ public class ClickhouseResourceDataPrivacyTest {
     assertThat(
             mapper.getResourceTableMetadataKeyStats(query, KEY_SAMPLE_ROWS, KEY_MAX_MEMORY_BYTES))
         .extracting(ResourceMetadataKeyStats::key)
-        .containsExactlyInAnyOrder("magnification", "part_description", "stain_name");
+        .containsExactlyInAnyOrder("block_number", "magnification", "part_number", "stain_name");
     for (String key : List.of("block_key", "reference_sample_id", "slide_key", "wsi_serving")) {
       assertThat(mapper.getResourceTableMetadataFacets(query, new String[] {key}, FACET_LIMIT))
           .as(key)
