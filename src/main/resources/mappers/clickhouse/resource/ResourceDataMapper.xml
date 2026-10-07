@@ -99,6 +99,16 @@
     rdata.resource_id != 'WSI_PATIENT'
   </sql>
 
+  <!--
+    The study slide table lists only slides the viewer can open. wsi_slide_table_derived holds only
+    those, so every statement that reads it agrees; getResourceTableTabs reads resource_data and
+    applies this predicate to count the same rows.
+  -->
+  <sql id="StudySlideTableViewableRows">
+    (rdata.resource_id != 'WSI_SAMPLE'
+     OR JSONExtractBool(ifNull(rdata.metadata, '{}'), 'can_serve_tiles'))
+  </sql>
+
   <sql id="ResourceTableBaseFilters">
     <where>
       rdata.resource_id = #{query.resourceId}
@@ -375,6 +385,7 @@
     <where>
       cs.cancer_study_identifier IN (#{request.studyIdsArray, typeHandler=org.apache.ibatis.type.ArrayTypeHandler})
       AND <include refid="ExcludeWsiResourceRows"/>
+      AND <include refid="StudySlideTableViewableRows"/>
       <!-- See ResourceTableBaseFilters for why patientIds/sampleIds must be OR'd (by row level),
            not AND'd: resource_data rows are either patient-level (sample_id IS NULL) or
            sample-level, and ANDing both lists silently excludes all patient-level rows whenever
