@@ -32,9 +32,11 @@ public final class WsiDeidentification {
    * these metadata keys and no others to rows, search, filters, sorts, facets and ranges. Part and
    * block are bare numbers: the hierarchy's "Specimen N" / "Block N" labels would repeat the column
    * header in every cell. For the same reason the table leaves display_name empty (the slide's
-   * "stain · specimen / block" caption), which hides the Details column. The opaque slide,
-   * specimen, part and block keys, the reference sample id, file size and timing provenance stay
-   * with the WSI hierarchy and access endpoints, and wsi_serving stays private everywhere.
+   * "stain · specimen / block" caption), which hides the Details column. The table lists only
+   * slides the viewer can open (can_serve_tiles), in its rows and in every count and facet. The
+   * opaque slide, specimen, part and block keys, the reference sample id, file size and timing
+   * provenance stay with the WSI hierarchy and access endpoints, and wsi_serving stays private
+   * everywhere.
    */
   public static final ResourceMetadataSchema STUDY_TABLE_SCHEMA =
       new ResourceMetadataSchema(
@@ -74,14 +76,7 @@ public final class WsiDeidentification {
                   "Days From First Sequencing",
                   "Procedure date relative to the patient's first tumor sequencing",
                   true,
-                  false),
-              new ResourceMetadataField(
-                  "can_serve_tiles",
-                  "string",
-                  "Viewable",
-                  "Whether the slide viewer can open this slide",
-                  true,
-                  true)));
+                  false)));
 
   /** The study slide table's metadata keys, in column order. Read by ResourceDataMapper.xml. */
   public static final List<String> STUDY_TABLE_METADATA_KEYS =

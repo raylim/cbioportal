@@ -10,6 +10,7 @@ import org.cbioportal.domain.resource.ResourceColumnFilter;
 import org.cbioportal.domain.resource.ResourceColumnInfo;
 import org.cbioportal.domain.resource.ResourceFacetOption;
 import org.cbioportal.domain.resource.ResourceMetadataKeyStats;
+import org.cbioportal.domain.resource.ResourceTableCounts;
 import org.cbioportal.domain.resource.ResourceTableMetadataResult;
 import org.cbioportal.domain.resource.ResourceTableMetadataView;
 import org.cbioportal.domain.resource.ResourceTableQuery;
@@ -201,6 +202,28 @@ public class ClickhouseResourceDataPrivacyTest {
           .as(sortBy)
           .containsExactly("900502", "900501");
     }
+  }
+
+  @Test
+  public void slideTableListsOnlyViewableSlides() {
+    // 900508 is a WSI_SAMPLE slide the viewer cannot open (can_serve_tiles false).
+    ResourceTableQuery query = query(WSI, null, null, null, null);
+    assertThat(ids(query)).containsExactly("900501", "900502");
+    assertThat(ids(query(WSI, "Unviewable", null, null, null))).isEmpty();
+    ResourceTableCounts counts = repository.getResourceTableCounts(query);
+    assertThat(counts.rowCount()).isEqualTo(2);
+    assertThat(counts.sampleCount()).isEqualTo(2);
+    assertThat(repository.getResourceTableMetadata(query).facets().get("metadata:stain_name"))
+        .extracting(ResourceFacetOption::value)
+        .containsExactly("Masson trichrome");
+    assertThat(repository.getResourceTableTabs(new ResourceTabsRequest(List.of(STUDY), null, null)))
+        .filteredOn(tab -> tab.resourceId().equals(WSI))
+        .singleElement()
+        .satisfies(
+            tab -> {
+              assertThat(tab.totalCount()).isEqualTo(2);
+              assertThat(tab.sampleCount()).isEqualTo(2);
+            });
   }
 
   @Test
