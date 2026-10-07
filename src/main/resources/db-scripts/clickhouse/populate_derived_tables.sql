@@ -538,7 +538,7 @@ OPTIMIZE TABLE generic_assay_meta_derived;
 -- metadata and never sees wsi_serving or the slide's other identifiers.
 INSERT INTO wsi_slide_table_derived
 SELECT resource_data_id, resource_id, cancer_study_id, entity_type, patient_id, sample_id, url,
-       display_name, type,
+       CAST(NULL, 'Nullable(String)') AS display_name, type,
        concat('{', arrayStringConcat(
          arrayMap(kv -> concat(toJSONString(kv.1), ':', kv.2),
            arrayFilter(kv -> has(['stain_name', 'stain_group', 'magnification', 'part_number', 'block_number', 'match_level', 'timepoint_source', 'timeline_start_days', 'can_serve_tiles'], kv.1),
