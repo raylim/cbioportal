@@ -6,6 +6,7 @@
 TRUNCATE TABLE IF EXISTS sample_to_gene_panel_derived SETTINGS alter_sync = 2;
 TRUNCATE TABLE IF EXISTS gene_panel_to_gene_derived SETTINGS alter_sync = 2;
 TRUNCATE TABLE IF EXISTS sample_derived SETTINGS alter_sync = 2;
+TRUNCATE TABLE IF EXISTS wsi_slide_table_derived SETTINGS alter_sync = 2;
 TRUNCATE TABLE IF EXISTS genomic_event_derived SETTINGS alter_sync = 2;
 TRUNCATE TABLE IF EXISTS clinical_data_derived SETTINGS alter_sync = 2;
 TRUNCATE TABLE IF EXISTS clinical_event_derived SETTINGS alter_sync = 2;
@@ -507,3 +508,18 @@ OPTIMIZE TABLE genetic_alteration_derived;
 OPTIMIZE TABLE generic_assay_data_derived;
 OPTIMIZE TABLE generic_assay_profile_entity_derived;
 OPTIMIZE TABLE generic_assay_meta_derived;
+
+-- The study slide table: WSI_SAMPLE rows in resource_data's shape, with metadata reduced to the
+-- allowlisted public slide fields (WsiDeidentification.STUDY_TABLE_SCHEMA). The generic resource
+-- table reads WSI_SAMPLE from here, so it parses ~270-byte documents instead of the full slide
+-- metadata and never sees wsi_serving or the slide's other identifiers.
+INSERT INTO wsi_slide_table_derived
+SELECT resource_data_id, resource_id, cancer_study_id, entity_type, patient_id, sample_id, url,
+       display_name, type,
+       concat('{', arrayStringConcat(
+         arrayMap(kv -> concat(toJSONString(kv.1), ':', kv.2),
+           arrayFilter(kv -> has(['stain_name', 'stain_group', 'magnification', 'part_description', 'block_label', 'match_level', 'timepoint_source', 'timeline_start_days', 'can_serve_tiles'], kv.1),
+             JSONExtractKeysAndValuesRaw(ifNull(metadata, '{}')))), ','), '}') AS metadata
+FROM resource_data
+WHERE resource_id = 'WSI_SAMPLE';
+OPTIMIZE TABLE wsi_slide_table_derived;

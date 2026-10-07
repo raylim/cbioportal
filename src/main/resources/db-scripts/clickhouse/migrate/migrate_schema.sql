@@ -349,3 +349,33 @@ WHERE key = 'IMAGE_IDS'
 ALTER TABLE resource_data DELETE
 WHERE resource_id IN ('WSI_SAMPLE', 'WSI_PATIENT')
   AND JSONExtractString(ifNull(metadata, '{}'), 'slide_key') = '';
+
+## db_schema_version: 3.7.0
+## description: Add wsi_slide_table_derived, the study slide table's allowlisted WSI_SAMPLE rows
+-- The study slide table: WSI_SAMPLE rows in resource_data's shape, with metadata reduced to the
+-- allowlisted public slide fields (WsiDeidentification.STUDY_TABLE_SCHEMA). The generic resource
+-- table reads WSI_SAMPLE from here, so it parses ~270-byte documents instead of the full slide
+-- metadata and never sees wsi_serving or the slide's other identifiers.
+CREATE TABLE IF NOT EXISTS wsi_slide_table_derived (
+    `resource_data_id` Int64,
+    `resource_id` String,
+    `cancer_study_id` Int32,
+    `entity_type` String,
+    `patient_id` Nullable(String),
+    `sample_id` Nullable(String),
+    `url` String,
+    `display_name` Nullable(String),
+    `type` Nullable(String),
+    `metadata` Nullable(String)
+) ENGINE = MergeTree ORDER BY (cancer_study_id, resource_id, patient_id, sample_id, resource_data_id)
+  SETTINGS allow_nullable_key = 1;
+TRUNCATE TABLE wsi_slide_table_derived SETTINGS alter_sync = 2;
+INSERT INTO wsi_slide_table_derived
+SELECT resource_data_id, resource_id, cancer_study_id, entity_type, patient_id, sample_id, url,
+       display_name, type,
+       concat('{', arrayStringConcat(
+         arrayMap(kv -> concat(toJSONString(kv.1), ':', kv.2),
+           arrayFilter(kv -> has(['stain_name', 'stain_group', 'magnification', 'part_description', 'block_label', 'match_level', 'timepoint_source', 'timeline_start_days', 'can_serve_tiles'], kv.1),
+             JSONExtractKeysAndValuesRaw(ifNull(metadata, '{}')))), ','), '}') AS metadata
+FROM resource_data
+WHERE resource_id = 'WSI_SAMPLE';

@@ -9,6 +9,7 @@ import org.cbioportal.domain.resource.ResourceFacetOption;
 import org.cbioportal.domain.resource.ResourceMetadataFacetValue;
 import org.cbioportal.domain.resource.ResourceMetadataField;
 import org.cbioportal.domain.resource.ResourceMetadataKeyStats;
+import org.cbioportal.domain.resource.ResourceMetadataRange;
 import org.cbioportal.domain.resource.ResourceMetadataSchema;
 import org.cbioportal.domain.resource.ResourceNumericRange;
 import org.cbioportal.domain.resource.ResourceTableCounts;
@@ -83,7 +84,8 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
         return false;
       }
       if ("number".equals(declaredType)) {
-        return stats.hasUsableNumericRange();
+        // Sampled counts are fine for classification; only the slider's bounds have to be exact.
+        return stats.numericCount() > 0;
       }
       return stats.isAutoDetectedNumeric();
     }
@@ -99,15 +101,33 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
   }
 
   private MetadataContext resolveMetadataContext(ResourceTableQuery scoped) {
+    if (WsiDeidentification.isStudyTableResource(scoped.resourceId())) {
+      return studySlideTableContext();
+    }
     return new MetadataContext(getSchema(scoped), classifyMetadataKeys(scoped));
   }
 
+  /**
+   * The study slide table's columns are its fixed allowlist rather than whatever the rows carry: no
+   * key discovery runs over the (large) slide resource, and no key outside the contract can become
+   * a column, facet or range.
+   */
+  private static MetadataContext studySlideTableContext() {
+    Map<String, ResourceMetadataKeyStats> statsByKey = new LinkedHashMap<>();
+    for (String key : WsiDeidentification.STUDY_TABLE_METADATA_KEYS) {
+      long numeric = WsiDeidentification.isNumericStudyTableMetadataKey(key) ? 1 : 0;
+      statsByKey.put(key, new ResourceMetadataKeyStats(key, 1, numeric));
+    }
+    return new MetadataContext(WsiDeidentification.STUDY_TABLE_SCHEMA, statsByKey);
+  }
+
   /*
-   * WSI_SAMPLE / WSI_PATIENT rows are excluded in SQL by every statement (ExcludeWsiResourceRows in
-   * ResourceDataMapper.xml). Each entry point below checks again here so a future statement that
-   * forgets the predicate still cannot hand a slide row, or anything derived from one, to the
-   * generic resource table: tabs, rows (query/fetch), and columns, facets, ranges and counts
-   * (metadata/fetch).
+   * WSI_PATIENT rows are excluded in SQL by every statement (ExcludeWsiResourceRows in
+   * ResourceDataMapper.xml), and WSI_SAMPLE rows are served only as the study slide table, through
+   * its metadata allowlist. Each entry point below checks again here so a future statement that
+   * forgets the predicate still cannot hand a hidden slide row, or a non-allowlisted slide field,
+   * to the generic resource table: tabs, rows (query/fetch), and columns, facets, ranges and
+   * counts (metadata/fetch).
    */
 
   @Override
@@ -117,13 +137,13 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
       return tabs;
     }
     return tabs.stream()
-        .filter(tab -> !WsiDeidentification.isWsiResourceId(tab.resourceId()))
+        .filter(tab -> !WsiDeidentification.isHiddenFromResourceTable(tab.resourceId()))
         .toList();
   }
 
   @Override
   public List<ResourceTableRow> getResourceTableRows(ResourceTableQuery query) {
-    if (WsiDeidentification.isWsiResourceId(query.resourceId())) {
+    if (WsiDeidentification.isHiddenFromResourceTable(query.resourceId())) {
       return List.of();
     }
     List<ResourceTableRow> rows = mapper.getResourceTableRows(query);
@@ -131,17 +151,32 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
       return rows;
     }
     return rows.stream()
-        .filter(row -> !WsiDeidentification.isWsiResourceId(row.resourceId()))
-        .map(ClickhouseResourceDataRepository::withoutServingMetadata)
+        .filter(row -> !WsiDeidentification.isHiddenFromResourceTable(row.resourceId()))
+        .map(ClickhouseResourceDataRepository::withPublicMetadataOnly)
         .toList();
   }
 
-  private static ResourceTableRow withoutServingMetadata(ResourceTableRow row) {
-    if (row.metadata() == null || !row.metadata().containsKey(WSI_SERVING_KEY)) {
+  /**
+   * Drops wsi_serving from every row, and reduces a study slide table row to its allowlisted
+   * metadata, matching PublicMetadataPairs in ResourceDataMapper.xml.
+   */
+  private static ResourceTableRow withPublicMetadataOnly(ResourceTableRow row) {
+    if (row.metadata() == null) {
       return row;
     }
-    Map<String, Object> metadata = new LinkedHashMap<>(row.metadata());
-    metadata.remove(WSI_SERVING_KEY);
+    boolean slideRow = WsiDeidentification.isStudyTableResource(row.resourceId());
+    if (!slideRow && !row.metadata().containsKey(WSI_SERVING_KEY)) {
+      return row;
+    }
+    Map<String, Object> metadata = new LinkedHashMap<>();
+    row.metadata()
+        .forEach(
+            (key, value) -> {
+              if (!WSI_SERVING_KEY.equals(key)
+                  && (!slideRow || WsiDeidentification.isStudyTableMetadataKey(key))) {
+                metadata.put(key, value);
+              }
+            });
     return new ResourceTableRow(
         row.studyId(),
         row.resourceId(),
@@ -157,7 +192,7 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
 
   @Override
   public ResourceTableMetadataView getResourceTableMetadata(ResourceTableQuery query) {
-    if (WsiDeidentification.isWsiResourceId(query.resourceId())) {
+    if (WsiDeidentification.isHiddenFromResourceTable(query.resourceId())) {
       return ResourceTableMetadataView.empty();
     }
     // Facets and key discovery are always computed against the query with ALL column-level filters
@@ -180,25 +215,42 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
 
     Map<String, ResourceNumericRange> facetRanges = new LinkedHashMap<>();
     List<String> categoricalKeys = new ArrayList<>();
+    List<String> numericKeys = new ArrayList<>();
     for (Map.Entry<String, ResourceMetadataKeyStats> entry : context.statsByKey().entrySet()) {
       String key = entry.getKey();
       if (!context.isFilterable(key)) {
         continue;
       }
-      if (context.isNumeric(key)) {
-        // Numeric columns get a min/max range instead of an enumerated value list, which would be
-        // huge and unhelpful for a continuous measurement.
-        ResourceMetadataKeyStats stats = entry.getValue();
-        facetRanges.put(
-            ResourceColumnInfo.METADATA_COLUMN_PREFIX + key,
-            new ResourceNumericRange(stats.minValue(), stats.maxValue()));
-      } else {
-        categoricalKeys.add(key);
-      }
+      // Numeric columns get a min/max range instead of an enumerated value list, which would be
+      // huge and unhelpful for a continuous measurement.
+      (context.isNumeric(key) ? numericKeys : categoricalKeys).add(key);
     }
+    facetRanges.putAll(metadataRanges(scoped, numericKeys));
     facets.putAll(metadataFacets(scoped, categoricalKeys));
 
     return new ResourceTableMetadataView(metadataColumns(context), facets, facetRanges);
+  }
+
+  /**
+   * Exact ranges for the numeric keys, read over the whole filtered set rather than the discovery
+   * sample: these bounds are what the slider offers, and a narrowed range would put rows beyond it
+   * out of reach.
+   */
+  private Map<String, ResourceNumericRange> metadataRanges(
+      ResourceTableQuery scoped, List<String> keys) {
+    if (keys.isEmpty()) {
+      return Map.of();
+    }
+    Map<String, ResourceNumericRange> ranges = new LinkedHashMap<>();
+    for (ResourceMetadataRange range :
+        mapper.getResourceTableMetadataRanges(scoped, keys.toArray(new String[0]))) {
+      if (range.isUsable()) {
+        ranges.put(
+            ResourceColumnInfo.METADATA_COLUMN_PREFIX + range.metaKey(),
+            new ResourceNumericRange(range.minValue(), range.maxValue()));
+      }
+    }
+    return ranges;
   }
 
   /** All categorical metadata facets in one query, grouped by key, with over-cap keys dropped. */
@@ -351,7 +403,7 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
 
   @Override
   public ResourceTableCounts getResourceTableCounts(ResourceTableQuery query) {
-    if (WsiDeidentification.isWsiResourceId(query.resourceId())) {
+    if (WsiDeidentification.isHiddenFromResourceTable(query.resourceId())) {
       return ResourceTableCounts.empty();
     }
     ResourceTableCounts counts = mapper.getResourceTableCounts(query);
