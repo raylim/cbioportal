@@ -31,9 +31,10 @@ public final class WsiDeidentification {
    * The study slide table's columns. This is an allowlist, not decoration: a WSI_SAMPLE row exposes
    * these metadata keys and no others to rows, search, filters, sorts, facets and ranges. Part and
    * block are bare numbers: the hierarchy's "Specimen N" / "Block N" labels would repeat the column
-   * header in every cell. The opaque slide, specimen, part and block keys, the reference sample id,
-   * file size and timing provenance stay with the WSI hierarchy and access endpoints, and
-   * wsi_serving stays private everywhere.
+   * header in every cell. For the same reason the table leaves display_name empty (the slide's
+   * "stain · specimen / block" caption), which hides the Details column. The opaque slide,
+   * specimen, part and block keys, the reference sample id, file size and timing provenance stay
+   * with the WSI hierarchy and access endpoints, and wsi_serving stays private everywhere.
    */
   public static final ResourceMetadataSchema STUDY_TABLE_SCHEMA =
       new ResourceMetadataSchema(
@@ -52,7 +53,7 @@ public final class WsiDeidentification {
                   true,
                   true),
               new ResourceMetadataField(
-                  "block_number", "number", "Block", "Block number within the part", true, false),
+                  "block_number", "number", "Block", "Block number within the part", true, true),
               new ResourceMetadataField(
                   "match_level",
                   "string",

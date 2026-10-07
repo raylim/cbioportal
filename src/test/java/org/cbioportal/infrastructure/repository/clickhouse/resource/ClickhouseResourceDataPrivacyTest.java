@@ -131,6 +131,8 @@ public class ClickhouseResourceDataPrivacyTest {
     assertThat(rows)
         .extracting(ClickhouseResourceDataPrivacyTest::rowId)
         .containsExactly("900501", "900502");
+    // The caption repeats the stain, part and block columns, so the table leaves it empty.
+    assertThat(rows).extracting(ResourceTableRow::displayName).containsOnlyNulls();
     assertThat(rows)
         .allSatisfy(
             row ->
