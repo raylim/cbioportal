@@ -71,7 +71,8 @@
     A row's public metadata as (key, raw JSON value) pairs: every top-level key except wsi_serving,
     and for the study slide table (WSI_SAMPLE) only the keys of its allowlisted contract
     (WsiDeidentification.STUDY_TABLE_SCHEMA). wsi_serving (and everything nested under it) holds
-    artifact locations that are private to the WSI access API for every row regardless of type,
+    serving data, such as the sealed slide source, that is private to the WSI access API for every
+    row regardless of type,
     and a slide row's other identifiers stay with the WSI endpoints, so neither may influence
     search results, facets, ranges or key discovery. Every statement that reads metadata keys or
     values goes through this.
@@ -240,7 +241,7 @@
   -->
   <sql id="ApplyStringFilterOnMetadata">
     <choose>
-      <!-- wsi_serving contains artifact paths and is private to the WSI access API for every row
+      <!-- wsi_serving contains serving data and is private to the WSI access API for every row
            (see PublicMetadataText). A filter on it is ignored, like a filter on an unsupported
            builtin column, so neither its values nor the request itself change rows or counts. -->
       <when test="filter.metadataKey == 'wsi_serving'">
