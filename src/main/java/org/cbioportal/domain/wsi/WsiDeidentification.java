@@ -31,13 +31,14 @@ public final class WsiDeidentification {
 
   /**
    * The study slide table's columns. This is an allowlist, not decoration: a WSI_SAMPLE row exposes
-   * these metadata keys and no others to rows, search, filters, sorts, facets and ranges. Part and
-   * block are bare numbers: the hierarchy's "Specimen N" / "Block N" labels would repeat the column
-   * header in every cell. For the same reason the table leaves display_name empty (the slide's
-   * "stain · specimen / block" caption), which hides the Details column. The table lists only
-   * slides the viewer can open (can_serve_tiles), in its rows and in every count and facet. The
-   * opaque slide, specimen, part and block keys, the reference sample id, file size and timing
-   * provenance stay with the WSI hierarchy and access endpoints, and wsi_serving stays private
+   * these metadata keys and no others to rows, search, filters, sorts, facets and ranges. Slide
+   * timing (procedure dates) is not served yet; it arrives with slides on the patient Summary
+   * timeline. Part and block are bare numbers: the hierarchy's "Specimen N" / "Block N" labels
+   * would repeat the column header in every cell. For the same reason the table leaves display_name
+   * empty (the slide's "stain · specimen / block" caption), which hides the Details column. The
+   * table lists only slides the viewer can open (can_serve_tiles), in its rows and in every count
+   * and facet. The opaque slide, specimen, part and block keys, the reference sample id and file
+   * size stay with the WSI hierarchy and access endpoints, and wsi_serving stays private
    * everywhere.
    */
   public static final ResourceMetadataSchema STUDY_TABLE_SCHEMA =
@@ -63,20 +64,6 @@ public final class WsiDeidentification {
                   "string",
                   "Matched At",
                   "Whether the slide was matched to the sample by specimen part or by block",
-                  true,
-                  false),
-              new ResourceMetadataField(
-                  "timepoint_source",
-                  "string",
-                  "Timepoint Source",
-                  "How the slide's procedure date was established",
-                  true,
-                  false),
-              new ResourceMetadataField(
-                  "timeline_start_days",
-                  "number",
-                  "Days From First Sequencing",
-                  "Procedure date relative to the patient's first tumor sequencing",
                   true,
                   false)));
 
