@@ -109,6 +109,141 @@ public class ClickhouseWsiHierarchyRepositoryTest {
     assertNull(hierarchy.sampleGroups().get(0).parts().get(0).pathDxTitle());
   }
 
+  // ---- optional slide timing ----
+
+  @Test
+  public void returnsTimingWhenTheSlideHasIt() {
+    rows(timed(row(KEY_1)));
+
+    WsiSlide slide = onlySlide(repository.getPatientHierarchy("study", "patient"));
+
+    assertEquals(Integer.valueOf(-17), slide.procedureDateDays());
+    assertEquals(
+        "Recorded procedure date relative to first tumor sequencing", slide.timepointSource());
+    assertEquals("RECORDED", slide.procedureDateKind());
+    assertEquals("recorded_procedure_date", slide.procedureDateSource());
+    assertNull(slide.procedureDateReason());
+    assertEquals("AVAILABLE", slide.procedureDateStatus());
+    assertEquals("patient_first_tumor_sequencing_day_zero", slide.procedureCoordinateSystem());
+  }
+
+  @Test
+  public void returnsNullTimingWhenTheSlideHasNoTimingKeys() {
+    rows(row(KEY_1));
+
+    WsiSlide slide = onlySlide(repository.getPatientHierarchy("study", "patient"));
+
+    assertNull(slide.procedureDateDays());
+    assertNull(slide.timepointSource());
+    assertNull(slide.procedureDateKind());
+    assertNull(slide.procedureDateSource());
+    assertNull(slide.procedureDateReason());
+    assertNull(slide.procedureDateStatus());
+    assertNull(slide.procedureCoordinateSystem());
+  }
+
+  @Test
+  public void treatsEmptyTimingStringsAsNoTiming() {
+    // JSONExtractString yields '' for a key the metadata does not carry.
+    Map<String, Object> row = row(KEY_1);
+    for (String key :
+        List.of(
+            "timepoint_source",
+            "date_kind",
+            "date_source",
+            "date_reason",
+            "date_status",
+            "coordinate_system")) {
+      row.put(key, "");
+    }
+    row.put("procedure_date_days", null);
+    rows(row);
+
+    assertNull(onlySlide(repository.getPatientHierarchy("study", "patient")).procedureDateStatus());
+  }
+
+  @Test
+  public void mixesTimedAndUntimedSlides() {
+    rows(timed(row(KEY_1)), row(KEY_2));
+
+    List<WsiSlide> slides = slides(repository.getPatientHierarchy("study", "patient"));
+
+    assertEquals(Integer.valueOf(-17), slides.get(0).procedureDateDays());
+    assertNull(slides.get(1).procedureDateStatus());
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void rejectsAPartialTimingSet() {
+    // Only the day offset: any timing key means the slide claims timing, so the set must be whole.
+    Map<String, Object> row = row(KEY_1);
+    row.put("procedure_date_days", -17);
+    rows(row);
+
+    repository.getPatientHierarchy("study", "patient");
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void rejectsTimingWithoutTheCoordinateSystem() {
+    Map<String, Object> row = timed(row(KEY_1));
+    row.remove("coordinate_system");
+    rows(row);
+
+    repository.getPatientHierarchy("study", "patient");
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void rejectsAvailableTimingWithoutADay() {
+    Map<String, Object> row = timed(row(KEY_1));
+    row.put("procedure_date_days", null);
+    rows(row);
+
+    repository.getPatientHierarchy("study", "patient");
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void rejectsADatedMissingTimingRow() {
+    Map<String, Object> row = timed(row(KEY_1));
+    row.put("date_status", "MISSING_PROCEDURE_DATE");
+    row.put("date_kind", "UNDATED");
+    row.put("date_reason", "procedure date unavailable");
+    rows(row);
+
+    repository.getPatientHierarchy("study", "patient");
+  }
+
+  @Test
+  public void acceptsAnUndatedMissingProcedureRow() {
+    Map<String, Object> row = timed(row(KEY_1));
+    row.put("procedure_date_days", null);
+    row.put("date_status", "MISSING_PROCEDURE_DATE");
+    row.put("date_kind", "UNDATED");
+    row.put("date_source", "missing_procedure_date");
+    row.put("date_reason", "procedure date unavailable");
+    row.put("timepoint_source", "Procedure date unavailable");
+    rows(row);
+
+    WsiSlide slide = onlySlide(repository.getPatientHierarchy("study", "patient"));
+
+    assertNull(slide.procedureDateDays());
+    assertEquals("MISSING_PROCEDURE_DATE", slide.procedureDateStatus());
+  }
+
+  private static Map<String, Object> timed(Map<String, Object> row) {
+    row.put("procedure_date_days", -17);
+    row.put("timepoint_source", "Recorded procedure date relative to first tumor sequencing");
+    row.put("date_kind", "RECORDED");
+    row.put("date_source", "recorded_procedure_date");
+    row.put("date_status", "AVAILABLE");
+    row.put("coordinate_system", "patient_first_tumor_sequencing_day_zero");
+    return row;
+  }
+
+  private static WsiSlide onlySlide(WsiHierarchy hierarchy) {
+    List<WsiSlide> slides = slides(hierarchy);
+    assertEquals(1, slides.size());
+    return slides.get(0);
+  }
+
   // ---- reference sample selection ----
 
   private static Map<String, Object> ref(String referenceSampleId) {
@@ -170,13 +305,16 @@ public class ClickhouseWsiHierarchyRepositoryTest {
     return row;
   }
 
-  private static List<String> slideKeys(WsiHierarchy hierarchy) {
+  private static List<WsiSlide> slides(WsiHierarchy hierarchy) {
     return hierarchy.sampleGroups().stream()
         .flatMap(group -> group.parts().stream())
         .flatMap(part -> part.blocks().stream())
         .flatMap(block -> block.slides().stream())
-        .map(WsiSlide::slideKey)
         .toList();
+  }
+
+  private static List<String> slideKeys(WsiHierarchy hierarchy) {
+    return slides(hierarchy).stream().map(WsiSlide::slideKey).toList();
   }
 
   private static void collectKeys(JsonNode node, List<String> keys) {

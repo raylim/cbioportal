@@ -343,6 +343,24 @@ In `data_resource_sample.txt` and `data_resource_patient.txt`:
     `is_hne`, `is_ihc` and `can_serve_tiles` (booleans); and
     `file_size_bytes` (integer). `barcode`, `part_designator` and
     `path_dx_title` are not public metadata;
+  - optional slide timing, public because it is relative, never an absolute
+    date: `timeline_start_days` (integer days relative to the patient's first
+    tumor-sequencing day zero; `0` is valid; omitted when undated),
+    `timeline_date_status` (`AVAILABLE`, `MISSING_PROCEDURE_DATE` or
+    `MISSING_REFERENCE_SEQUENCING_DATE`), `timeline_date_kind` (`RECORDED`,
+    `ESTIMATED` or `UNDATED`), `timeline_date_source`, `timeline_date_reason`
+    (only when the date is missing), `timeline_coordinate_system`
+    (`patient_first_tumor_sequencing_day_zero`) and `timepoint_source` (a
+    display label). A slide without any of these keys has no timing and the
+    hierarchy API returns null `procedureDate*`/`timepointSource` fields for
+    it. A slide with any of them must carry a complete, consistent set:
+    `timeline_date_status`, `timeline_date_kind`, `timeline_date_source`,
+    `timeline_coordinate_system` and `timepoint_source` are required;
+    `AVAILABLE` requires `timeline_start_days`, a non-`UNDATED` kind and no
+    reason; a missing status forbids `timeline_start_days`;
+    `MISSING_PROCEDURE_DATE` requires `UNDATED`; and
+    `MISSING_REFERENCE_SEQUENCING_DATE` forbids `UNDATED`. A partial or
+    inconsistent set makes the patient's hierarchy request fail;
   - `wsi_serving`: present only for a servable slide, a private object holding
     `sealed_source`, `tile_metadata_json` (a JSON object), `thumbnail_width`,
     `thumbnail_height` and `thumbnail_content_type` (`image/jpeg` or
@@ -459,11 +477,14 @@ format_version: 4
 
 `format_version` fixes the column names, order, and validation rules. The
 converter rejects unsupported versions rather than guessing how to interpret
-them. Slide timing is not part of the format yet; it arrives with slides on the
-patient Summary timeline. Files that still carry the seven timing columns
+them. Slide timing is optional: a file may carry the seven timing columns
 (`TIMELINE_START_DAYS` through `TIMEPOINT_SOURCE`, between
-`THUMBNAIL_CONTENT_TYPE` and `SLIDE_KEY`) are accepted, but those columns are
-ignored. MRNs and absolute dates are never emitted.
+`THUMBNAIL_CONTENT_TYPE` and `SLIDE_KEY`). When it does, the converter
+validates them and writes the `METADATA` timing keys above, and counts each
+patient's viewable slides without a procedure date
+(`WSI_PATIENT_UNDATED_SLIDE_COUNT`); without them, slides have no timing.
+`TIMELINE_START_DAYS` is relative to the patient's first tumor-sequencing day
+zero. MRNs and absolute dates are never emitted.
 
 #### Data file
 

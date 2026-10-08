@@ -47,13 +47,22 @@ public class ClickhouseWsiHierarchyMapperTest {
     // The legacy row without a slide_key (900104) is omitted.
     assertEquals(List.of(PATIENT_SLIDE_KEY, SAMPLE_SLIDE_KEY), slideKeys(hierarchy));
 
-    // The fixture row carries slide timing keys; the hierarchy reads none of them.
-    WsiSlide sampleSlide =
-        slides(hierarchy).stream()
-            .filter(slide -> slide.slideKey().equals(SAMPLE_SLIDE_KEY))
-            .findFirst()
-            .orElseThrow();
-    assertEquals("WSI-SAMPLE", sampleSlide.sampleId());
+    WsiSlide timedSlide = slide(hierarchy, SAMPLE_SLIDE_KEY);
+    assertEquals("WSI-SAMPLE", timedSlide.sampleId());
+    assertEquals(Integer.valueOf(-17), timedSlide.procedureDateDays());
+    assertEquals(
+        "Recorded procedure date relative to first tumor sequencing", timedSlide.timepointSource());
+    assertEquals("RECORDED", timedSlide.procedureDateKind());
+    assertEquals("recorded_procedure_date", timedSlide.procedureDateSource());
+    assertNull(timedSlide.procedureDateReason());
+    assertEquals("AVAILABLE", timedSlide.procedureDateStatus());
+    assertEquals("patient_first_tumor_sequencing_day_zero", timedSlide.procedureCoordinateSystem());
+
+    WsiSlide undatedSlide = slide(hierarchy, PATIENT_SLIDE_KEY);
+    assertNull(undatedSlide.procedureDateDays());
+    assertEquals("MISSING_PROCEDURE_DATE", undatedSlide.procedureDateStatus());
+    assertEquals("UNDATED", undatedSlide.procedureDateKind());
+    assertEquals("procedure date unavailable", undatedSlide.procedureDateReason());
     assertEquals("Specimen 2", hierarchy.sampleGroups().get(1).parts().get(0).partDescription());
     assertEquals(
         "Block 1", hierarchy.sampleGroups().get(1).parts().get(0).blocks().get(0).blockLabel());
@@ -83,12 +92,13 @@ public class ClickhouseWsiHierarchyMapperTest {
             "900104",
             "partDesignator\":\"",
             "pathDxTitle\":\"",
-            // Slide timing arrives later, with slides on the patient Summary timeline.
-            "procedureDate",
-            "timepoint",
+            // Timing is served under the API names, never the raw metadata keys.
             "timeline")) {
       assertFalse("hierarchy exposes " + forbidden, json.contains(forbidden));
     }
+    // Slide timing is public slide metadata (relative days), served for the timed fixture slide.
+    assertTrue(json.contains("\"procedureDateDays\":-17"));
+    assertTrue(json.contains("\"timepointSource\":\"Recorded procedure date"));
   }
 
   @Test
@@ -105,6 +115,23 @@ public class ClickhouseWsiHierarchyMapperTest {
     assertEquals(
         "e8ac3c1341f0fb1fa1a7c8e69ba27a51",
         hierarchy.sampleGroups().get(0).parts().get(0).blocks().get(0).slides().get(0).slideKey());
+  }
+
+  @Test
+  public void returnsNullTimingForASlideWithoutTimingKeys() {
+    // The 900201 fixture's metadata carries no timing keys.
+    WsiSlide slide =
+        slide(
+            repository.getPatientHierarchy("wsi_snapshot_study", "SNAPSHOT-PATIENT"),
+            "e8ac3c1341f0fb1fa1a7c8e69ba27a51");
+
+    assertNull(slide.procedureDateDays());
+    assertNull(slide.timepointSource());
+    assertNull(slide.procedureDateKind());
+    assertNull(slide.procedureDateSource());
+    assertNull(slide.procedureDateReason());
+    assertNull(slide.procedureDateStatus());
+    assertNull(slide.procedureCoordinateSystem());
   }
 
   @Test
@@ -158,6 +185,13 @@ public class ClickhouseWsiHierarchyMapperTest {
         .flatMap(part -> part.blocks().stream())
         .flatMap(block -> block.slides().stream())
         .toList();
+  }
+
+  private static WsiSlide slide(WsiHierarchy hierarchy, String slideKey) {
+    return slides(hierarchy).stream()
+        .filter(slide -> slide.slideKey().equals(slideKey))
+        .findFirst()
+        .orElseThrow();
   }
 
   private static List<String> slideKeys(WsiHierarchy hierarchy) {
