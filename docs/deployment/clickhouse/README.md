@@ -281,7 +281,8 @@ After importing studies and rebuilding derived tables, you can verify that your 
 WSI is served from the generic `resource_data` table. Each slide is one row
 with `type = 'WHOLE_SLIDE_IMAGE'` in the `WSI_SAMPLE` (sample-matched) or
 `WSI_PATIENT` (unmatched) resource. Its `metadata` JSON carries the public
-hierarchy and stain fields, including the opaque `slide_key`, and, for a
+hierarchy and stain fields, including the opaque `slide_key`, optional slide
+timing keys (relative days, never absolute dates), and, for a
 servable slide, a private `wsi_serving` object with the opaque `sealed_source`,
 intrinsic tile metadata and the thumbnail width, height and content type. The
 pathology image ID and the slide and thumbnail object URIs are not stored in
@@ -506,8 +507,18 @@ The delete is a mutation; `migrate_db.py` waits for it to finish before
 recording the version.
 
 Versions `3.1.0` to `3.4.0` are reserved and change nothing; earlier builds of
-them created the native WSI tables that `3.7.0` drops. Slide procedure dates
-are not served yet; they arrive with slides on the patient Summary timeline.
+them created the native WSI tables that `3.7.0` drops.
+
+**Slide timing.** The WSI hierarchy returns a slide's procedure timing
+(`procedureDateDays`, `procedureDateStatus`, `procedureDateKind`,
+`procedureDateSource`, `procedureDateReason`, `procedureCoordinateSystem` and
+`timepointSource`) when its `resource_data` metadata carries the optional
+`timeline_*`/`timepoint_source` keys, and nulls when it carries none. Timing
+lives only in that metadata, so no migration is needed: there is no timing
+table (`3.7.0` drops `wsi_slide_timing`), and existing rows without timing keys
+keep working. A slide with a partial or inconsistent timing set fails the
+patient's hierarchy request; see
+[Pathology Slide Data](../../File-Formats.md#pathology-slide-data).
 
 Import WSI resources into the inactive blue/green database and promote it only
 after validation.

@@ -46,6 +46,18 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
       Set.of("patient_id", "reference_sample_id", "sample_id");
   private static final Set<String> NON_TEXT_FIELDS =
       Set.of("is_hne", "is_ihc", "file_size_bytes", "can_serve_tiles");
+
+  /** Hierarchy columns read from the optional slide timing keys in resource metadata. */
+  private static final List<String> TIMING_FIELDS =
+      List.of(
+          "procedure_date_days",
+          "timepoint_source",
+          "date_kind",
+          "date_source",
+          "date_reason",
+          "date_status",
+          "coordinate_system");
+
   private static final String HEX_KEY = "[0-9a-f]{32}";
 
   /**
@@ -97,6 +109,7 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
         unkeyedSlides++;
         continue;
       }
+      validateTiming(row);
       String sampleKey = value(row, "sample_id", String.class);
       String sampleMapKey = sampleKey == null ? "" : sampleKey;
       WsiSampleGroupBuilder sample =
@@ -132,7 +145,14 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
               resolveSlideType(row),
               sampleKey,
               value(row, "match_level", String.class),
-              value(row, "specimen_key", String.class)));
+              value(row, "specimen_key", String.class),
+              intValue(row, "procedure_date_days"),
+              value(row, "timepoint_source", String.class),
+              value(row, "date_kind", String.class),
+              value(row, "date_source", String.class),
+              value(row, "date_reason", String.class),
+              value(row, "date_status", String.class),
+              value(row, "coordinate_system", String.class)));
     }
 
     if (unkeyedSlides > 0) {
@@ -184,6 +204,64 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
       return type.cast(stringValue.isEmpty() ? null : stringValue);
     }
     return type.cast(value);
+  }
+
+  /**
+   * Slide timing is optional. A slide whose metadata carries none of the timing keys has no timing
+   * and passes. Any timing key that is present means the slide claims timing, so the whole set is
+   * validated: a partial or inconsistent set fails the request rather than serving a misleading
+   * date.
+   */
+  static void validateTiming(Map<String, Object> row) {
+    if (!hasTiming(row)) {
+      return;
+    }
+    String status = value(row, "date_status", String.class);
+    String kind = value(row, "date_kind", String.class);
+    String source = value(row, "date_source", String.class);
+    String timepointSource = value(row, "timepoint_source", String.class);
+    String coordinate = value(row, "coordinate_system", String.class);
+    Integer days = intValue(row, "procedure_date_days");
+    String reason = value(row, "date_reason", String.class);
+    if (status == null
+        || kind == null
+        || source == null
+        || timepointSource == null
+        || coordinate == null
+        || !Set.of("AVAILABLE", "MISSING_PROCEDURE_DATE", "MISSING_REFERENCE_SEQUENCING_DATE")
+            .contains(status)
+        || !Set.of("RECORDED", "ESTIMATED", "UNDATED").contains(kind)
+        || !"patient_first_tumor_sequencing_day_zero".equals(coordinate)) {
+      throw new IllegalStateException("WSI hierarchy contains an invalid v3 timing row");
+    }
+    if ("AVAILABLE".equals(status)) {
+      if (days == null || "UNDATED".equals(kind) || reason != null) {
+        throw new IllegalStateException("WSI hierarchy contains inconsistent available timing");
+      }
+    } else if (days != null) {
+      throw new IllegalStateException("WSI hierarchy contains a dated missing-timing row");
+    }
+    if ("MISSING_PROCEDURE_DATE".equals(status) && !"UNDATED".equals(kind)) {
+      throw new IllegalStateException("WSI hierarchy contains an invalid missing procedure row");
+    }
+    if ("MISSING_REFERENCE_SEQUENCING_DATE".equals(status) && "UNDATED".equals(kind)) {
+      throw new IllegalStateException("WSI hierarchy contains an invalid missing reference row");
+    }
+  }
+
+  private static boolean hasTiming(Map<String, Object> row) {
+    for (String field : TIMING_FIELDS) {
+      // As a String so the '' that JSONExtractString yields for a missing key reads as absent.
+      if (value(row, field, String.class) != null) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static Integer intValue(Map<String, Object> row, String key) {
+    Object value = row.get(key);
+    return value == null ? null : ((Number) value).intValue();
   }
 
   private static Long longValue(Map<String, Object> row, String key) {
