@@ -37,9 +37,9 @@ import org.springframework.test.context.junit4.SpringRunner;
  * slide table with only their allowlisted metadata; and for every other row public metadata stays
  * searchable while wsi_serving stays private, whatever its TYPE. Uses the wsi_resource_table_study
  * fixture: WSI_SAMPLE rows 900501/900502 (with hidden block_key and reference_sample_id values),
- * WSI_PATIENT row 900507, and EXTERNAL_SLIDES rows 900505/900506 whose serving paths contain
- * "secretpath" and sort in the opposite order ("zzz" for 900505, "aaa" for 900506) to the rows'
- * ids.
+ * WSI_PATIENT row 900507, and EXTERNAL_SLIDES rows 900505/900506 whose sealed serving values
+ * contain "secretpath" and sort in the opposite order ("zzz" for 900505, "aaa" for 900506) to the
+ * rows' ids.
  */
 @RunWith(SpringRunner.class)
 @Import({MyBatisConfig.class, ClickhouseResourceDataRepository.class})
@@ -145,7 +145,8 @@ public class ClickhouseResourceDataPrivacyTest {
         .doesNotContain("hiddenblock")
         .doesNotContain("WSI-HIDDEN-REF")
         .doesNotContain("wsipath")
-        .doesNotContain("syn-img");
+        .doesNotContain("syn-img")
+        .doesNotContain("sealed_source");
   }
 
   @Test
@@ -159,6 +160,7 @@ public class ClickhouseResourceDataPrivacyTest {
             "WSI-HIDDEN-REF",
             "wsipath",
             "syn-img-t001",
+            "sealed_source",
             "block_key")) {
       ResourceTableQuery query = query(WSI, term, null, null, null);
       assertThat(repository.getResourceTableRows(query)).as(term).isEmpty();
@@ -454,8 +456,9 @@ public class ClickhouseResourceDataPrivacyTest {
   }
 
   @Test
-  public void searchDoesNotMatchServingPaths() {
-    for (String term : List.of("secretpath", "private-bucket", "zzz-secretpath-1.svs", "s3://")) {
+  public void searchDoesNotMatchServingValues() {
+    for (String term :
+        List.of("secretpath", "sealed_source", "zzz-secretpath-1-", "AAAAAAAAAAAA")) {
       ResourceTableQuery query = query(EXTERNAL, term, null, null, null);
       assertThat(repository.getResourceTableRows(query)).as(term).isEmpty();
       assertThat(repository.getResourceTableCounts(query).rowCount()).as(term).isZero();
