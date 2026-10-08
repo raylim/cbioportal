@@ -366,7 +366,7 @@ SELECT resource_data_id, 'WSI_SAMPLE' AS slide_table_resource_id, cancer_study_i
        CAST(NULL, 'Nullable(String)') AS display_name, type,
        concat('{', arrayStringConcat(
          arrayMap(kv -> concat(toJSONString(kv.1), ':', kv.2),
-           arrayFilter(kv -> has(['stain_name', 'stain_group', 'magnification', 'part_number', 'block_number', 'match_level', 'timepoint_source', 'timeline_start_days'], kv.1),
+           arrayFilter(kv -> has(['stain_name', 'stain_group', 'magnification', 'part_number', 'block_number', 'match_level'], kv.1),
              JSONExtractKeysAndValuesRaw(ifNull(metadata, '{}')))), ','), '}') AS slide_table_metadata
 FROM resource_data
 WHERE resource_id IN ('WSI_SAMPLE', 'WSI_PATIENT')
