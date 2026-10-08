@@ -227,6 +227,71 @@ public class ClickhouseResourceDataPrivacyTest {
   }
 
   @Test
+  public void slideTableListsUnmatchedViewableSlidesWithoutASample() {
+    // wsi_unmatched_study: 901001 is matched to a sample, 901002 is a viewable WSI_PATIENT slide
+    // with no sample, and 901003 is a WSI_PATIENT slide the viewer cannot open.
+    ResourceTableQuery query =
+        new ResourceTableQuery(
+            List.of("wsi_unmatched_study"), WSI, null, null, null, 0, 10, null, null, null);
+    List<ResourceTableRow> rows = repository.getResourceTableRows(query);
+
+    assertThat(rows)
+        .extracting(ResourceTableRow::sampleId)
+        .containsExactly("WSI-UNMATCHED-SAMPLE-1", null);
+    ResourceTableRow unmatched = rows.get(1);
+    assertThat(unmatched.patientId()).isEqualTo("WSI-UNMATCHED-PATIENT");
+    assertThat(unmatched.url()).endsWith("slideKey=eccbc87e4b5ce2fe28308fd9f2a7baf3");
+    assertThat(unmatched.metadata())
+        .containsEntry("stain_name", "Toluidine blue")
+        .containsEntry("match_level", "UNMATCHED");
+    assertThat(unmatched.metadata().keySet())
+        .isSubsetOf(WsiDeidentification.STUDY_TABLE_METADATA_KEYS);
+    assertThat(rows.toString())
+        .doesNotContain("unmatchedhidden")
+        .doesNotContain("unmatchedpath")
+        .doesNotContain("syn-img-u")
+        .doesNotContain("Unviewable");
+
+    ResourceTableCounts counts = repository.getResourceTableCounts(query);
+    assertThat(counts.rowCount()).isEqualTo(2);
+    assertThat(counts.patientCount()).isEqualTo(1);
+    assertThat(counts.sampleCount()).isEqualTo(1);
+    assertThat(
+            repository.getResourceTableTabs(
+                new ResourceTabsRequest(List.of("wsi_unmatched_study"), null, null)))
+        .extracting(ResourceTableTab::resourceId, ResourceTableTab::totalCount)
+        .containsExactly(org.assertj.core.groups.Tuple.tuple(WSI, 2L));
+    assertThat(
+            ids(
+                new ResourceTableQuery(
+                    List.of("wsi_unmatched_study"),
+                    WSI,
+                    null,
+                    null,
+                    "Toluidine",
+                    0,
+                    10,
+                    null,
+                    null,
+                    null)))
+        .hasSize(1);
+    assertThat(
+            repository.getResourceTableRows(
+                new ResourceTableQuery(
+                    List.of("wsi_unmatched_study"),
+                    WSI_PATIENT,
+                    null,
+                    null,
+                    null,
+                    0,
+                    10,
+                    null,
+                    null,
+                    null)))
+        .isEmpty();
+  }
+
+  @Test
   public void slideTablePartAndBlockAreNumbers() {
     // Part "10" (900501) and "2" (900502): text order would put 10 first.
     assertThat(ids(query(WSI, null, "metadata:part_number", "ASC", null)))

@@ -88,25 +88,17 @@
 
   <!--
     WSI_SAMPLE / WSI_PATIENT hold one row per whole-slide image, with the private wsi_serving
-    object and slide-level metadata. WSI_SAMPLE is served as the study slide table, restricted to
-    its allowlisted metadata (PublicMetadataPairs, and the filter and sort guards below). WSI_PATIENT
-    is read only by the WSI hierarchy and access endpoints and never by the generic resource table:
+    object and slide-level metadata. WSI_SAMPLE is served as the study slide table, read from
+    wsi_slide_table_derived: every slide the viewer can open, including WSI_PATIENT's unmatched
+    ones (no sample), restricted to the allowlisted metadata (PublicMetadataPairs, and the filter
+    and sort guards below). WSI_PATIENT as a resource of its own is read only by the WSI hierarchy
+    and access endpoints and never by the generic resource table:
     not as rows, tabs, counts, search or filter matches, sort keys, facets, discovered keys,
     contracts or column info. Every statement in this mapper reaches resource_data through
     ResourceTableBaseFilters or getResourceTableTabs, and both apply this predicate.
   -->
   <sql id="ExcludeWsiResourceRows">
     rdata.resource_id != 'WSI_PATIENT'
-  </sql>
-
-  <!--
-    The study slide table lists only slides the viewer can open. wsi_slide_table_derived holds only
-    those, so every statement that reads it agrees; getResourceTableTabs reads resource_data and
-    applies this predicate to count the same rows.
-  -->
-  <sql id="StudySlideTableViewableRows">
-    (rdata.resource_id != 'WSI_SAMPLE'
-     OR JSONExtractBool(ifNull(rdata.metadata, '{}'), 'can_serve_tiles'))
   </sql>
 
   <sql id="ResourceTableBaseFilters">
@@ -377,7 +369,15 @@
       count(*) AS totalCount,
       count(DISTINCT if(rdata.patient_id IS NULL, NULL, concat(cs.cancer_study_identifier, '_', rdata.patient_id))) AS patientCount,
       count(DISTINCT if(rdata.sample_id IS NULL, NULL, concat(cs.cancer_study_identifier, '_', rdata.sample_id))) AS sampleCount
-    FROM resource_data rdata
+    <!-- The slide table (WSI_SAMPLE) counts its own rows, as every other statement reads them. -->
+    FROM (
+      SELECT resource_id, cancer_study_id, patient_id, sample_id
+      FROM resource_data
+      WHERE resource_id NOT IN ('WSI_SAMPLE', 'WSI_PATIENT')
+      UNION ALL
+      SELECT resource_id, cancer_study_id, patient_id, sample_id
+      FROM wsi_slide_table_derived
+    ) rdata
     INNER JOIN cancer_study cs ON cs.cancer_study_id = rdata.cancer_study_id
     LEFT JOIN resource_definition rdef
       ON rdef.resource_id = rdata.resource_id
@@ -385,7 +385,6 @@
     <where>
       cs.cancer_study_identifier IN (#{request.studyIdsArray, typeHandler=org.apache.ibatis.type.ArrayTypeHandler})
       AND <include refid="ExcludeWsiResourceRows"/>
-      AND <include refid="StudySlideTableViewableRows"/>
       <!-- See ResourceTableBaseFilters for why patientIds/sampleIds must be OR'd (by row level),
            not AND'd: resource_data rows are either patient-level (sample_id IS NULL) or
            sample-level, and ANDing both lists silently excludes all patient-level rows whenever
