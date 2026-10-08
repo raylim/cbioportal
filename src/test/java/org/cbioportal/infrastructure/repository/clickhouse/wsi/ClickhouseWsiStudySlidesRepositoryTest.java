@@ -61,7 +61,9 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
   }
 
   @Test
-  public void aSelectedSampleBringsAllOfItsPatientsSlides() {
+  public void aSelectedSampleBringsItsSlidesAndItsPatientsUnmatchedSlides() {
+    // As in the study slide table: COHORT-A-2's slide and COHORT-A's unmatched slide, but not
+    // COHORT-A-1's slide, whose sample is outside the cohort.
     StudyViewFilter filter = new StudyViewFilter();
     SampleIdentifier sample = new SampleIdentifier();
     sample.setStudyId(COHORT_STUDY);
@@ -71,9 +73,9 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     WsiStudySlidesPage page = fetch(filter, query());
 
     assertEquals(1, page.totalPatients());
-    assertEquals(3, page.totalSlides());
+    assertEquals(2, page.totalSlides());
     assertEquals("COHORT-A", page.patients().get(0).patientId());
-    assertEquals(3, page.patients().get(0).slideCount());
+    assertEquals(2, page.patients().get(0).slideCount());
   }
 
   @Test
