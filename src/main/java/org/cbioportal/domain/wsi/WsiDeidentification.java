@@ -23,7 +23,9 @@ public final class WsiDeidentification {
 
   /**
    * The one WSI resource the generic resource table serves, as the study-level slide table: one row
-   * per slide matched to a sample. WSI_PATIENT stays out of the generic resource table.
+   * per slide the viewer can open, the same slides the Pathology Slides viewer lists. Slides
+   * matched to a sample come from WSI_SAMPLE; unmatched ones come from WSI_PATIENT, with no sample.
+   * WSI_PATIENT as a resource of its own stays out of the generic resource table.
    */
   public static final String STUDY_TABLE_RESOURCE_ID = "WSI_SAMPLE";
 

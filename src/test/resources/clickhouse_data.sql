@@ -737,6 +737,22 @@ insert into resource_data (resource_data_id, resource_id, cancer_study_id, entit
 values (900503,'PATHOLOGY_NOTES',9005,'PATIENT','WSI-TABLE-PATIENT',NULL,'https://example.com/notes/1.pdf','Board note',NULL,'{"note":"Reviewed by tumor board","wsi_serving":{"source_url":"s3://private-bucket/secretpath-note.pdf"}}');
 insert into resource_data (resource_data_id, resource_id, cancer_study_id, entity_type, patient_id, sample_id, url, display_name, type, metadata)
 values (900504,'PATHOLOGY_NOTES',9005,'PATIENT','WSI-TABLE-PATIENT',NULL,'https://example.com/notes/2.pdf','Follow-up note',NULL,'{"note":"Follow-up imaging"}');
+-- Slide table alignment fixture: the slide table lists every slide the viewer can open, including
+-- WSI_PATIENT's unmatched ones (901002, no sample), and none it cannot (901003).
+insert into cancer_study (cancer_study_id,cancer_study_identifier,type_of_cancer_id,name,description,public)
+values (9010,'wsi_unmatched_study','dummy','WSI unmatched slides study','slide table alignment fixture',1);
+insert into patient (internal_id,stable_id,cancer_study_id) values (9010,'WSI-UNMATCHED-PATIENT',9010);
+insert into sample (internal_id,stable_id,sample_type,patient_id) values (9010,'WSI-UNMATCHED-SAMPLE-1','primary tumor',9010);
+insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
+values ('WSI_SAMPLE',9010,'SAMPLE','Pathology slides','Whole-slide images linked to samples',0,1);
+insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
+values ('WSI_PATIENT',9010,'PATIENT','Pathology slides','Whole-slide images linked to patients',0,1);
+insert into resource_data (resource_data_id, resource_id, cancer_study_id, entity_type, patient_id, sample_id, url, display_name, type, metadata)
+values (901001,'WSI_SAMPLE',9010,'SAMPLE','WSI-UNMATCHED-PATIENT','WSI-UNMATCHED-SAMPLE-1','https://portal.example.org/wsi/patient/WSI-UNMATCHED-PATIENT?studyId=wsi_unmatched_study&slideKey=c81e728d9d4c2f636f067f89cc14862c','Alcian blue - Specimen 1 / Block 1','WHOLE_SLIDE_IMAGE','{"slide_key":"c81e728d9d4c2f636f067f89cc14862c","stain_name":"Alcian blue","part_number":"1","block_number":"1","match_level":"PART","can_serve_tiles":true,"wsi_serving":{"image_id":"syn-img-u001"}}');
+insert into resource_data (resource_data_id, resource_id, cancer_study_id, entity_type, patient_id, sample_id, url, display_name, type, metadata)
+values (901002,'WSI_PATIENT',9010,'PATIENT','WSI-UNMATCHED-PATIENT',NULL,'https://portal.example.org/wsi/patient/WSI-UNMATCHED-PATIENT?studyId=wsi_unmatched_study&slideKey=eccbc87e4b5ce2fe28308fd9f2a7baf3','Toluidine blue - Specimen 4 / Block 2','WHOLE_SLIDE_IMAGE','{"slide_key":"eccbc87e4b5ce2fe28308fd9f2a7baf3","stain_name":"Toluidine blue","part_number":"4","block_number":"2","match_level":"UNMATCHED","block_key":"block:unmatchedhidden","can_serve_tiles":true,"wsi_serving":{"image_id":"syn-img-u002","source_url":"s3://private-bucket/unmatchedpath.svs"}}');
+insert into resource_data (resource_data_id, resource_id, cancer_study_id, entity_type, patient_id, sample_id, url, display_name, type, metadata)
+values (901003,'WSI_PATIENT',9010,'PATIENT','WSI-UNMATCHED-PATIENT',NULL,'https://portal.example.org/wsi/patient/WSI-UNMATCHED-PATIENT?studyId=wsi_unmatched_study&slideKey=a87ff679a2f3e71d9181a67b7542122c','Unviewable unmatched - Specimen 5 / Block 1','WHOLE_SLIDE_IMAGE','{"slide_key":"a87ff679a2f3e71d9181a67b7542122c","stain_name":"Unviewable unmatched","part_number":"5","block_number":"1","match_level":"UNMATCHED","can_serve_tiles":false,"wsi_serving":{"image_id":"syn-img-u003"}}');
 
 -- WSI is served exclusively from generic resource_data. The nested wsi_serving object is
 -- intentionally absent from generic table responses and is read only by the access repository.
