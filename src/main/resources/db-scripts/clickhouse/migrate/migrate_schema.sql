@@ -43,7 +43,7 @@ ALTER TABLE info DROP COLUMN IF EXISTS derived_table_schema_version;
 -- No changes. This version once replaced the wsi_slide constraints; 3.7.0 drops the table.
 
 ## db_schema_version: 3.4.0
-## description: Reserved: WSI slide timing moves to the release that puts slides on the patient Summary timeline
+## description: Reserved; changes nothing (slide timing is stored in resource_data metadata and needs no table)
 -- No changes. This version once created wsi_slide_timing; 3.7.0 drops it.
 
 ## db_schema_version: 3.5.0

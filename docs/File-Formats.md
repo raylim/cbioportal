@@ -477,11 +477,14 @@ format_version: 4
 
 `format_version` fixes the column names, order, and validation rules. The
 converter rejects unsupported versions rather than guessing how to interpret
-them. Slide timing is optional resource metadata (see the `METADATA` timing
-keys above), not part of this format: files that still carry the seven timing
-columns (`TIMELINE_START_DAYS` through `TIMEPOINT_SOURCE`, between
-`THUMBNAIL_CONTENT_TYPE` and `SLIDE_KEY`) are accepted, but the v4 converter
-ignores those columns. MRNs and absolute dates are never emitted.
+them. Slide timing is optional: a file may carry the seven timing columns
+(`TIMELINE_START_DAYS` through `TIMEPOINT_SOURCE`, between
+`THUMBNAIL_CONTENT_TYPE` and `SLIDE_KEY`). When it does, the converter
+validates them and writes the `METADATA` timing keys above, and counts each
+patient's viewable slides without a procedure date
+(`WSI_PATIENT_UNDATED_SLIDE_COUNT`); without them, slides have no timing.
+`TIMELINE_START_DAYS` is relative to the patient's first tumor-sequencing day
+zero. MRNs and absolute dates are never emitted.
 
 #### Data file
 
