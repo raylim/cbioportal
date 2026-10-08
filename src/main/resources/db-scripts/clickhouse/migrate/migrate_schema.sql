@@ -262,7 +262,12 @@ CREATE TABLE IF NOT EXISTS resource_data
   SETTINGS allow_nullable_key = 1;
 
 -- Backfill is guarded by a deterministic resource_data_id (hash of the natural key) so this
--- section is safe to re-run: rows already present are excluded via NOT IN.
+-- section is safe to re-run: rows already present are excluded via NOT IN. The study id is part
+-- of that key: stable ids are unique only within a study and the same URL can be attached in more
+-- than one, so hashing without it mints the same id for two studies' rows -- and because the
+-- importer deletes a resource's stale rows by id, re-importing one study would then delete the
+-- other study's rows. Study-level rows key on the study's own internal_id, which already carries
+-- it.
 -- Recreate the legacy tables if they are missing, so this section can be retried after a run
 -- that reached the drops below but died before migrate_db.py advanced db_schema_version. On a
 -- first run they already exist and this is a no-op; on a retry they come back empty, the
@@ -275,7 +280,7 @@ INSERT INTO resource_data
     (resource_data_id, resource_id, cancer_study_id, entity_type,
      patient_id, sample_id, url, display_name, type, metadata)
 SELECT
-    toInt64(cityHash64(rs.resource_id, s.stable_id, rs.url)),
+    toInt64(cityHash64(cs.cancer_study_id, rs.resource_id, s.stable_id, rs.url)),
     rs.resource_id,
     toInt32(cs.cancer_study_id),
     'SAMPLE',
@@ -287,7 +292,7 @@ FROM resource_sample rs
 INNER JOIN sample       s  ON rs.internal_id    = s.internal_id
 INNER JOIN patient      p  ON s.patient_id      = p.internal_id
 INNER JOIN cancer_study cs ON p.cancer_study_id = cs.cancer_study_id
-WHERE toInt64(cityHash64(rs.resource_id, s.stable_id, rs.url)) NOT IN (
+WHERE toInt64(cityHash64(cs.cancer_study_id, rs.resource_id, s.stable_id, rs.url)) NOT IN (
     SELECT resource_data_id FROM resource_data
 );
 
@@ -295,7 +300,7 @@ INSERT INTO resource_data
     (resource_data_id, resource_id, cancer_study_id, entity_type,
      patient_id, sample_id, url, display_name, type, metadata)
 SELECT
-    toInt64(cityHash64(rp.resource_id, pt.stable_id, rp.url)),
+    toInt64(cityHash64(cs.cancer_study_id, rp.resource_id, pt.stable_id, rp.url)),
     rp.resource_id,
     toInt32(cs.cancer_study_id),
     'PATIENT',
@@ -306,7 +311,7 @@ SELECT
 FROM resource_patient rp
 INNER JOIN patient      pt ON rp.internal_id     = pt.internal_id
 INNER JOIN cancer_study cs ON pt.cancer_study_id = cs.cancer_study_id
-WHERE toInt64(cityHash64(rp.resource_id, pt.stable_id, rp.url)) NOT IN (
+WHERE toInt64(cityHash64(cs.cancer_study_id, rp.resource_id, pt.stable_id, rp.url)) NOT IN (
     SELECT resource_data_id FROM resource_data
 );
 
@@ -314,7 +319,7 @@ INSERT INTO resource_data
     (resource_data_id, resource_id, cancer_study_id, entity_type,
      patient_id, sample_id, url, display_name, type, metadata)
 SELECT
-    toInt64(cityHash64(rst.resource_id, toString(rst.internal_id), rst.url)),
+    toInt64(cityHash64(rst.internal_id, rst.resource_id, rst.url)),
     rst.resource_id,
     toInt32(rst.internal_id),
     'STUDY',
@@ -322,7 +327,7 @@ SELECT
     rst.url,
     NULL, NULL, NULL
 FROM resource_study rst
-WHERE toInt64(cityHash64(rst.resource_id, toString(rst.internal_id), rst.url)) NOT IN (
+WHERE toInt64(cityHash64(rst.internal_id, rst.resource_id, rst.url)) NOT IN (
     SELECT resource_data_id FROM resource_data
 );
 
