@@ -36,16 +36,11 @@ public final class WsiDeidentification {
   public static final String STUDY_TABLE_RESOURCE_ID = "WSI_SAMPLE";
 
   /**
-   * The study slide table's columns. This is an allowlist, not decoration: a WSI_SAMPLE row exposes
-   * these metadata keys and no others to rows, search, filters, sorts, facets and ranges. Slide
-   * timing (procedure dates) is not served yet; it arrives with slides on the patient Summary
-   * timeline. Part and block are bare numbers: the hierarchy's "Specimen N" / "Block N" labels
-   * would repeat the column header in every cell. For the same reason the table leaves display_name
-   * empty (the slide's "stain · specimen / block" caption), which hides the Details column. The
-   * table lists only slides the viewer can open (can_serve_tiles), in its rows and in every count
-   * and facet. The opaque slide, specimen, part and block keys, the reference sample id and file
-   * size stay with the WSI hierarchy and access endpoints, and wsi_serving stays private
-   * everywhere.
+   * The study slide table's columns, and its allowlist: a WSI_SAMPLE row exposes these metadata
+   * keys and no others. Part and block are bare numbers and display_name (the "stain · specimen /
+   * block" caption) is left empty, since either would repeat the columns. Slide, specimen, part and
+   * block keys, the reference sample id, file size and wsi_serving stay with the WSI hierarchy and
+   * access endpoints.
    */
   public static final ResourceMetadataSchema STUDY_TABLE_SCHEMA =
       new ResourceMetadataSchema(

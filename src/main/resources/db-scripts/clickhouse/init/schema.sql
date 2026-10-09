@@ -654,10 +654,9 @@ CREATE TABLE resource_data (
 
 -- The study slide table: every slide the viewer can open (WSI_SAMPLE rows, and unmatched
 -- WSI_PATIENT ones with no sample), filed under WSI_SAMPLE in resource_data's shape, with metadata
--- reduced to the
--- allowlisted public slide fields (WsiDeidentification.STUDY_TABLE_SCHEMA). The generic resource
--- table reads WSI_SAMPLE from here, so it parses ~270-byte documents instead of the full slide
--- metadata and never sees wsi_serving or the slide's other identifiers.
+-- reduced to the allowlisted public slide fields (WsiDeidentification.STUDY_TABLE_SCHEMA). The
+-- generic resource table reads WSI_SAMPLE from here, so it parses ~270-byte documents instead of
+-- the full slide metadata and never sees wsi_serving or the slide's other identifiers.
 CREATE TABLE wsi_slide_table_derived (
     `resource_data_id` Int64,
     `resource_id` String,
