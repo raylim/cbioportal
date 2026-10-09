@@ -2,11 +2,8 @@ package org.cbioportal.domain.wsi;
 
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.cbioportal.domain.resource.ResourceMetadataField;
 import org.cbioportal.domain.resource.ResourceMetadataSchema;
 
@@ -78,11 +75,7 @@ public final class WsiDeidentification {
 
   /** The study slide table's metadata keys, in column order. */
   public static final List<String> STUDY_TABLE_METADATA_KEYS =
-      STUDY_TABLE_SCHEMA.fields().stream().map(ResourceMetadataField::key).toList();
-
-  private static final Map<String, ResourceMetadataField> STUDY_TABLE_FIELDS =
-      STUDY_TABLE_SCHEMA.fields().stream()
-          .collect(Collectors.toMap(ResourceMetadataField::key, Function.identity()));
+      List.copyOf(STUDY_TABLE_SCHEMA.fieldsByKey().keySet());
 
   private static final Pattern ABSOLUTE_DATE =
       Pattern.compile(
@@ -159,11 +152,6 @@ public final class WsiDeidentification {
   }
 
   public static boolean isStudyTableMetadataKey(String key) {
-    return key != null && STUDY_TABLE_FIELDS.containsKey(key);
-  }
-
-  public static boolean isNumericStudyTableMetadataKey(String key) {
-    ResourceMetadataField field = key == null ? null : STUDY_TABLE_FIELDS.get(key);
-    return field != null && "number".equals(field.type());
+    return key != null && STUDY_TABLE_METADATA_KEYS.contains(key);
   }
 }
