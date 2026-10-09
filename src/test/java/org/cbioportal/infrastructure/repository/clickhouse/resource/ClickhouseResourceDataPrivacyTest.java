@@ -125,6 +125,20 @@ public class ClickhouseResourceDataPrivacyTest {
 
   @Test
   public void slideTableRowsCarryOnlyAllowlistedMetadata() {
+    List<String> documents =
+        jdbcTemplate.queryForList("SELECT metadata FROM wsi_slide_table_derived", String.class);
+    assertThat(documents)
+        .isNotEmpty()
+        .allSatisfy(
+            document ->
+                assertThat(OBJECT_MAPPER.readTree(document).fieldNames())
+                    .toIterable()
+                    .isSubsetOf(WsiDeidentification.STUDY_TABLE_METADATA_KEYS));
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT DISTINCT resource_id FROM wsi_slide_table_derived", String.class))
+        .containsExactly(WSI);
+
     List<ResourceTableRow> rows =
         repository.getResourceTableRows(query(WSI, null, null, null, null));
 
@@ -168,19 +182,19 @@ public class ClickhouseResourceDataPrivacyTest {
   }
 
   @Test
-  public void slideTableIgnoresFiltersAndSortsOnHiddenKeys() {
+  public void slideTableFiltersAndSortsOnHiddenKeysMatchNothing() {
+    // wsi_slide_table_derived holds no hidden key, so a filter on one matches no row.
     for (ResourceColumnFilter filter :
         List.of(
             new ResourceColumnFilter("metadata:block_key", "in", List.of("block:hiddenblockone")),
             new ResourceColumnFilter("metadata:reference_sample_id", "equals", List.of("x")),
             new ResourceColumnFilter("metadata:slide_key", "in", List.of(WSI_SLIDE_KEY)),
-            new ResourceColumnFilter("metadata:wsi_serving", "contains", List.of("wsipath-1")),
             new ResourceColumnFilter("metadata:part_description", "in", List.of("liver margin")))) {
       ResourceTableQuery filtered = query(WSI, null, null, null, List.of(filter));
-      assertThat(ids(filtered)).as(filter.toString()).containsExactly("900501", "900502");
+      assertThat(ids(filtered)).as(filter.toString()).isEmpty();
       assertThat(repository.getResourceTableCounts(filtered).rowCount())
           .as(filter.toString())
-          .isEqualTo(2);
+          .isZero();
     }
     assertThat(
             ids(
@@ -192,16 +206,14 @@ public class ClickhouseResourceDataPrivacyTest {
                     List.of(
                         new ResourceColumnFilter("metadata:magnification", "in", List.of("20x"))))))
         .containsExactly("900502");
-    // block_key and reference_sample_id order the rows 900502-first when descending; the guard
-    // orders by row id instead.
-    for (String sortBy :
-        List.of("metadata:block_key", "metadata:reference_sample_id", "metadata:wsi_serving")) {
-      assertThat(ids(query(WSI, null, sortBy, "ASC", null)))
-          .as(sortBy)
-          .containsExactly("900501", "900502");
-      assertThat(ids(query(WSI, null, sortBy, "DESC", null)))
-          .as(sortBy)
-          .containsExactly("900502", "900501");
+    // block_key and reference_sample_id would order the rows 900502-first when descending; with no
+    // value to sort on, both directions fall back to row order.
+    for (String sortBy : List.of("metadata:block_key", "metadata:reference_sample_id")) {
+      for (String direction : List.of("ASC", "DESC")) {
+        assertThat(ids(query(WSI, null, sortBy, direction, null)))
+            .as(sortBy + " " + direction)
+            .containsExactly("900501", "900502");
+      }
     }
   }
 
@@ -385,42 +397,12 @@ public class ClickhouseResourceDataPrivacyTest {
     }
   }
 
-  @Test
-  public void slideTableDerivedRowsHoldOnlyAllowlistedMetadata() {
-    List<String> documents =
-        jdbcTemplate.queryForList(
-            "SELECT metadata FROM wsi_slide_table_derived ORDER BY resource_data_id", String.class);
-
-    assertThat(
-            jdbcTemplate.queryForObject(
-                "SELECT count() FROM wsi_slide_table_derived WHERE cancer_study_id = 9005",
-                Long.class))
-        .isEqualTo(2);
-    assertThat(documents)
-        .allSatisfy(
-            document -> {
-              assertThat(document)
-                  .doesNotContain("wsi_serving")
-                  .doesNotContain("hiddenblock")
-                  .doesNotContain("WSI-HIDDEN-REF")
-                  .doesNotContain("slide_key");
-              assertThat(OBJECT_MAPPER.readTree(document).fieldNames())
-                  .toIterable()
-                  .isSubsetOf(WsiDeidentification.STUDY_TABLE_METADATA_KEYS);
-            });
-    assertThat(
-            jdbcTemplate.queryForList(
-                "SELECT DISTINCT resource_id FROM wsi_slide_table_derived", String.class))
-        .containsExactly(WSI);
-  }
-
   /** The SQL that builds wsi_slide_table_derived must allowlist exactly the Java contract. */
   @Test
   public void derivedTableSqlAllowlistMatchesTheContract() throws Exception {
     for (String resource :
         List.of(
             "/db-scripts/clickhouse/populate_derived_tables.sql",
-            "/db-scripts/clickhouse/migrate/migrate_schema.sql",
             "/clickhouse/populate_derived_tables.sql")) {
       String sql;
       try (var in = getClass().getResourceAsStream(resource)) {

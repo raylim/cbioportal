@@ -207,7 +207,7 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
 
   /**
    * Drops wsi_serving from every row, and reduces a study slide table row to its allowlisted
-   * metadata, matching PublicMetadataPairs in ResourceDataMapper.xml.
+   * metadata, as wsi_slide_table_derived already does.
    */
   private static ResourceTableRow withPublicMetadataOnly(ResourceTableRow row) {
     if (row.metadata() == null) {

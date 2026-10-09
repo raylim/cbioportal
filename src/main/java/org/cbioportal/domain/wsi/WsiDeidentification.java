@@ -76,7 +76,7 @@ public final class WsiDeidentification {
                   true,
                   false)));
 
-  /** The study slide table's metadata keys, in column order. Read by ResourceDataMapper.xml. */
+  /** The study slide table's metadata keys, in column order. */
   public static final List<String> STUDY_TABLE_METADATA_KEYS =
       STUDY_TABLE_SCHEMA.fields().stream().map(ResourceMetadataField::key).toList();
 

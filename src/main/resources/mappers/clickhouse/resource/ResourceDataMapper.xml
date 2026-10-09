@@ -53,8 +53,8 @@
   <!--
     The study slide table (WSI_SAMPLE) reads wsi_slide_table_derived: the same rows in the same
     shape, with metadata already reduced to the allowlisted public fields, so its ~570K-row scans
-    parse small documents and never carry wsi_serving. PublicMetadataPairs and the filter and sort
-    guards still apply on top. Every other resource reads resource_data.
+    parse small documents and never see wsi_serving or a hidden slide field: a search, filter or
+    sort on one matches nothing. Every other resource reads resource_data.
   -->
   <sql id="ResourceTableFromClause">
     FROM <choose>
@@ -68,29 +68,18 @@
   </sql>
 
   <!--
-    A row's public metadata as (key, raw JSON value) pairs: every top-level key except wsi_serving,
-    and for the study slide table (WSI_SAMPLE) only the keys of its allowlisted contract
-    (WsiDeidentification.STUDY_TABLE_SCHEMA). wsi_serving (and everything nested under it) holds
-    serving data, such as the sealed slide source, that is private to the WSI access API for every
-    row regardless of type,
-    and a slide row's other identifiers stay with the WSI endpoints, so neither may influence
-    search results, facets, ranges or key discovery. Every statement that reads metadata keys or
-    values goes through this.
-  -->
-  <sql id="PublicMetadataPairs">
-    arrayFilter(kv -> kv.1 != 'wsi_serving'
-        AND (rdata.resource_id != 'WSI_SAMPLE'
-             OR has([<foreach collection="@org.cbioportal.domain.wsi.WsiDeidentification@STUDY_TABLE_METADATA_KEYS" item="wsiKey" separator=",">#{wsiKey}</foreach>], kv.1)),
-      JSONExtractKeysAndValuesRaw(ifNull(rdata.metadata, '{}')))
-  </sql>
-
-  <!--
-    Searchable text for a row's public metadata (PublicMetadataPairs). Rows with no metadata
-    contribute an empty string, which keeps the predicate non-null for null-type rows.
+    Searchable text for a row's public metadata: every top-level key with its raw JSON value,
+    except wsi_serving. wsi_serving (and everything nested under it) holds serving data, such as
+    the sealed slide source, that is private to the WSI access API for every row regardless of
+    type, so it must not be able to influence search results, filters, sorting, facets or key
+    discovery. Rows with no
+    metadata contribute an empty string, which keeps the predicate non-null for null-type rows.
   -->
   <sql id="PublicMetadataText">
     arrayStringConcat(
-      arrayMap(kv -> concat(kv.1, ':', kv.2), <include refid="PublicMetadataPairs"/>),
+      arrayMap(kv -> concat(kv.1, ':', kv.2),
+        arrayFilter(kv -> kv.1 != 'wsi_serving',
+          JSONExtractKeysAndValuesRaw(ifNull(rdata.metadata, '{}')))),
       '\n')
   </sql>
 
@@ -98,8 +87,7 @@
     WSI_SAMPLE / WSI_PATIENT hold one row per whole-slide image, with the private wsi_serving
     object and slide-level metadata. WSI_SAMPLE is served as the study slide table, read from
     wsi_slide_table_derived: every slide the viewer can open, including WSI_PATIENT's unmatched
-    ones (no sample), restricted to the allowlisted metadata (PublicMetadataPairs, and the filter
-    and sort guards below). WSI_PATIENT as a resource of its own is read only by the WSI hierarchy
+    ones (no sample), restricted to the allowlisted metadata. WSI_PATIENT as a resource of its own is read only by the WSI hierarchy
     and access endpoints and never by the generic resource table:
     not as rows, tabs, counts, search or filter matches, sort keys, facets, discovered keys,
     contracts or column info. Every statement in this mapper reaches resource_data through
@@ -247,10 +235,6 @@
       <when test="filter.metadataKey == 'wsi_serving'">
         1 = 1
       </when>
-      <!-- A study slide table filter on a key outside its contract is ignored the same way. -->
-      <when test="@org.cbioportal.domain.wsi.WsiDeidentification@isStudyTableResource(query.resourceId) and !@org.cbioportal.domain.wsi.WsiDeidentification@isStudyTableMetadataKey(filter.metadataKey)">
-        1 = 1
-      </when>
       <when test="(filter.operator == 'in' || filter.operator == 'equalsAny') and (filter.values == null || filter.values.isEmpty())">
         1 = 0
       </when>
@@ -353,10 +337,6 @@
       <when test="query.sortBy == 'resourceDisplayName'">ORDER BY rdef.display_name <include refid="ResourceTableSortDirection"/></when>
       <!-- wsi_serving is private: sorting on it falls back to row order and reveals nothing. -->
       <when test="query.sortBy == 'metadata:wsi_serving'">
-        ORDER BY rdata.resource_data_id <include refid="ResourceTableSortDirection"/>
-      </when>
-      <!-- Likewise for a study slide table sort on a key outside its contract. -->
-      <when test="query.sortBy != null and query.sortBy.startsWith('metadata:') and @org.cbioportal.domain.wsi.WsiDeidentification@isStudyTableResource(query.resourceId) and !@org.cbioportal.domain.wsi.WsiDeidentification@isStudyTableMetadataKey(query.sortBy.substring(9))">
         ORDER BY rdata.resource_data_id <include refid="ResourceTableSortDirection"/>
       </when>
       <when test="query.sortBy != null and query.sortBy.startsWith('metadata:')">
@@ -492,7 +472,7 @@
     FROM (
       SELECT kv.1 AS metaKey, JSONExtractString(kv.2) AS value
       FROM (
-        SELECT arrayJoin(<include refid="PublicMetadataPairs"/>) AS kv
+        SELECT arrayJoin(JSONExtractKeysAndValuesRaw(ifNull(rdata.metadata, '{}'))) AS kv
         <include refid="ResourceTableFromClause"/>
         <include refid="ResourceTableBaseFilters"/>
         AND rdata.metadata IS NOT NULL AND rdata.metadata != '' AND rdata.metadata != '{}'
@@ -538,7 +518,7 @@
     FROM (
       SELECT kv.1 AS metaKey, toFloat64OrNull(JSONExtractString(kv.2)) AS parsedValue
       FROM (
-        SELECT arrayJoin(<include refid="PublicMetadataPairs"/>) AS kv
+        SELECT arrayJoin(JSONExtractKeysAndValuesRaw(ifNull(rdata.metadata, '{}'))) AS kv
         <include refid="ResourceTableFromClause"/>
         <include refid="ResourceTableBaseFilters"/>
         AND rdata.metadata IS NOT NULL AND rdata.metadata != '' AND rdata.metadata != '{}'
@@ -559,9 +539,9 @@
              JSONExtractString(kv.2) AS rawValue,
              toFloat64OrNull(rawValue) AS parsedValue
       FROM (
-        SELECT arrayJoin(publicPairs) AS kv
+        SELECT arrayJoin(JSONExtractKeysAndValuesRaw(metadataJson)) AS kv
         FROM (
-          SELECT <include refid="PublicMetadataPairs"/> AS publicPairs
+          SELECT ifNull(rdata.metadata, '{}') AS metadataJson
           <include refid="ResourceTableFromClause"/>
           <include refid="ResourceTableBaseFilters"/>
           AND rdata.metadata IS NOT NULL AND rdata.metadata != '' AND rdata.metadata != '{}'
