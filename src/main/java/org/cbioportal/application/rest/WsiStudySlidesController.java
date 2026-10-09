@@ -85,54 +85,31 @@ public class WsiStudySlidesController {
 
   /** Returns the validated query, or null when the request is malformed. */
   static WsiStudySlidesQuery toQuery(WsiStudySlidesRequest request) {
-    if (request == null) {
+    if (request == null
+        || request.studyViewFilter() == null
+        || request.studyViewFilter().getUniqueStudyIds().isEmpty()) {
       return null;
     }
     int pageNumber = request.pageNumber() == null ? 0 : request.pageNumber();
     int pageSize = request.pageSize() == null ? DEFAULT_PAGE_SIZE : request.pageSize();
-    if (pageNumber < 0 || pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+    List<String> stainGroups = request.stainGroups() == null ? List.of() : request.stainGroups();
+    List<String> matchLevels = request.matchLevels() == null ? List.of() : request.matchLevels();
+    String search = request.search() == null ? "" : request.search().trim();
+    if (pageNumber < 0
+        || pageSize < 1
+        || pageSize > MAX_PAGE_SIZE
+        || !WsiStudySlidesQuery.STAIN_GROUPS.containsAll(stainGroups)
+        || !WsiStudySlidesQuery.MATCH_LEVELS.containsAll(matchLevels)
+        || search.length() > MAX_SEARCH_LENGTH) {
       return null;
     }
     boolean locate = request.locateStudyId() != null && request.locatePatientId() != null;
-    return toQuery(
-        request.studyViewFilter(),
-        request.stainGroups(),
-        request.matchLevels(),
-        request.search(),
-        locate ? request.locateStudyId() : null,
-        locate ? request.locatePatientId() : null,
-        pageNumber,
-        pageSize);
-  }
-
-  private static WsiStudySlidesQuery toQuery(
-      StudyViewFilter studyViewFilter,
-      List<String> requestedStainGroups,
-      List<String> requestedMatchLevels,
-      String requestedSearch,
-      String locateStudyId,
-      String locatePatientId,
-      int pageNumber,
-      int pageSize) {
-    if (studyViewFilter == null || studyViewFilter.getUniqueStudyIds().isEmpty()) {
-      return null;
-    }
-    List<String> stainGroups = requestedStainGroups == null ? List.of() : requestedStainGroups;
-    List<String> matchLevels = requestedMatchLevels == null ? List.of() : requestedMatchLevels;
-    if (!WsiStudySlidesQuery.STAIN_GROUPS.containsAll(stainGroups)
-        || !WsiStudySlidesQuery.MATCH_LEVELS.containsAll(matchLevels)) {
-      return null;
-    }
-    String search = requestedSearch == null ? null : requestedSearch.trim();
-    if (search != null && search.length() > MAX_SEARCH_LENGTH) {
-      return null;
-    }
     return new WsiStudySlidesQuery(
         List.copyOf(stainGroups),
         List.copyOf(matchLevels),
-        search == null || search.isEmpty() ? null : search,
-        locateStudyId,
-        locatePatientId,
+        search.isEmpty() ? null : search,
+        locate ? request.locateStudyId() : null,
+        locate ? request.locatePatientId() : null,
         pageNumber,
         pageSize);
   }
