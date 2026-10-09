@@ -6,13 +6,10 @@ import org.cbioportal.domain.wsi.WsiStudySlidesQuery;
 import org.cbioportal.domain.wsi.WsiStudySlidesService;
 import org.cbioportal.legacy.web.parameter.StudyViewFilter;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -70,15 +67,16 @@ public class WsiStudySlidesController {
           + "T(org.cbioportal.legacy.utils.security.AccessLevel).READ)")
   public ResponseEntity<WsiStudySlidesPage> fetchStudySlidePatients(
       @RequestBody WsiStudySlidesRequest request) {
-    if (isRefusedAnonymous()) {
-      return privateResponse(HttpStatus.UNAUTHORIZED).build();
+    if (WsiResponses.isAnonymous(SecurityContextHolder.getContext().getAuthentication())
+        && !localAuthBypass) {
+      return WsiResponses.privateResponse(HttpStatus.UNAUTHORIZED).build();
     }
 
     WsiStudySlidesQuery query = toQuery(request);
     if (query == null) {
-      return privateResponse(HttpStatus.BAD_REQUEST).build();
+      return WsiResponses.privateResponse(HttpStatus.BAD_REQUEST).build();
     }
-    return privateResponse(HttpStatus.OK)
+    return WsiResponses.privateResponse(HttpStatus.OK)
         .contentType(MediaType.APPLICATION_JSON)
         .body(service.getStudySlides(request.studyViewFilter(), query));
   }
@@ -112,20 +110,5 @@ public class WsiStudySlidesController {
         locate ? request.locatePatientId() : null,
         pageNumber,
         pageSize);
-  }
-
-  private boolean isRefusedAnonymous() {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    boolean anonymous =
-        authentication == null
-            || !authentication.isAuthenticated()
-            || authentication instanceof AnonymousAuthenticationToken;
-    return anonymous && !localAuthBypass;
-  }
-
-  private static ResponseEntity.BodyBuilder privateResponse(HttpStatus status) {
-    return ResponseEntity.status(status)
-        .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
-        .header(HttpHeaders.VARY, "Authorization, Cookie");
   }
 }
