@@ -188,12 +188,6 @@ WHERE resource_id IN ('WSI_SAMPLE', 'WSI_PATIENT')
 
 ## db_schema_version: 3.8.0
 ## description: Add wsi_slide_table_derived, the study slide table's allowlisted WSI_SAMPLE rows
--- The study slide table: every slide the viewer can open (WSI_SAMPLE rows, and unmatched
--- WSI_PATIENT ones with no sample), filed under WSI_SAMPLE in resource_data's shape, with metadata
--- reduced to the
--- allowlisted public slide fields (WsiDeidentification.STUDY_TABLE_SCHEMA). The generic resource
--- table reads WSI_SAMPLE from here, so it parses ~270-byte documents instead of the full slide
--- metadata and never sees wsi_serving or the slide's other identifiers.
 CREATE TABLE IF NOT EXISTS wsi_slide_table_derived (
     `resource_data_id` Int64,
     `resource_id` String,
@@ -207,17 +201,3 @@ CREATE TABLE IF NOT EXISTS wsi_slide_table_derived (
     `metadata` Nullable(String)
 ) ENGINE = MergeTree ORDER BY (cancer_study_id, resource_id, patient_id, sample_id, resource_data_id)
   SETTINGS allow_nullable_key = 1;
-TRUNCATE TABLE wsi_slide_table_derived SETTINGS alter_sync = 2;
-INSERT INTO wsi_slide_table_derived
-SELECT resource_data_id, 'WSI_SAMPLE' AS slide_table_resource_id, cancer_study_id, entity_type, patient_id, sample_id, url,
-       CAST(NULL, 'Nullable(String)') AS display_name, type,
-       concat('{', arrayStringConcat(
-         arrayMap(kv -> concat(toJSONString(kv.1), ':', kv.2),
-           arrayFilter(kv -> has(['stain_name', 'stain_group', 'magnification', 'part_number', 'block_number', 'match_level'], kv.1),
-             JSONExtractKeysAndValuesRaw(ifNull(metadata, '{}')))), ','), '}') AS slide_table_metadata
-FROM resource_data
-WHERE resource_id IN ('WSI_SAMPLE', 'WSI_PATIENT')
-  AND type = 'WHOLE_SLIDE_IMAGE'
-  AND patient_id IS NOT NULL
-  AND match(JSONExtractString(ifNull(metadata, '{}'), 'slide_key'), '^[0-9a-f]{32}$')
-  AND JSONExtractBool(ifNull(metadata, '{}'), 'can_serve_tiles');

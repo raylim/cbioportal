@@ -2,11 +2,8 @@ package org.cbioportal.domain.wsi;
 
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.cbioportal.domain.resource.ResourceMetadataField;
 import org.cbioportal.domain.resource.ResourceMetadataSchema;
 
@@ -39,16 +36,11 @@ public final class WsiDeidentification {
   public static final String STUDY_TABLE_RESOURCE_ID = "WSI_SAMPLE";
 
   /**
-   * The study slide table's columns. This is an allowlist, not decoration: a WSI_SAMPLE row exposes
-   * these metadata keys and no others to rows, search, filters, sorts, facets and ranges. Slide
-   * timing (procedure dates) is not served yet; it arrives with slides on the patient Summary
-   * timeline. Part and block are bare numbers: the hierarchy's "Specimen N" / "Block N" labels
-   * would repeat the column header in every cell. For the same reason the table leaves display_name
-   * empty (the slide's "stain · specimen / block" caption), which hides the Details column. The
-   * table lists only slides the viewer can open (can_serve_tiles), in its rows and in every count
-   * and facet. The opaque slide, specimen, part and block keys, the reference sample id and file
-   * size stay with the WSI hierarchy and access endpoints, and wsi_serving stays private
-   * everywhere.
+   * The study slide table's columns, and its allowlist: a WSI_SAMPLE row exposes these metadata
+   * keys and no others. Part and block are bare numbers and display_name (the "stain · specimen /
+   * block" caption) is left empty, since either would repeat the columns. Slide, specimen, part and
+   * block keys, the reference sample id, file size and wsi_serving stay with the WSI hierarchy and
+   * access endpoints.
    */
   public static final ResourceMetadataSchema STUDY_TABLE_SCHEMA =
       new ResourceMetadataSchema(
@@ -76,13 +68,32 @@ public final class WsiDeidentification {
                   true,
                   false)));
 
-  /** The study slide table's metadata keys, in column order. Read by ResourceDataMapper.xml. */
+  /** The study slide table's metadata keys, in column order. */
   public static final List<String> STUDY_TABLE_METADATA_KEYS =
-      STUDY_TABLE_SCHEMA.fields().stream().map(ResourceMetadataField::key).toList();
+      List.copyOf(STUDY_TABLE_SCHEMA.fieldsByKey().keySet());
 
-  private static final Map<String, ResourceMetadataField> STUDY_TABLE_FIELDS =
-      STUDY_TABLE_SCHEMA.fields().stream()
-          .collect(Collectors.toMap(ResourceMetadataField::key, Function.identity()));
+  private static final Pattern ABSOLUTE_DATE =
+      Pattern.compile(
+          "(?<!\\d)(?:19|20)\\d{2}[-_/](?:0?[1-9]|1[0-2])[-_/](?:0?[1-9]|[12]\\d|3[01])(?!\\d)");
+  private static final Pattern MONTH_FIRST_DATE =
+      Pattern.compile(
+          "(?<!\\d)(?:0?[1-9]|1[0-2])[-_/](?:0?[1-9]|[12]\\d|3[01])[-_/](?:19|20)\\d{2}(?!\\d)");
+  private static final Pattern DAY_FIRST_DATE =
+      Pattern.compile(
+          "(?<!\\d)(?:0?[1-9]|[12]\\d|3[01])[-_/](?:0?[1-9]|1[0-2])[-_/](?:19|20)\\d{2}(?!\\d)");
+  private static final Pattern NAMED_MONTH_DATE =
+      Pattern.compile(
+          "(?i)(?<![a-z0-9])(?:(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|"
+              + "may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|"
+              + "nov(?:ember)?|dec(?:ember)?)\\s+(?:0?[1-9]|[12]\\d|3[01])(?:st|nd|rd|th)?"
+              + "(?:,)?\\s+(?:19|20)\\d{2}|(?:0?[1-9]|[12]\\d|3[01])[-/\\s]+"
+              + "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|"
+              + "jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|"
+              + "dec(?:ember)?)[-/\\s]+(?:19|20)\\d{2})(?![a-z0-9])");
+  private static final Pattern COMPACT_DATE = Pattern.compile("(?<!\\d)(?:19|20)\\d{6}(?!\\d)");
+  private static final Pattern LABELLED_MRN =
+      Pattern.compile(
+          "(?i)\\b(?:mrn|medical[ _-]?record(?:[ _-]?number)?)\\b\\s*[:=#-]?\\s*\\d{4,}");
 
   private WsiDeidentification() {}
 
@@ -107,6 +118,21 @@ public final class WsiDeidentification {
     }
   }
 
+  /**
+   * Whether free text served to the browser contains a labelled medical record number or an
+   * absolute date (ISO, month-first, day-first, named-month or compact YYYYMMDD). WSI metadata that
+   * does fails closed.
+   */
+  public static boolean containsIdentifyingText(String value) {
+    return value != null
+        && (LABELLED_MRN.matcher(value).find()
+            || ABSOLUTE_DATE.matcher(value).find()
+            || MONTH_FIRST_DATE.matcher(value).find()
+            || DAY_FIRST_DATE.matcher(value).find()
+            || NAMED_MONTH_DATE.matcher(value).find()
+            || COMPACT_DATE.matcher(value).find());
+  }
+
   public static boolean isWsiResourceId(String resourceId) {
     return resourceId != null && WSI_RESOURCE_IDS.contains(resourceId);
   }
@@ -121,11 +147,6 @@ public final class WsiDeidentification {
   }
 
   public static boolean isStudyTableMetadataKey(String key) {
-    return key != null && STUDY_TABLE_FIELDS.containsKey(key);
-  }
-
-  public static boolean isNumericStudyTableMetadataKey(String key) {
-    ResourceMetadataField field = key == null ? null : STUDY_TABLE_FIELDS.get(key);
-    return field != null && "number".equals(field.type());
+    return key != null && STUDY_TABLE_METADATA_KEYS.contains(key);
   }
 }

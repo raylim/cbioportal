@@ -135,7 +135,9 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
 
   private MetadataContext resolveMetadataContext(ResourceTableQuery scoped) {
     if (WsiDeidentification.isStudyTableResource(scoped.resourceId())) {
-      return studySlideTableContext();
+      // The study slide table's typed allowlist is its complete contract: it alone decides the
+      // columns, and no key discovery runs over the (large) slide resource.
+      return new MetadataContext(WsiDeidentification.STUDY_TABLE_SCHEMA, Map.of(), true);
     }
     List<ResourceContractRow> contractRows = contractRows(scoped);
     ResourceMetadataSchema schema = mergedSchema(scoped, contractRows);
@@ -153,21 +155,6 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
   private static boolean fullyTyped(ResourceMetadataSchema schema) {
     return !schema.fieldsByKey().isEmpty()
         && schema.fieldsByKey().values().stream().allMatch(field -> field.type() != null);
-  }
-
-  /**
-   * The study slide table's columns are its fixed allowlist rather than whatever the rows carry: no
-   * key discovery runs over the (large) slide resource, and no key outside the contract can become
-   * a column, facet or range.
-   */
-  private static MetadataContext studySlideTableContext() {
-    Map<String, ResourceMetadataKeyStats> statsByKey = new LinkedHashMap<>();
-    for (String key : WsiDeidentification.STUDY_TABLE_METADATA_KEYS) {
-      long numeric = WsiDeidentification.isNumericStudyTableMetadataKey(key) ? 1 : 0;
-      statsByKey.put(key, new ResourceMetadataKeyStats(key, 1, numeric));
-    }
-    // The allowlist is the slide table's complete contract: it alone decides the columns.
-    return new MetadataContext(WsiDeidentification.STUDY_TABLE_SCHEMA, statsByKey, true);
   }
 
   /*
@@ -207,7 +194,7 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
 
   /**
    * Drops wsi_serving from every row, and reduces a study slide table row to its allowlisted
-   * metadata, matching PublicMetadataPairs in ResourceDataMapper.xml.
+   * metadata, as wsi_slide_table_derived already does.
    */
   private static ResourceTableRow withPublicMetadataOnly(ResourceTableRow row) {
     if (row.metadata() == null) {

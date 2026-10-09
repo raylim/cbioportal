@@ -509,12 +509,7 @@ OPTIMIZE TABLE generic_assay_data_derived;
 OPTIMIZE TABLE generic_assay_profile_entity_derived;
 OPTIMIZE TABLE generic_assay_meta_derived;
 
--- The study slide table: every slide the viewer can open, in resource_data's shape and filed under
--- WSI_SAMPLE. Sample-matched slides come from WSI_SAMPLE and unmatched ones from WSI_PATIENT (no
--- sample, match_level UNMATCHED), so the table lists the same slides as the Pathology Slides
--- viewer. Metadata is reduced to the allowlisted public slide fields
--- (WsiDeidentification.STUDY_TABLE_SCHEMA): the generic resource table parses ~270-byte documents
--- and never sees wsi_serving or the slide's other identifiers.
+-- The study slide table (see wsi_slide_table_derived in schema.sql).
 INSERT INTO wsi_slide_table_derived
 SELECT resource_data_id, 'WSI_SAMPLE' AS slide_table_resource_id, cancer_study_id, entity_type, patient_id, sample_id, url,
        CAST(NULL, 'Nullable(String)') AS display_name, type,
