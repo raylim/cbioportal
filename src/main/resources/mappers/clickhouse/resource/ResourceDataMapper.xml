@@ -91,7 +91,8 @@
     and access endpoints and never by the generic resource table:
     not as rows, tabs, counts, search or filter matches, sort keys, facets, discovered keys,
     contracts or column info. Every statement in this mapper reaches resource_data through
-    ResourceTableBaseFilters or getResourceTableTabs, and both apply this predicate.
+    ResourceTableBaseFilters, which applies this predicate, or getResourceTableTabs, which reads
+    slides only from wsi_slide_table_derived.
   -->
   <sql id="ExcludeWsiResourceRows">
     rdata.resource_id != 'WSI_PATIENT'
@@ -380,7 +381,6 @@
      AND rdef.cancer_study_id = rdata.cancer_study_id
     <where>
       cs.cancer_study_identifier IN (#{request.studyIdsArray, typeHandler=org.apache.ibatis.type.ArrayTypeHandler})
-      AND <include refid="ExcludeWsiResourceRows"/>
       <!-- See ResourceTableBaseFilters for why patientIds/sampleIds must be OR'd (by row level),
            not AND'd: resource_data rows are either patient-level (sample_id IS NULL) or
            sample-level, and ANDing both lists silently excludes all patient-level rows whenever
