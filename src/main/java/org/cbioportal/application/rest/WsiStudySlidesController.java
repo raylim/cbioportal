@@ -32,7 +32,6 @@ public class WsiStudySlidesController {
    * A study-view cohort plus list options.
    *
    * @param studyViewFilter the study-view filter defining the cohort
-   * @param viewableOnly counts and lists only slides the tile server can serve
    * @param stainGroups stain groups to keep ({@code H&E}, {@code IHC}, {@code Other}, {@code
    *     Unknown}); empty or null keeps all
    * @param matchLevels specimen match levels to keep ({@code PART}, {@code BLOCK}, {@code
@@ -45,7 +44,6 @@ public class WsiStudySlidesController {
    */
   public record WsiStudySlidesRequest(
       StudyViewFilter studyViewFilter,
-      Boolean viewableOnly,
       List<String> stainGroups,
       List<String> matchLevels,
       String search,
@@ -98,7 +96,6 @@ public class WsiStudySlidesController {
     boolean locate = request.locateStudyId() != null && request.locatePatientId() != null;
     return toQuery(
         request.studyViewFilter(),
-        request.viewableOnly(),
         request.stainGroups(),
         request.matchLevels(),
         request.search(),
@@ -110,7 +107,6 @@ public class WsiStudySlidesController {
 
   private static WsiStudySlidesQuery toQuery(
       StudyViewFilter studyViewFilter,
-      Boolean viewableOnly,
       List<String> requestedStainGroups,
       List<String> requestedMatchLevels,
       String requestedSearch,
@@ -132,7 +128,6 @@ public class WsiStudySlidesController {
       return null;
     }
     return new WsiStudySlidesQuery(
-        Boolean.TRUE.equals(viewableOnly),
         List.copyOf(stainGroups),
         List.copyOf(matchLevels),
         search == null || search.isEmpty() ? null : search,

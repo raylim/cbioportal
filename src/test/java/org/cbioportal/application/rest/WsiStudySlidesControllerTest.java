@@ -107,23 +107,22 @@ public class WsiStudySlidesControllerTest {
     allowStudyAccess(true);
     Map<String, Long> counts = Map.of("H&E", 1L, "IHC", 0L, "Other", 0L, "Unknown", 0L);
     WsiStudySlidesQuery expected =
-        new WsiStudySlidesQuery(true, List.of("H&E"), List.of(), "P-1", "study", "P-1", 2, 25);
+        new WsiStudySlidesQuery(List.of("H&E"), List.of(), "P-1", "study", "P-1", 2, 25);
     when(service.getStudySlides(
             argThat(filter -> filter.getStudyIds().equals(List.of("study"))), eq(expected)))
         .thenReturn(
             new WsiStudySlidesPage(
                 1,
                 1,
-                1,
                 counts,
                 0L,
                 2,
                 25,
-                List.of(new WsiStudySlidePatient("study", "P-1", 1, 1, counts))));
+                List.of(new WsiStudySlidePatient("study", "P-1", 1, counts))));
 
     perform(
             STUDY_BODY
-                + ",\"viewableOnly\":true,\"stainGroups\":[\"H&E\"],\"search\":\" P-1 \","
+                + ",\"stainGroups\":[\"H&E\"],\"search\":\" P-1 \","
                 + "\"locateStudyId\":\"study\",\"locatePatientId\":\"P-1\","
                 + "\"pageNumber\":2,\"pageSize\":25}")
         .andExpect(status().isOk())
@@ -132,10 +131,10 @@ public class WsiStudySlidesControllerTest {
         .andExpect(
             content()
                 .json(
-                    "{\"totalPatients\":1,\"totalSlides\":1,\"totalViewableSlides\":1,"
+                    "{\"totalPatients\":1,\"totalSlides\":1,"
                         + "\"locatedIndex\":0,\"pageNumber\":2,\"pageSize\":25,"
                         + "\"patients\":[{\"studyId\":\"study\",\"patientId\":\"P-1\","
-                        + "\"slideCount\":1,\"viewableSlideCount\":1}]}"));
+                        + "\"slideCount\":1}]}"));
   }
 
   private void allowStudyAccess(boolean allowed) {

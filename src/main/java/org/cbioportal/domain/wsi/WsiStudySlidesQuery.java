@@ -5,8 +5,6 @@ import java.util.List;
 /**
  * Options for listing a cohort's patients with whole-slide images.
  *
- * @param viewableOnly keeps only slides the tile server can serve, so patients without viewable
- *     slides are left out and every count is of viewable slides
  * @param stainGroups stain groups to keep; empty keeps all
  * @param matchLevels specimen match levels to keep ({@code PART}, {@code BLOCK}, {@code
  *     UNMATCHED}); empty keeps all
@@ -18,7 +16,6 @@ import java.util.List;
  * @param pageSize patients per page
  */
 public record WsiStudySlidesQuery(
-    boolean viewableOnly,
     List<String> stainGroups,
     List<String> matchLevels,
     String search,

@@ -39,7 +39,6 @@ public class ClickhouseWsiStudySlidesRepository implements WsiStudySlidesReposit
                             (String) row.get("study_id"),
                             (String) row.get("patient_id"),
                             longValue(row, "slide_count"),
-                            longValue(row, "viewable_slide_count"),
                             stainGroupCounts(row)))
                 .toList()
             : List.of();
@@ -48,7 +47,6 @@ public class ClickhouseWsiStudySlidesRepository implements WsiStudySlidesReposit
     return new WsiStudySlidesPage(
         totalPatients,
         longValue(totals, "total_slides"),
-        longValue(totals, "total_viewable_slides"),
         stainGroupCounts(totals),
         locatedIndex,
         query.pageNumber(),

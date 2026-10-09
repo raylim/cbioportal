@@ -16,7 +16,6 @@ import java.util.Map;
 public record WsiStudySlidesPage(
     long totalPatients,
     long totalSlides,
-    long totalViewableSlides,
     Map<String, Long> stainGroupTotals,
     Long locatedIndex,
     int pageNumber,

@@ -2,12 +2,12 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="org.cbioportal.infrastructure.repository.clickhouse.wsi.ClickhouseWsiStudySlidesMapper">
-    <!-- One row per WSI slide of the cohort, the same slides the study slide table lists for it: a
-         slide matched to a sample counts when that sample passes the study-view filter, and an
-         unmatched slide (no sample) when any of its patient's samples does. Only aggregate-safe public METADATA keys are
-         read; slide identifiers (slide_key, image_id), URL, DISPLAY_NAME and wsi_serving are never
-         selected. A slide without a valid opaque slide_key is dropped by the hierarchy and cannot
-         be served, so it is not counted here either (same rule as WsiDeidentification.SLIDE_KEY). -->
+    <!-- One row per viewable WSI slide of the cohort, the same slides the study slide table lists
+         for it: a slide matched to a sample counts when that sample passes the study-view filter,
+         and an unmatched slide (no sample) when any of its patient's samples does. A slide the
+         viewer cannot open (no valid opaque slide_key, or can_serve_tiles false) is not listed
+         there and not counted here. Only aggregate-safe public METADATA keys are read; slide
+         identifiers (slide_key, image_id), URL, DISPLAY_NAME and wsi_serving are never selected. -->
     <sql id="cohortSlideRows">
         SELECT
             cs.cancer_study_identifier AS study_id,
@@ -23,7 +23,6 @@
                 stored_slide_type = 'UNKNOWN', 'Unknown',
                 'Other'
             ) AS stain_group,
-            JSONExtractBool(ifNull(r.metadata, '{}'), 'can_serve_tiles') AS viewable,
             multiIf(
                 r.sample_id IS NULL, 'UNMATCHED',
                 JSONExtractString(ifNull(r.metadata, '{}'), 'match_level') IN ('PART', 'UNMATCHED'),
@@ -40,6 +39,7 @@
           AND r.type = 'WHOLE_SLIDE_IMAGE'
           AND r.patient_id IS NOT NULL
           AND match(JSONExtractString(ifNull(r.metadata, '{}'), 'slide_key'), '^[0-9a-f]{32}$')
+          AND JSONExtractBool(ifNull(r.metadata, '{}'), 'can_serve_tiles')
           AND (
               (r.sample_id IS NOT NULL
                AND concat(cs.cancer_study_identifier, '_', r.sample_id) IN (
@@ -53,9 +53,6 @@
                    WHERE sample_unique_id IN (<include refid="org.cbioportal.infrastructure.repository.clickhouse.studyview.ClickhouseStudyViewFilterMapper.sampleUniqueIdsFromStudyViewFilter"/>)
                ))
           )
-          <if test="query.viewableOnly">
-              AND JSONExtractBool(ifNull(r.metadata, '{}'), 'can_serve_tiles')
-          </if>
           <if test="query.search != null and query.search != ''">
               AND (
                   positionCaseInsensitiveUTF8(assumeNotNull(r.patient_id), #{query.search}) &gt; 0
@@ -82,7 +79,6 @@
         SELECT
             uniqExactIf((study_id, patient_id), <include refid="stainSelected"/>) AS total_patients,
             countIf(<include refid="stainSelected"/>) AS total_slides,
-            countIf(viewable AND <include refid="stainSelected"/>) AS total_viewable_slides,
             countIf(stain_group = 'H&amp;E') AS hne,
             countIf(stain_group = 'IHC') AS ihc,
             countIf(stain_group = 'Other') AS other,
@@ -108,7 +104,6 @@
             study_id,
             patient_id,
             count() AS slide_count,
-            countIf(viewable) AS viewable_slide_count,
             countIf(stain_group = 'H&amp;E') AS hne,
             countIf(stain_group = 'IHC') AS ihc,
             countIf(stain_group = 'Other') AS other,
