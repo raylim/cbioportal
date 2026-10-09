@@ -12,16 +12,15 @@
         SELECT
             cs.cancer_study_identifier AS study_id,
             assumeNotNull(r.patient_id) AS patient_id,
-            <!-- Same classification as the viewer's normalizeSlideType: the resolved flags first,
-                 then the stored slide type. -->
-            upper(trimBoth(JSONExtractString(ifNull(r.metadata, '{}'), 'slide_type'))) AS stored_slide_type,
+            <!-- Same classification as the WSI hierarchy (ClickhouseWsiHierarchyRepository
+                 .resolveSlideType): the resolved flags first, then a controlled stored slide type;
+                 a missing or uncontrolled slide type is Unknown, not a confirmed Other. -->
+            JSONExtractString(ifNull(r.metadata, '{}'), 'slide_type') AS stored_slide_type,
             multiIf(
                 JSONExtractBool(ifNull(r.metadata, '{}'), 'is_ihc'), 'IHC',
                 JSONExtractBool(ifNull(r.metadata, '{}'), 'is_hne'), 'H&amp;E',
-                stored_slide_type = 'IHC', 'IHC',
-                stored_slide_type IN ('H&amp;E', 'HE'), 'H&amp;E',
-                stored_slide_type = 'UNKNOWN', 'Unknown',
-                'Other'
+                stored_slide_type IN ('H&amp;E', 'IHC', 'Other', 'Unknown'), stored_slide_type,
+                'Unknown'
             ) AS stain_group,
             multiIf(
                 r.sample_id IS NULL, 'UNMATCHED',

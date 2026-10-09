@@ -43,7 +43,7 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     assertEquals(3, page.totalPatients());
     // COHORT-A's IHC slide cannot be served, so it is neither listed nor counted.
     assertEquals(4, page.totalSlides());
-    assertEquals(stainCounts(2, 0, 1, 1), page.stainGroupTotals());
+    assertEquals(stainCounts(2, 0, 0, 2), page.stainGroupTotals());
     assertNull(page.locatedIndex());
     assertEquals(
         List.of("COHORT-A", "COHORT-B", "OTHER-D"),
@@ -53,8 +53,8 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     assertEquals(COHORT_STUDY, cohortA.studyId());
     assertEquals(2, cohortA.slideCount());
     assertEquals(stainCounts(1, 0, 0, 1), cohortA.stainGroupCounts());
-    // A slide type outside H&E/IHC/Unknown counts as Other, as the viewer classifies it.
-    assertEquals(stainCounts(0, 0, 1, 0), page.patients().get(1).stainGroupCounts());
+    // An uncontrolled slide type ("Special stain") is Unknown, as the WSI hierarchy resolves it.
+    assertEquals(stainCounts(0, 0, 0, 1), page.patients().get(1).stainGroupCounts());
   }
 
   @Test
@@ -97,7 +97,7 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
 
     assertEquals(2, page.totalPatients());
     assertEquals(2, page.totalSlides());
-    assertEquals(stainCounts(2, 0, 1, 1), page.stainGroupTotals());
+    assertEquals(stainCounts(2, 0, 0, 2), page.stainGroupTotals());
     assertEquals(1, page.patients().get(0).slideCount());
     assertEquals(stainCounts(1, 0, 0, 0), page.patients().get(0).stainGroupCounts());
   }
