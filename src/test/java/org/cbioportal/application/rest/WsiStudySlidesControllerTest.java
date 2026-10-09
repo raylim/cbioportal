@@ -14,9 +14,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.List;
 import java.util.Map;
 import org.cbioportal.application.security.CancerStudyPermissionEvaluator;
-import org.cbioportal.domain.wsi.WsiStudySlideFacets;
-import org.cbioportal.domain.wsi.WsiStudySlideFacets.WsiStudySlideAttributeFacet;
-import org.cbioportal.domain.wsi.WsiStudySlideFacets.WsiStudySlideFacetValue;
 import org.cbioportal.domain.wsi.WsiStudySlidePatient;
 import org.cbioportal.domain.wsi.WsiStudySlidesPage;
 import org.cbioportal.domain.wsi.WsiStudySlidesQuery;
@@ -53,7 +50,6 @@ import org.springframework.test.web.servlet.ResultActions;
 public class WsiStudySlidesControllerTest {
 
   private static final String PATH = "/api/wsi/v2/study-slides/patients/fetch";
-  private static final String FACETS_PATH = "/api/wsi/v2/study-slides/facets/fetch";
   private static final String STUDY_BODY = "{\"studyViewFilter\":{\"studyIds\":[\"study\"]}";
 
   @TestConfiguration
@@ -154,69 +150,5 @@ public class WsiStudySlidesControllerTest {
   private ResultActions perform(String body) throws Exception {
     return mockMvc.perform(
         post(PATH).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body));
-  }
-
-  @Test
-  @WithMockUser
-  public void returnsFacetsForAuthorizedUsers() throws Exception {
-    allowStudyAccess(true);
-    WsiStudySlidesQuery expected =
-        new WsiStudySlidesQuery(true, List.of(), List.of("PART"), "P", null, null, 0, 1);
-    when(service.getStudySlideFacets(
-            argThat(filter -> filter.getStudyIds().equals(List.of("study"))),
-            eq(expected),
-            eq(List.of("CANCER_TYPE")),
-            eq(50)))
-        .thenReturn(
-            new WsiStudySlideFacets(
-                List.of(
-                    new WsiStudySlideAttributeFacet(
-                        "CANCER_TYPE",
-                        List.of(new WsiStudySlideFacetValue("Breast Cancer", 3)),
-                        false)),
-                Map.of("PART", 3L, "BLOCK", 0L, "UNMATCHED", 1L)));
-
-    mockMvc
-        .perform(
-            post(FACETS_PATH)
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    STUDY_BODY
-                        + ",\"viewableOnly\":true,\"matchLevels\":[\"PART\"],\"search\":\"P\","
-                        + "\"attributeIds\":[\"CANCER_TYPE\",\"CANCER_TYPE\"],\"maxValues\":50}"))
-        .andExpect(status().isOk())
-        .andExpect(header().string("Cache-Control", "private, no-store"))
-        .andExpect(
-            content()
-                .json(
-                    "{\"attributes\":[{\"attributeId\":\"CANCER_TYPE\",\"truncated\":false,"
-                        + "\"values\":[{\"value\":\"Breast Cancer\",\"patientCount\":3}]}],"
-                        + "\"matchLevels\":{\"PART\":3,\"UNMATCHED\":1}}"));
-  }
-
-  @Test
-  @WithMockUser
-  public void rejectsMalformedFacetRequests() throws Exception {
-    allowStudyAccess(true);
-    String tooMany =
-        java.util.stream.IntStream.range(0, 21)
-            .mapToObj(i -> "\"A" + i + "\"")
-            .collect(java.util.stream.Collectors.joining(","));
-    for (String extra :
-        List.of(
-            ",\"attributeIds\":[" + tooMany + "]",
-            ",\"attributeIds\":[\" \"]",
-            ",\"maxValues\":501",
-            ",\"matchLevels\":[\"SIDE\"]")) {
-      mockMvc
-          .perform(
-              post(FACETS_PATH)
-                  .with(csrf())
-                  .contentType(MediaType.APPLICATION_JSON)
-                  .content(STUDY_BODY + extra + "}"))
-          .andExpect(status().isBadRequest());
-    }
-    verifyNoInteractions(service);
   }
 }

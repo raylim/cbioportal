@@ -20,16 +20,4 @@ public interface ClickhouseWsiStudySlidesMapper {
       @Param("query") WsiStudySlidesQuery query,
       @Param("limit") int limit,
       @Param("offset") long offset);
-
-  List<Map<String, Object>> getCohortAttributeValueCounts(
-      @Param("studyViewFilterContext") StudyViewFilterContext studyViewFilterContext,
-      @Param("studyIds") List<String> studyIds,
-      @Param("query") WsiStudySlidesQuery query,
-      @Param("attributeIds") List<String> attributeIds,
-      @Param("maxValues") int maxValues);
-
-  List<Map<String, Object>> getCohortMatchLevelCounts(
-      @Param("studyViewFilterContext") StudyViewFilterContext studyViewFilterContext,
-      @Param("studyIds") List<String> studyIds,
-      @Param("query") WsiStudySlidesQuery query);
 }

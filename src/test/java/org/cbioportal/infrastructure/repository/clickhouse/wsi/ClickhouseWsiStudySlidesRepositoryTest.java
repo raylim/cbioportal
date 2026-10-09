@@ -7,8 +7,6 @@ import static org.junit.Assert.assertTrue;
 import java.util.List;
 import java.util.Map;
 import org.cbioportal.domain.studyview.StudyViewFilterFactory;
-import org.cbioportal.domain.wsi.WsiStudySlideFacets.WsiStudySlideAttributeFacet;
-import org.cbioportal.domain.wsi.WsiStudySlideFacets.WsiStudySlideFacetValue;
 import org.cbioportal.domain.wsi.WsiStudySlidePatient;
 import org.cbioportal.domain.wsi.WsiStudySlidesPage;
 import org.cbioportal.domain.wsi.WsiStudySlidesQuery;
@@ -205,40 +203,6 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     assertEquals(1, page.totalPatients());
     assertEquals("COHORT-A", page.patients().get(0).patientId());
     assertEquals(1, page.totalSlides());
-  }
-
-  @Test
-  public void countsPatientsPerClinicalValueAndMatchLevel() {
-    StudyViewFilter filter = studies(COHORT_STUDY);
-    List<String> studyIds = List.copyOf(filter.getUniqueStudyIds());
-    var context = StudyViewFilterFactory.make(filter, null, studyIds, null);
-
-    List<WsiStudySlideAttributeFacet> facets =
-        repository.getAttributeFacets(
-            context, studyIds, query(), List.of("CANCER_TYPE", "SEX", "MISSING"), 200);
-
-    assertEquals(List.of("CANCER_TYPE", "SEX"), facets.stream().map(f -> f.attributeId()).toList());
-    // COHORT-C's Breast Cancer sample has no slides; ties are ordered by value.
-    assertEquals(
-        List.of(
-            new WsiStudySlideFacetValue("Breast Cancer", 1),
-            new WsiStudySlideFacetValue("Colorectal Cancer", 1),
-            new WsiStudySlideFacetValue("Melanoma", 1)),
-        facets.get(0).values());
-    assertEquals(false, facets.get(0).truncated());
-    assertEquals(
-        List.of(new WsiStudySlideFacetValue("Female", 2), new WsiStudySlideFacetValue("Male", 1)),
-        facets.get(1).values());
-
-    List<WsiStudySlideAttributeFacet> truncated =
-        repository.getAttributeFacets(context, studyIds, query(), List.of("CANCER_TYPE"), 1);
-    assertEquals(1, truncated.get(0).values().size());
-    assertTrue(truncated.get(0).truncated());
-
-    // A slide without a sample is unmatched; a matched slide without a level is block-matched.
-    assertEquals(
-        Map.of("PART", 1L, "BLOCK", 3L, "UNMATCHED", 1L),
-        repository.getMatchLevelCounts(context, studyIds, query()));
   }
 
   @Test

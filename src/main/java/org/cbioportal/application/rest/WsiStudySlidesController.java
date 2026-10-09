@@ -1,7 +1,6 @@
 package org.cbioportal.application.rest;
 
 import java.util.List;
-import org.cbioportal.domain.wsi.WsiStudySlideFacets;
 import org.cbioportal.domain.wsi.WsiStudySlidesPage;
 import org.cbioportal.domain.wsi.WsiStudySlidesQuery;
 import org.cbioportal.domain.wsi.WsiStudySlidesService;
@@ -28,9 +27,6 @@ public class WsiStudySlidesController {
   static final int DEFAULT_PAGE_SIZE = 50;
   static final int MAX_PAGE_SIZE = 100;
   static final int MAX_SEARCH_LENGTH = 64;
-  static final int MAX_FACET_ATTRIBUTES = 20;
-  static final int DEFAULT_FACET_VALUES = 200;
-  static final int MAX_FACET_VALUES = 500;
 
   /**
    * A study-view cohort plus list options.
@@ -57,21 +53,6 @@ public class WsiStudySlidesController {
       String locatePatientId,
       Integer pageNumber,
       Integer pageSize) {}
-
-  /**
-   * A study-view cohort, the tab's slide filters, and the clinical attributes to count values of.
-   *
-   * @param attributeIds clinical attributes to count, at most 20
-   * @param maxValues most frequent values kept per attribute, 1 to 500, default 200
-   */
-  public record WsiStudySlideFacetsRequest(
-      StudyViewFilter studyViewFilter,
-      Boolean viewableOnly,
-      List<String> stainGroups,
-      List<String> matchLevels,
-      String search,
-      List<String> attributeIds,
-      Integer maxValues) {}
 
   private final WsiStudySlidesService service;
 
@@ -159,50 +140,6 @@ public class WsiStudySlidesController {
         locatePatientId,
         pageNumber,
         pageSize);
-  }
-
-  @PostMapping(
-      value = "/facets/fetch",
-      consumes = MediaType.APPLICATION_JSON_VALUE,
-      produces = MediaType.APPLICATION_JSON_VALUE)
-  @PreAuthorize(
-      "!isAuthenticated() or hasPermission(#request?.studyViewFilter(), 'StudyViewFilter', "
-          + "T(org.cbioportal.legacy.utils.security.AccessLevel).READ)")
-  public ResponseEntity<WsiStudySlideFacets> fetchStudySlideFacets(
-      @RequestBody WsiStudySlideFacetsRequest request) {
-    if (isRefusedAnonymous()) {
-      return privateResponse(HttpStatus.UNAUTHORIZED).build();
-    }
-    WsiStudySlidesQuery query =
-        request == null
-            ? null
-            : toQuery(
-                request.studyViewFilter(),
-                request.viewableOnly(),
-                request.stainGroups(),
-                request.matchLevels(),
-                request.search(),
-                null,
-                null,
-                0,
-                1);
-    List<String> attributeIds =
-        request == null || request.attributeIds() == null
-            ? List.of()
-            : request.attributeIds().stream().distinct().toList();
-    int maxValues =
-        request == null || request.maxValues() == null ? DEFAULT_FACET_VALUES : request.maxValues();
-    if (query == null
-        || attributeIds.size() > MAX_FACET_ATTRIBUTES
-        || attributeIds.stream().anyMatch(id -> id == null || id.isBlank())
-        || maxValues < 1
-        || maxValues > MAX_FACET_VALUES) {
-      return privateResponse(HttpStatus.BAD_REQUEST).build();
-    }
-    return privateResponse(HttpStatus.OK)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(
-            service.getStudySlideFacets(request.studyViewFilter(), query, attributeIds, maxValues));
   }
 
   private boolean isRefusedAnonymous() {

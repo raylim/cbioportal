@@ -35,17 +35,4 @@ public record WsiStudySlidesQuery(
    * without a sample is unmatched, and a matched slide without a level is block-matched.
    */
   public static final List<String> MATCH_LEVELS = List.of("PART", "BLOCK", "UNMATCHED");
-
-  /** The same query without the match-level filter, for match-level counts. */
-  public WsiStudySlidesQuery withoutMatchLevels() {
-    return new WsiStudySlidesQuery(
-        viewableOnly,
-        stainGroups,
-        List.of(),
-        search,
-        locateStudyId,
-        locatePatientId,
-        pageNumber,
-        pageSize);
-  }
 }
