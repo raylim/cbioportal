@@ -76,19 +76,6 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
   }
 
   @Test
-  public void searchesPatientIds() {
-    WsiStudySlidesPage page =
-        fetch(
-            studies(COHORT_STUDY),
-            new WsiStudySlidesQuery(List.of(), List.of(), "COHORT", null, null, 0, 50));
-
-    assertEquals(2, page.totalPatients());
-    assertEquals(
-        List.of("COHORT-A", "COHORT-B"),
-        page.patients().stream().map(WsiStudySlidePatient::patientId).toList());
-  }
-
-  @Test
   public void filtersByStainGroupButKeepsEveryStainGroupTotal() {
     WsiStudySlidesPage page =
         fetch(
@@ -151,16 +138,23 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
   }
 
   @Test
-  public void searchesSampleIdsIgnoringCase() {
-    WsiStudySlidesPage page =
+  public void searchesPatientAndSampleIdsIgnoringCase() {
+    WsiStudySlidesPage byPatient =
+        fetch(
+            studies(COHORT_STUDY),
+            new WsiStudySlidesQuery(List.of(), List.of(), "COHORT", null, null, 0, 50));
+    assertEquals(
+        List.of("COHORT-A", "COHORT-B"),
+        byPatient.patients().stream().map(WsiStudySlidePatient::patientId).toList());
+
+    WsiStudySlidesPage bySample =
         fetch(
             studies(COHORT_STUDY),
             new WsiStudySlidesQuery(List.of(), List.of(), "a-1", null, null, 0, 50));
-
-    assertEquals(1, page.totalPatients());
-    assertEquals("COHORT-A", page.patients().get(0).patientId());
+    assertEquals(1, bySample.totalPatients());
+    assertEquals("COHORT-A", bySample.patients().get(0).patientId());
     // Only the slide of the matching sample.
-    assertEquals(1, page.patients().get(0).slideCount());
+    assertEquals(1, bySample.patients().get(0).slideCount());
   }
 
   @Test
