@@ -55,8 +55,7 @@ public class ClickhouseResourceDataPrivacyTest {
   private static final String EXTERNAL = "EXTERNAL_SLIDES";
   private static final String NOTES = "PATHOLOGY_NOTES";
   private static final List<String> WSI_ROW_IDS = List.of("900501", "900502");
-  private static final List<String> WSI_SLIDE_KEYS =
-      List.of("5d41402abc4b2a76b9719d911017c592", "7d793037a0760186574b0282f2f435e7");
+  private static final String WSI_SLIDE_KEY = "5d41402abc4b2a76b9719d911017c592";
 
   /**
    * Fixture row id by url. Rows no longer carry their resource_data_id, and each fixture row has a
@@ -174,7 +173,7 @@ public class ClickhouseResourceDataPrivacyTest {
         List.of(
             new ResourceColumnFilter("metadata:block_key", "in", List.of("block:hiddenblockone")),
             new ResourceColumnFilter("metadata:reference_sample_id", "equals", List.of("x")),
-            new ResourceColumnFilter("metadata:slide_key", "in", WSI_SLIDE_KEYS.subList(0, 1)),
+            new ResourceColumnFilter("metadata:slide_key", "in", List.of(WSI_SLIDE_KEY)),
             new ResourceColumnFilter("metadata:wsi_serving", "contains", List.of("wsipath-1")),
             new ResourceColumnFilter("metadata:part_description", "in", List.of("liver margin")))) {
       ResourceTableQuery filtered = query(WSI, null, null, null, List.of(filter));
@@ -379,7 +378,7 @@ public class ClickhouseResourceDataPrivacyTest {
           .extracting(ClickhouseResourceDataPrivacyTest::rowId)
           .doesNotContainAnyElementsOf(WSI_ROW_IDS);
       assertThat(rows).extracting(ResourceTableRow::resourceId).containsOnly(resourceId);
-      assertThat(rows.toString()).doesNotContain(WSI_SLIDE_KEYS.get(0)).doesNotContain("Masson");
+      assertThat(rows.toString()).doesNotContain(WSI_SLIDE_KEY).doesNotContain("Masson");
       assertThat(repository.getResourceTableMetadata(query).facets().toString())
           .doesNotContain("Masson")
           .doesNotContain("liver");
