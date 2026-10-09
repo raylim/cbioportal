@@ -113,4 +113,37 @@
         ORDER BY study_id, patient_id
         LIMIT #{limit} OFFSET #{offset}
     </select>
+    <!-- Patients per clinical value among the listed patients (those with a listed slide),
+         keeping the most frequent values of each attribute. -->
+    <select id="getCohortAttributeValueCounts" resultType="hashmap">
+        SELECT attribute_id, value, patient_count, value_count
+        FROM (
+            SELECT
+                attribute_name AS attribute_id,
+                attribute_value AS value,
+                uniqExact(patient_unique_id) AS patient_count,
+                count() OVER (PARTITION BY attribute_name) AS value_count
+            FROM clinical_data_derived
+            WHERE cancer_study_identifier IN
+                <foreach item="studyId" collection="studyIds" open="(" separator="," close=")">#{studyId}</foreach>
+              AND attribute_name IN
+                <foreach item="attributeId" collection="attributeIds" open="(" separator="," close=")">#{attributeId}</foreach>
+              AND upper(attribute_value) NOT IN ('NA', '')
+              AND patient_unique_id IN (
+                  SELECT concat(study_id, '_', patient_id)
+                  FROM (<include refid="cohortSlideRows"/>)
+                  WHERE <include refid="stainSelected"/>
+              )
+            GROUP BY attribute_name, attribute_value
+        )
+        ORDER BY attribute_id, patient_count DESC, value
+        LIMIT #{maxValues} BY attribute_id
+    </select>
+
+    <select id="getCohortMatchLevelCounts" resultType="hashmap">
+        SELECT match_level, uniqExact((study_id, patient_id)) AS patient_count
+        FROM (<include refid="cohortSlideRows"/>)
+        WHERE <include refid="stainSelected"/>
+        GROUP BY match_level
+    </select>
 </mapper>

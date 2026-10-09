@@ -4,6 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.cbioportal.domain.studyview.StudyViewFilterContext;
+import org.cbioportal.domain.wsi.WsiStudySlideFacets.WsiStudySlideAttributeFacet;
+import org.cbioportal.domain.wsi.WsiStudySlideFacets.WsiStudySlideFacetValue;
 import org.cbioportal.domain.wsi.WsiStudySlidePatient;
 import org.cbioportal.domain.wsi.WsiStudySlidesPage;
 import org.cbioportal.domain.wsi.WsiStudySlidesQuery;
@@ -52,6 +54,52 @@ public class ClickhouseWsiStudySlidesRepository implements WsiStudySlidesReposit
         query.pageNumber(),
         query.pageSize(),
         patients);
+  }
+
+  @Override
+  public List<WsiStudySlideAttributeFacet> getAttributeFacets(
+      StudyViewFilterContext studyViewFilterContext,
+      List<String> studyIds,
+      WsiStudySlidesQuery query,
+      List<String> attributeIds,
+      int maxValues) {
+    if (attributeIds.isEmpty()) {
+      return List.of();
+    }
+    Map<String, List<WsiStudySlideFacetValue>> values = new LinkedHashMap<>();
+    Map<String, Long> valueCounts = new LinkedHashMap<>();
+    for (Map<String, Object> row :
+        mapper.getCohortAttributeValueCounts(
+            studyViewFilterContext, studyIds, query, attributeIds, maxValues)) {
+      String attributeId = (String) row.get("attribute_id");
+      values
+          .computeIfAbsent(attributeId, id -> new java.util.ArrayList<>())
+          .add(
+              new WsiStudySlideFacetValue(
+                  (String) row.get("value"), longValue(row, "patient_count")));
+      valueCounts.put(attributeId, longValue(row, "value_count"));
+    }
+    return attributeIds.stream()
+        .filter(values::containsKey)
+        .map(
+            id ->
+                new WsiStudySlideAttributeFacet(
+                    id, values.get(id), valueCounts.get(id) > values.get(id).size()))
+        .toList();
+  }
+
+  @Override
+  public Map<String, Long> getMatchLevelCounts(
+      StudyViewFilterContext studyViewFilterContext,
+      List<String> studyIds,
+      WsiStudySlidesQuery query) {
+    Map<String, Long> counts = new LinkedHashMap<>();
+    WsiStudySlidesQuery.MATCH_LEVELS.forEach(level -> counts.put(level, 0L));
+    for (Map<String, Object> row :
+        mapper.getCohortMatchLevelCounts(studyViewFilterContext, studyIds, query)) {
+      counts.put((String) row.get("match_level"), longValue(row, "patient_count"));
+    }
+    return counts;
   }
 
   private static Map<String, Long> stainGroupCounts(Map<String, Object> row) {
