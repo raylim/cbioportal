@@ -13,13 +13,11 @@ import org.cbioportal.domain.wsi.WsiSlideAccess;
 import org.cbioportal.domain.wsi.WsiSlideSource;
 import org.cbioportal.domain.wsi.repository.WsiSlideAccessRepository;
 import org.cbioportal.legacy.utils.security.AccessLevel;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,13 +32,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/wsi")
 public class WsiAccessTokenController {
 
-  /** Tile capability format: slide_key + encrypted source claim (contract wsi-serving-v5). */
-  static final int WSI_AUTH_VERSION = 3;
+  /** Tile capability format: slide_key + sealed source claim (contract wsi-serving-v6). */
+  static final int WSI_AUTH_VERSION = 4;
 
   /**
    * Study-scoped capabilities by purpose. They name no slide and carry no {@code wsi_auth_version},
-   * so the tile service never accepts them: slide pixels are reachable only through the per-slide
-   * v3 capability from {@link #issueSlideAccess}.
+   * so the tile service never accepts them for pixels: slides are reachable only through the
+   * per-slide capability from {@link #issueSlideAccess}.
    */
   static final Map<String, String> PURPOSE_SCOPES =
       Map.of(
@@ -60,16 +58,22 @@ public class WsiAccessTokenController {
   @Value("${wsi.local-auth-bypass:false}")
   private boolean localAuthBypass;
 
-  @Autowired(required = false)
-  private WsiSlideAccessRepository wsiSlideAccessRepository;
+  private final WsiSlideAccessRepository wsiSlideAccessRepository;
 
-  @Autowired(required = false)
-  private CancerStudyPermissionEvaluator cancerStudyPermissionEvaluator;
+  /** Absent when portal authentication is off; then no study capability is issued. */
+  private final ObjectProvider<CancerStudyPermissionEvaluator> cancerStudyPermissionEvaluator;
+
+  public WsiAccessTokenController(
+      WsiSlideAccessRepository wsiSlideAccessRepository,
+      ObjectProvider<CancerStudyPermissionEvaluator> cancerStudyPermissionEvaluator) {
+    this.wsiSlideAccessRepository = wsiSlideAccessRepository;
+    this.cancerStudyPermissionEvaluator = cancerStudyPermissionEvaluator;
+  }
 
   /**
    * Issues a study-scoped capability for the annotation service ({@code purpose=annotations}) or
    * the slide assistant ({@code purpose=agent}). Any other or missing purpose is a 400: slide
-   * access is per slide, from the v3 resources access endpoint only.
+   * access is per slide, from the resources access endpoint only.
    */
   @GetMapping("/access-token")
   @PreAuthorize(
@@ -79,36 +83,37 @@ public class WsiAccessTokenController {
       @RequestParam(required = false) String studyId,
       @RequestParam(required = false) String purpose) {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    boolean anonymous = isAnonymous(authentication);
+    boolean anonymous = WsiResponses.isAnonymous(authentication);
     if (anonymous && !localAuthBypass) {
-      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+      return WsiResponses.privateResponse(HttpStatus.UNAUTHORIZED).build();
     }
     if (anonymous) {
       authentication = localDevelopmentAuthentication();
     }
-    if (studyId == null || studyId.isBlank()) {
-      return ResponseEntity.badRequest().build();
+    if (studyId == null
+        || studyId.isBlank()
+        || purpose == null
+        || !PURPOSE_SCOPES.containsKey(purpose)) {
+      return WsiResponses.privateResponse(HttpStatus.BAD_REQUEST).build();
     }
-    if (purpose == null || !PURPOSE_SCOPES.containsKey(purpose)) {
-      return ResponseEntity.badRequest().build();
-    }
-    if (!anonymous
-        && (cancerStudyPermissionEvaluator == null
-            || !cancerStudyPermissionEvaluator.hasPermission(
-                authentication, studyId, "CancerStudyId", AccessLevel.READ))) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    if (!anonymous) {
+      CancerStudyPermissionEvaluator evaluator = cancerStudyPermissionEvaluator.getIfAvailable();
+      if (evaluator == null
+          || !evaluator.hasPermission(authentication, studyId, "CancerStudyId", AccessLevel.READ)) {
+        return WsiResponses.privateResponse(HttpStatus.FORBIDDEN).build();
+      }
     }
     if (accessTokenSecret == null
         || accessTokenSecret.getBytes(StandardCharsets.UTF_8).length < 32) {
-      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+      return WsiResponses.privateResponse(HttpStatus.SERVICE_UNAVAILABLE).build();
     }
 
     int ttl = Math.max(60, Math.min(accessTokenTtlSeconds, 300));
     Instant issuedAt = Instant.now();
     Instant expiresAt = issuedAt.plusSeconds(ttl);
     String token = issuePurposeToken(authentication, studyId, purpose, issuedAt, expiresAt);
-    return ResponseEntity.ok(
-        Map.of("access_token", token, "token_type", "Bearer", "expires_in", ttl));
+    return WsiResponses.privateResponse(HttpStatus.OK)
+        .body(Map.of("access_token", token, "token_type", "Bearer", "expires_in", ttl));
   }
 
   /**
@@ -116,12 +121,13 @@ public class WsiAccessTokenController {
    * opaque slide key.
    *
    * <p>The slide key is the public, stable name of a slide: unlike the resource-data row ID it
-   * survives a reimport, and unlike the server-side image ID it identifies nothing outside the
-   * portal. It is a query parameter so the resource-data URL shape is unchanged.
+   * survives a reimport, and it identifies nothing outside the portal. It is a query parameter so
+   * the resource-data URL shape is unchanged.
    *
-   * <p>The exact source and thumbnail URLs are resolved by cBioPortal, rather than by the tile
-   * server, and are carried only inside the AES-GCM encrypted {@code enc} claim of the capability.
-   * Neither they nor the image identifier ever appear in the response or in plaintext claims.
+   * <p>The slide's source and thumbnail locations are sealed upstream, with a key cBioPortal does
+   * not hold and the slide key as associated data, into the stored {@code sealed_source}. The
+   * capability carries it verbatim as its {@code enc} claim, and only the tile server can open it.
+   * It never appears in the response outside the signed capability.
    */
   @GetMapping("/v2/resources/{studyId}/{patientId}/access")
   @PreAuthorize(
@@ -132,9 +138,9 @@ public class WsiAccessTokenController {
       @PathVariable String patientId,
       @RequestParam(required = false) String slideKey) {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    boolean anonymous = isAnonymous(authentication);
+    boolean anonymous = WsiResponses.isAnonymous(authentication);
     if (anonymous && !localAuthBypass) {
-      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+      return WsiResponses.privateResponse(HttpStatus.UNAUTHORIZED).build();
     }
     if (anonymous) {
       authentication = localDevelopmentAuthentication();
@@ -144,20 +150,17 @@ public class WsiAccessTokenController {
         || patientId == null
         || patientId.isBlank()
         || !WsiDeidentification.isSlideKey(slideKey)) {
-      return ResponseEntity.badRequest().build();
-    }
-    if (wsiSlideAccessRepository == null) {
-      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+      return WsiResponses.privateResponse(HttpStatus.BAD_REQUEST).build();
     }
     if (accessTokenSecret == null
         || accessTokenSecret.getBytes(StandardCharsets.UTF_8).length < 32) {
-      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+      return WsiResponses.privateResponse(HttpStatus.SERVICE_UNAVAILABLE).build();
     }
 
     // The repository guarantees the returned source is bound to slideKey.
     WsiSlideSource source = wsiSlideAccessRepository.getSlideSource(studyId, patientId, slideKey);
     if (source == null) {
-      return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+      return WsiResponses.privateResponse(HttpStatus.NOT_FOUND).build();
     }
 
     int ttl = Math.max(60, Math.min(accessTokenTtlSeconds, 300));
@@ -167,10 +170,7 @@ public class WsiAccessTokenController {
     WsiSlideAccess response =
         new WsiSlideAccess(
             source.slideKey(), source.tileMetadata(), source.thumbnail(), token, "Bearer", ttl);
-    return ResponseEntity.ok()
-        .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
-        .header(HttpHeaders.VARY, "Authorization, Cookie")
-        .body(response);
+    return WsiResponses.privateResponse(HttpStatus.OK).body(response);
   }
 
   private String issueSlideToken(
@@ -179,13 +179,6 @@ public class WsiAccessTokenController {
       WsiSlideSource source,
       Instant issuedAt,
       Instant expiresAt) {
-    String enc =
-        WsiClaimEncryption.encrypt(
-            accessTokenSecret,
-            source.slideKey(),
-            source.imageId(),
-            source.sourceUrl(),
-            source.thumbnailSourceUrl());
     return Jwts.builder()
         .setHeaderParam("typ", "JWT")
         .setSubject(authentication.getName())
@@ -196,7 +189,7 @@ public class WsiAccessTokenController {
         .claim("thumbnail_width", source.thumbnail().width())
         .claim("thumbnail_height", source.thumbnail().height())
         .claim("wsi_auth_version", WSI_AUTH_VERSION)
-        .claim("enc", enc)
+        .claim("enc", source.sealedSource())
         .setIssuedAt(Date.from(issuedAt))
         .setExpiration(Date.from(expiresAt))
         .signWith(SignatureAlgorithm.HS256, accessTokenSecret.getBytes(StandardCharsets.UTF_8))
@@ -210,6 +203,7 @@ public class WsiAccessTokenController {
       Instant issuedAt,
       Instant expiresAt) {
     return Jwts.builder()
+        .setHeaderParam("typ", "JWT")
         .setSubject(authentication.getName())
         .setAudience(accessTokenAudience)
         .claim("scope", PURPOSE_SCOPES.get(purpose))
@@ -218,12 +212,6 @@ public class WsiAccessTokenController {
         .setExpiration(Date.from(expiresAt))
         .signWith(SignatureAlgorithm.HS256, accessTokenSecret.getBytes(StandardCharsets.UTF_8))
         .compact();
-  }
-
-  private static boolean isAnonymous(Authentication authentication) {
-    return authentication == null
-        || !authentication.isAuthenticated()
-        || authentication instanceof AnonymousAuthenticationToken;
   }
 
   private static Authentication localDevelopmentAuthentication() {

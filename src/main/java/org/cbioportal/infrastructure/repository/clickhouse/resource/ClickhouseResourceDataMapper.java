@@ -2,9 +2,11 @@ package org.cbioportal.infrastructure.repository.clickhouse.resource;
 
 import java.util.List;
 import org.apache.ibatis.annotations.Param;
+import org.cbioportal.domain.resource.ResourceContractRow;
 import org.cbioportal.domain.resource.ResourceFacetOption;
 import org.cbioportal.domain.resource.ResourceMetadataFacetValue;
 import org.cbioportal.domain.resource.ResourceMetadataKeyStats;
+import org.cbioportal.domain.resource.ResourceMetadataRange;
 import org.cbioportal.domain.resource.ResourceTableCounts;
 import org.cbioportal.domain.resource.ResourceTableQuery;
 import org.cbioportal.domain.resource.ResourceTableRow;
@@ -41,11 +43,16 @@ public interface ClickhouseResourceDataMapper {
       @Param("sampleRows") int sampleRows,
       @Param("maxMemoryBytes") long maxMemoryBytes);
 
+  /** Exact min/max for keys already classified numeric; see the mapper XML for why. */
+  List<ResourceMetadataRange> getResourceTableMetadataRanges(
+      @Param("query") ResourceTableQuery query, @Param("metadataKeys") String[] metadataKeys);
+
   /**
    * The current resource tab's {@code resource_definition.custom_metadata} JSON schema, if any
    * study/row in scope has one set. Returns null when no override schema is present.
    */
-  List<String> getResourceDefinitionCustomMetadata(@Param("query") ResourceTableQuery query);
+  List<ResourceContractRow> getResourceDefinitionCustomMetadata(
+      @Param("query") ResourceTableQuery query);
 
   ResourceTableCounts getResourceTableCounts(@Param("query") ResourceTableQuery query);
 }

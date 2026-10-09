@@ -4,8 +4,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
  * One slide in the browser-facing hierarchy. Slides are addressed only by the opaque {@code
- * slideKey}; the server-side image identifier, slide barcode and resource-data row identifiers are
- * never exposed.
+ * slideKey}; slide barcodes and resource-data row identifiers are never exposed, and the pathology
+ * image identifier is not stored in cBioPortal at all.
  */
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public record WsiSlide(
@@ -20,11 +20,4 @@ public record WsiSlide(
     String slideType,
     String sampleId,
     String matchLevel,
-    String specimenKey,
-    Integer procedureDateDays,
-    String timepointSource,
-    String procedureDateKind,
-    String procedureDateSource,
-    String procedureDateReason,
-    String procedureDateStatus,
-    String procedureCoordinateSystem) {}
+    String specimenKey) {}

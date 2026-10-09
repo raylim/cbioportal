@@ -2,6 +2,13 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.cbioportal.infrastructure.repository.clickhouse.resource.ClickhouseResourceDataMapper">
 
+  <resultMap id="ResourceContractRowResultMap" type="org.cbioportal.domain.resource.ResourceContractRow">
+    <constructor>
+      <arg column="customMetadata" javaType="String"/>
+      <arg column="firstStudy" javaType="String"/>
+    </constructor>
+  </resultMap>
+
   <resultMap id="ResourceTableTabResultMap" type="org.cbioportal.domain.resource.ResourceTableTab">
     <constructor>
       <arg column="resourceId" javaType="String"/>
@@ -40,8 +47,6 @@
       <arg column="metaKey" javaType="String"/>
       <arg column="nonBlankCount" javaType="_long"/>
       <arg column="numericCount" javaType="_long"/>
-      <arg column="minValue" javaType="java.lang.Double"/>
-      <arg column="maxValue" javaType="java.lang.Double"/>
     </constructor>
   </resultMap>
 
@@ -55,9 +60,10 @@
 
   <!--
     Searchable text for a row's public metadata: every top-level key with its raw JSON value,
-    except wsi_serving. wsi_serving (and everything nested under it) holds artifact locations
-    that are private to the WSI access API for every row regardless of type, so it must not be
-    able to influence search results, filters, sorting, facets or key discovery. Rows with no
+    except wsi_serving. wsi_serving (and everything nested under it) holds serving data, such as
+    the sealed slide source, that is private to the WSI access API for every row regardless of
+    type, so it must not be able to influence search results, filters, sorting, facets or key
+    discovery. Rows with no
     metadata contribute an empty string, which keeps the predicate non-null for null-type rows.
   -->
   <sql id="PublicMetadataText">
@@ -202,18 +208,18 @@
 
   <!--
     Reads the target metadata key straight off the <foreach> item as #{filter.metadataKey}
-    (ResourceColumnFilter.getMetadataKey() strips the "metadata:" prefix).
+    (ResourceColumnFilter.metadataKey() strips the "metadata:" prefix).
 
     Do NOT reintroduce a <bind> for this key. MyBatis <bind> variables are statement-scoped and
     resolved from the *final* bindings map, whereas <foreach> item properties are renamed per
     iteration. A <bind> set inside the filters loop therefore made every metadata condition in
     the statement read back the LAST filter's key, so two simultaneous metadata filters both
     applied to the same column and silently dropped matching rows. It also collides with the
-    "metadataKey" @Param used by getResourceTableMetadataFacetValues.
+    "metadataKeys" @Param used by getResourceTableMetadataFacets.
   -->
   <sql id="ApplyStringFilterOnMetadata">
     <choose>
-      <!-- wsi_serving contains artifact paths and is private to the WSI access API for every row
+      <!-- wsi_serving contains serving data and is private to the WSI access API for every row
            (see PublicMetadataText). A filter on it is ignored, like a filter on an unsupported
            builtin column, so neither its values nor the request itself change rows or counts. -->
       <when test="filter.metadataKey == 'wsi_serving'">
@@ -337,7 +343,15 @@
   <select id="getResourceTableTabs" resultMap="ResourceTableTabResultMap">
     SELECT
       rdata.resource_id AS resourceId,
-      coalesce(any(rdef.display_name), rdata.resource_id) AS label,
+      <!-- Two studies can name one resource_id differently. The label is taken from the lowest
+           study identifier that names it, the same study whose contract wins where contracts
+           disagree, so a tab and its columns describe the same declaration rather than being
+           picked apart. Rows left unmatched by the LEFT JOIN carry '' rather than NULL, since
+           display_name is not nullable, so the empty test is what skips a study that declares no
+           definition for a resource its data references. -->
+      coalesce(
+        nullIf(argMinIf(rdef.display_name, cs.cancer_study_identifier, rdef.display_name != ''), ''),
+        rdata.resource_id) AS label,
       count(*) AS totalCount,
       count(DISTINCT if(rdata.patient_id IS NULL, NULL, concat(cs.cancer_study_identifier, '_', rdata.patient_id))) AS patientCount,
       count(DISTINCT if(rdata.sample_id IS NULL, NULL, concat(cs.cancer_study_identifier, '_', rdata.sample_id))) AS sampleCount
@@ -413,9 +427,8 @@
   </select>
 
   <!--
-    LIMIT is one more than the caller's cap: if the extra row comes back the key has too many
-    distinct values to offer as a dropdown and the caller drops the facet entirely. See
-    getResourceTableMetadataFacetValues.
+    LIMIT is one more than the caller's cap: if the extra row comes back the column has too many
+    distinct values to offer as a dropdown and the caller drops the facet entirely.
   -->
   <select id="getResourceTableFacetValues" resultMap="ResourceFacetOptionResultMap">
     SELECT ${column} AS value, count(*) AS count
@@ -471,14 +484,38 @@
 
     The sample means a key present only in rows beyond it is not discovered, and a key whose only
     numeric values lie beyond it is classified as text. The bound is large enough that this needs
-    a resource with very heterogeneous metadata to matter.
+    a resource with very heterogeneous metadata to matter. Ranges are deliberately not taken from
+    here; see getResourceTableMetadataRanges.
   -->
+  <!--
+    Exact min/max for the keys already known to be numeric.
+
+    Deliberately not taken from the sampled discovery query above: the range is what the slider
+    offers, so a range narrowed by the sample would put rows beyond it out of the user's reach.
+    This reads the whole filtered set, but only for a handful of keys, and the pairs are filtered
+    to those keys before aggregating, so the state stays small.
+  -->
+  <select id="getResourceTableMetadataRanges" resultType="org.cbioportal.domain.resource.ResourceMetadataRange">
+    SELECT metaKey, min(parsedValue) AS minValue, max(parsedValue) AS maxValue
+    FROM (
+      SELECT kv.1 AS metaKey, toFloat64OrNull(JSONExtractString(kv.2)) AS parsedValue
+      FROM (
+        SELECT arrayJoin(JSONExtractKeysAndValuesRaw(ifNull(rdata.metadata, '{}'))) AS kv
+        <include refid="ResourceTableFromClause"/>
+        <include refid="ResourceTableBaseFilters"/>
+        AND rdata.metadata IS NOT NULL AND rdata.metadata != '' AND rdata.metadata != '{}'
+      ) pairs
+      WHERE kv.1 IN (#{metadataKeys, typeHandler=org.apache.ibatis.type.ArrayTypeHandler})
+    ) vals
+    WHERE parsedValue IS NOT NULL
+    GROUP BY metaKey
+    ORDER BY metaKey ASC
+  </select>
+
   <select id="getResourceTableMetadataKeyStats" resultMap="ResourceMetadataKeyStatsResultMap">
     SELECT metaKey,
       countIf(rawValue != '') AS nonBlankCount,
-      countIf(rawValue != '' AND parsedValue IS NOT NULL) AS numericCount,
-      min(parsedValue) AS minValue,
-      max(parsedValue) AS maxValue
+      countIf(rawValue != '' AND parsedValue IS NOT NULL) AS numericCount
     FROM (
       SELECT kv.1 AS metaKey,
              JSONExtractString(kv.2) AS rawValue,
@@ -506,14 +543,17 @@
     first study that declares each, so the caller's choice is stable instead of arbitrary and it can
     tell that the studies disagree.
   -->
-  <select id="getResourceDefinitionCustomMetadata" resultType="String">
-    SELECT customMetadata FROM (
-      SELECT rdef.custom_metadata AS customMetadata,
+  <!-- Returns one row per distinct contract in scope, plus a blank row if any study has data for
+       this resource without declaring one. Blanks are kept rather than filtered out because
+       "every study in scope declares" is what decides whether the contract is the complete
+       column list; filtering them made a partially declared cohort look fully declared. -->
+  <select id="getResourceDefinitionCustomMetadata" resultMap="ResourceContractRowResultMap">
+    SELECT customMetadata, firstStudy FROM (
+      SELECT ifNull(rdef.custom_metadata, '') AS customMetadata,
              min(cs.cancer_study_identifier) AS firstStudy
       <include refid="ResourceTableFromClause"/>
       <include refid="ResourceTableBaseFilters"/>
-      AND rdef.custom_metadata IS NOT NULL AND rdef.custom_metadata != ''
-      GROUP BY rdef.custom_metadata
+      GROUP BY customMetadata
     ) contracts
     ORDER BY firstStudy ASC
   </select>

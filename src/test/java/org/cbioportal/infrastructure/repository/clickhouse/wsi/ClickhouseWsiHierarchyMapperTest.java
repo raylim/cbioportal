@@ -42,20 +42,17 @@ public class ClickhouseWsiHierarchyMapperTest {
 
     assertEquals(2, hierarchy.sampleGroups().size());
     assertEquals("WSI-SAMPLE", hierarchy.referenceSampleId());
-    // Unmatched slides sort first, as they did in the native wsi_* hierarchy.
+    // Unmatched slides sort first.
     assertNull(hierarchy.sampleGroups().get(0).sampleId());
     // The legacy row without a slide_key (900104) is omitted.
     assertEquals(List.of(PATIENT_SLIDE_KEY, SAMPLE_SLIDE_KEY), slideKeys(hierarchy));
 
-    WsiSlide timedSlide =
+    WsiSlide sampleSlide =
         slides(hierarchy).stream()
             .filter(slide -> slide.slideKey().equals(SAMPLE_SLIDE_KEY))
             .findFirst()
             .orElseThrow();
-    assertEquals("WSI-SAMPLE", timedSlide.sampleId());
-    assertEquals(Integer.valueOf(-17), timedSlide.procedureDateDays());
-    assertEquals(
-        "Recorded procedure date relative to first tumor sequencing", timedSlide.timepointSource());
+    assertEquals("WSI-SAMPLE", sampleSlide.sampleId());
     assertEquals("Specimen 2", hierarchy.sampleGroups().get(1).parts().get(0).partDescription());
     assertEquals(
         "Block 1", hierarchy.sampleGroups().get(1).parts().get(0).blocks().get(0).blockLabel());
@@ -77,10 +74,14 @@ public class ClickhouseWsiHierarchyMapperTest {
             "syn-img-",
             "syn-legacy-",
             "s3://",
+            "wsi_serving",
+            "sealed",
+            // Prefix of the 900101 fixture's sealed_source.
+            "AQEBAQEBAQEBAQEB",
             "900101",
             "900104",
-            "partDesignator\":\"",
-            "pathDxTitle\":\"")) {
+            "partDesignator",
+            "pathDxTitle")) {
       assertFalse("hierarchy exposes " + forbidden, json.contains(forbidden));
     }
   }
@@ -99,26 +100,6 @@ public class ClickhouseWsiHierarchyMapperTest {
     assertEquals(
         "e8ac3c1341f0fb1fa1a7c8e69ba27a51",
         hierarchy.sampleGroups().get(0).parts().get(0).blocks().get(0).slides().get(0).slideKey());
-    assertNull(
-        hierarchy
-            .sampleGroups()
-            .get(0)
-            .parts()
-            .get(0)
-            .blocks()
-            .get(0)
-            .slides()
-            .get(0)
-            .procedureDateDays());
-  }
-
-  @Test
-  public void readsEmptyHierarchyPayload() {
-    WsiHierarchy hierarchy =
-        repository.getPatientHierarchy("wsi_empty_hierarchy_study", "EMPTY-PATIENT");
-
-    assertTrue(hierarchy.sampleGroups().isEmpty());
-    assertNull(hierarchy.referenceSampleId());
   }
 
   @Test

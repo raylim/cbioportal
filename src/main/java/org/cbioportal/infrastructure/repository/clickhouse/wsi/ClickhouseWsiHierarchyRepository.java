@@ -20,28 +20,6 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
 
   private static final Logger LOG = LoggerFactory.getLogger(ClickhouseWsiHierarchyRepository.class);
 
-  private static final Pattern ABSOLUTE_DATE =
-      Pattern.compile(
-          "(?<!\\d)(?:19|20)\\d{2}[-_/](?:0?[1-9]|1[0-2])[-_/](?:0?[1-9]|[12]\\d|3[01])(?!\\d)");
-  private static final Pattern MONTH_FIRST_DATE =
-      Pattern.compile(
-          "(?<!\\d)(?:0?[1-9]|1[0-2])[-_/](?:0?[1-9]|[12]\\d|3[01])[-_/](?:19|20)\\d{2}(?!\\d)");
-  private static final Pattern DAY_FIRST_DATE =
-      Pattern.compile(
-          "(?<!\\d)(?:0?[1-9]|[12]\\d|3[01])[-_/](?:0?[1-9]|1[0-2])[-_/](?:19|20)\\d{2}(?!\\d)");
-  private static final Pattern NAMED_MONTH_DATE =
-      Pattern.compile(
-          "(?i)(?<![a-z0-9])(?:(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|"
-              + "may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|"
-              + "nov(?:ember)?|dec(?:ember)?)\\s+(?:0?[1-9]|[12]\\d|3[01])(?:st|nd|rd|th)?"
-              + "(?:,)?\\s+(?:19|20)\\d{2}|(?:0?[1-9]|[12]\\d|3[01])[-/\\s]+"
-              + "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|"
-              + "jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|"
-              + "dec(?:ember)?)[-/\\s]+(?:19|20)\\d{2})(?![a-z0-9])");
-  private static final Pattern COMPACT_DATE = Pattern.compile("(?<!\\d)(?:19|20)\\d{6}(?!\\d)");
-  private static final Pattern LABELLED_MRN =
-      Pattern.compile(
-          "(?i)\\b(?:mrn|medical[ _-]?record(?:[ _-]?number)?)\\b\\s*[:=#-]?\\s*\\d{4,}");
   private static final Set<String> APPROVED_IDENTIFIER_FIELDS =
       Set.of("patient_id", "reference_sample_id", "sample_id");
   private static final Set<String> NON_TEXT_FIELDS =
@@ -93,11 +71,10 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
       }
       String slideKey = value(row, "slide_key", String.class);
       if (!WsiDeidentification.isSlideKey(slideKey)) {
-        // A slide without an opaque key cannot be addressed without exposing its image_id.
+        // A slide without an opaque key cannot be addressed.
         unkeyedSlides++;
         continue;
       }
-      validateTiming(row);
       String sampleKey = value(row, "sample_id", String.class);
       String sampleMapKey = sampleKey == null ? "" : sampleKey;
       WsiSampleGroupBuilder sample =
@@ -133,14 +110,7 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
               resolveSlideType(row),
               sampleKey,
               value(row, "match_level", String.class),
-              value(row, "specimen_key", String.class),
-              intValue(row, "procedure_date_days"),
-              value(row, "timepoint_source", String.class),
-              value(row, "date_kind", String.class),
-              value(row, "date_source", String.class),
-              value(row, "date_reason", String.class),
-              value(row, "date_status", String.class),
-              value(row, "coordinate_system", String.class)));
+              value(row, "specimen_key", String.class)));
     }
 
     if (unkeyedSlides > 0) {
@@ -194,48 +164,9 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
     return type.cast(value);
   }
 
-  private static void validateTiming(Map<String, Object> row) {
-    String status = value(row, "date_status", String.class);
-    String kind = value(row, "date_kind", String.class);
-    String source = value(row, "date_source", String.class);
-    String timepointSource = value(row, "timepoint_source", String.class);
-    String coordinate = value(row, "coordinate_system", String.class);
-    Integer days = intValue(row, "procedure_date_days");
-    String reason = value(row, "date_reason", String.class);
-    if (status == null
-        || kind == null
-        || source == null
-        || timepointSource == null
-        || coordinate == null
-        || !Set.of("AVAILABLE", "MISSING_PROCEDURE_DATE", "MISSING_REFERENCE_SEQUENCING_DATE")
-            .contains(status)
-        || !Set.of("RECORDED", "ESTIMATED", "UNDATED").contains(kind)
-        || !"patient_first_tumor_sequencing_day_zero".equals(coordinate)) {
-      throw new IllegalStateException("WSI hierarchy contains an invalid v3 timing row");
-    }
-    if ("AVAILABLE".equals(status)) {
-      if (days == null || "UNDATED".equals(kind) || reason != null) {
-        throw new IllegalStateException("WSI hierarchy contains inconsistent available timing");
-      }
-    } else if (days != null) {
-      throw new IllegalStateException("WSI hierarchy contains a dated missing-timing row");
-    }
-    if ("MISSING_PROCEDURE_DATE".equals(status) && !"UNDATED".equals(kind)) {
-      throw new IllegalStateException("WSI hierarchy contains an invalid missing procedure row");
-    }
-    if ("MISSING_REFERENCE_SEQUENCING_DATE".equals(status) && "UNDATED".equals(kind)) {
-      throw new IllegalStateException("WSI hierarchy contains an invalid missing reference row");
-    }
-  }
-
   private static Long longValue(Map<String, Object> row, String key) {
     Object value = row.get(key);
     return value == null ? null : ((Number) value).longValue();
-  }
-
-  private static Integer intValue(Map<String, Object> row, String key) {
-    Object value = row.get(key);
-    return value == null ? null : ((Number) value).intValue();
   }
 
   private static long contextLongValue(Map<String, Object> row, String key) {
@@ -286,20 +217,11 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
       if (opaqueKey != null && opaqueKey.matcher(text).matches()) {
         continue;
       }
-      if (LABELLED_MRN.matcher(text).find()
-          || containsAbsoluteDate(text)
-          || COMPACT_DATE.matcher(text).find()) {
+      if (WsiDeidentification.containsIdentifyingText(text)) {
         return false;
       }
     }
     return true;
-  }
-
-  private static boolean containsAbsoluteDate(String value) {
-    return ABSOLUTE_DATE.matcher(value).find()
-        || MONTH_FIRST_DATE.matcher(value).find()
-        || DAY_FIRST_DATE.matcher(value).find()
-        || NAMED_MONTH_DATE.matcher(value).find();
   }
 
   private static final class WsiSampleGroupBuilder {
@@ -317,27 +239,26 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
   }
 
   private static final class WsiPartBuilder {
-    private final WsiPart part;
+    private final String partNumber;
+    private final String partType;
+    private final String partDescription;
+    private final String subspecialty;
     private final Map<String, WsiBlockBuilder> blocks = new java.util.LinkedHashMap<>();
 
-    /**
-     * part_designator and path_dx_title are no longer public slide metadata (wsi-serving-v5); the
-     * fields stay in the response shape but are always null.
-     */
     private WsiPartBuilder(
         String partNumber, String partType, String partDescription, String subspecialty) {
-      this.part =
-          new WsiPart(partNumber, null, partType, partDescription, subspecialty, null, null);
+      this.partNumber = partNumber;
+      this.partType = partType;
+      this.partDescription = partDescription;
+      this.subspecialty = subspecialty;
     }
 
     private WsiPart build() {
       return new WsiPart(
-          part.partNumber(),
-          part.partDesignator(),
-          part.partType(),
-          part.partDescription(),
-          part.subspecialty(),
-          part.pathDxTitle(),
+          partNumber,
+          partType,
+          partDescription,
+          subspecialty,
           blocks.values().stream().map(WsiBlockBuilder::build).toList());
     }
   }

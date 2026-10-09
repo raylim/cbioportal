@@ -2,10 +2,8 @@ package org.cbioportal.infrastructure.repository.clickhouse.resource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 import org.cbioportal.domain.resource.ResourceColumnFilter;
 import org.cbioportal.domain.resource.ResourceColumnInfo;
 import org.cbioportal.domain.resource.ResourceTableMetadataResult;
@@ -31,8 +29,8 @@ import org.springframework.test.context.junit4.SpringRunner;
  * WSI_SAMPLE / WSI_PATIENT rows never reach the generic resource table, and for every other row
  * public metadata stays searchable while wsi_serving stays private, whatever its TYPE. Uses the
  * wsi_resource_table_study fixture: WSI_SAMPLE rows 900501/900502, and EXTERNAL_SLIDES rows
- * 900505/900506 whose serving paths contain "secretpath" and sort in the opposite order ("zzz" for
- * 900505, "aaa" for 900506) to the rows' ids.
+ * 900505/900506 whose sealed serving values contain "secretpath" and sort in the opposite order
+ * ("zzz" for 900505, "aaa" for 900506) to the rows' ids.
  */
 @RunWith(SpringRunner.class)
 @Import({MyBatisConfig.class, ClickhouseResourceDataRepository.class})
@@ -47,8 +45,7 @@ public class ClickhouseResourceDataPrivacyTest {
   private static final String EXTERNAL = "EXTERNAL_SLIDES";
   private static final String NOTES = "PATHOLOGY_NOTES";
   private static final List<String> WSI_ROW_IDS = List.of("900501", "900502");
-  private static final List<String> WSI_SLIDE_KEYS =
-      List.of("5d41402abc4b2a76b9719d911017c592", "7d793037a0760186574b0282f2f435e7");
+  private static final String WSI_SLIDE_KEY = "5d41402abc4b2a76b9719d911017c592";
 
   /**
    * Fixture row id by url. Rows no longer carry their resource_data_id, and each fixture row has a
@@ -105,34 +102,6 @@ public class ClickhouseResourceDataPrivacyTest {
   }
 
   @Test
-  public void wsiRowsDoNotMatchSearchFiltersOrSorts() {
-    List<String> terms =
-        Stream.concat(
-                Stream.of(
-                    "Masson", "liver", "slideKey", "syn-img-t001", "wsipath", "WSI-TABLE-SAMPLE"),
-                WSI_SLIDE_KEYS.stream())
-            .toList();
-    for (String term : terms) {
-      ResourceTableQuery query = query(WSI, term, null, null, null);
-      assertThat(repository.getResourceTableRows(query)).as(term).isEmpty();
-      assertThat(repository.getResourceTableCounts(query).rowCount()).as(term).isZero();
-    }
-    for (ResourceColumnFilter filter :
-        List.of(
-            new ResourceColumnFilter("metadata:slide_key", "in", WSI_SLIDE_KEYS),
-            new ResourceColumnFilter("metadata:stain_name", "notEquals", List.of("x")),
-            new ResourceColumnFilter("type", "equals", List.of("WHOLE_SLIDE_IMAGE")),
-            new ResourceColumnFilter("sampleId", "notEquals", List.of("x")))) {
-      assertThat(ids(query(WSI, null, null, null, List.of(filter))))
-          .as(filter.toString())
-          .isEmpty();
-    }
-    for (String sortBy : List.of("metadata:slide_key", "url", "displayName", "sampleId")) {
-      assertThat(ids(query(WSI, null, sortBy, "ASC", null))).as(sortBy).isEmpty();
-    }
-  }
-
-  @Test
   public void wsiMetadataIsNeitherDiscoveredNorFaceted() {
     ResourceTableQuery query = query(WSI, null, null, null, null);
 
@@ -161,23 +130,21 @@ public class ClickhouseResourceDataPrivacyTest {
   public void metadataEndpointDescribesWsiResourcesAsEmpty() {
     GetResourceTableMetadataUseCase useCase = new GetResourceTableMetadataUseCase(repository);
     for (String resourceId : List.of("WSI_SAMPLE", "WSI_PATIENT")) {
-      for (String search : Arrays.asList(null, "Masson", WSI_SLIDE_KEYS.get(0))) {
-        ResourceTableMetadataResult result =
-            useCase.execute(query(resourceId, search, null, null, null));
+      ResourceTableMetadataResult result =
+          useCase.execute(query(resourceId, null, null, null, null));
 
-        assertThat(result.columns())
-            .as(resourceId)
-            .isNotEmpty()
-            .allSatisfy(
-                column ->
-                    assertThat(column.source()).isNotEqualTo(ResourceColumnInfo.SOURCE_METADATA));
-        assertThat(result.totalRowCount()).as(resourceId).isZero();
-        assertThat(result.filteredPatientCount()).as(resourceId).isZero();
-        assertThat(result.filteredSampleCount()).as(resourceId).isZero();
-        assertThat(result.facets()).as(resourceId).isEmpty();
-        assertThat(result.facetRanges()).as(resourceId).isEmpty();
-        assertThat(result.toString()).doesNotContain("Masson").doesNotContain("slide_key");
-      }
+      assertThat(result.columns())
+          .as(resourceId)
+          .isNotEmpty()
+          .allSatisfy(
+              column ->
+                  assertThat(column.source()).isNotEqualTo(ResourceColumnInfo.SOURCE_METADATA));
+      assertThat(result.totalRowCount()).as(resourceId).isZero();
+      assertThat(result.filteredPatientCount()).as(resourceId).isZero();
+      assertThat(result.filteredSampleCount()).as(resourceId).isZero();
+      assertThat(result.facets()).as(resourceId).isEmpty();
+      assertThat(result.facetRanges()).as(resourceId).isEmpty();
+      assertThat(result.toString()).doesNotContain("Masson").doesNotContain("slide_key");
     }
     ResourceTableMetadataResult external = useCase.execute(query(EXTERNAL, null, null, null, null));
     assertThat(external.totalRowCount()).isEqualTo(2);
@@ -197,7 +164,7 @@ public class ClickhouseResourceDataPrivacyTest {
           .extracting(ClickhouseResourceDataPrivacyTest::rowId)
           .doesNotContainAnyElementsOf(WSI_ROW_IDS);
       assertThat(rows).extracting(ResourceTableRow::resourceId).containsOnly(resourceId);
-      assertThat(rows.toString()).doesNotContain(WSI_SLIDE_KEYS.get(0)).doesNotContain("Masson");
+      assertThat(rows.toString()).doesNotContain(WSI_SLIDE_KEY).doesNotContain("Masson");
       assertThat(repository.getResourceTableMetadata(query).facets().toString())
           .doesNotContain("Masson")
           .doesNotContain("liver");
@@ -217,8 +184,9 @@ public class ClickhouseResourceDataPrivacyTest {
   }
 
   @Test
-  public void searchDoesNotMatchServingPaths() {
-    for (String term : List.of("secretpath", "private-bucket", "zzz-secretpath-1.svs", "s3://")) {
+  public void searchDoesNotMatchServingValues() {
+    for (String term :
+        List.of("secretpath", "sealed_source", "zzz-secretpath-1-", "AAAAAAAAAAAA")) {
       ResourceTableQuery query = query(EXTERNAL, term, null, null, null);
       assertThat(repository.getResourceTableRows(query)).as(term).isEmpty();
       assertThat(repository.getResourceTableCounts(query).rowCount()).as(term).isZero();

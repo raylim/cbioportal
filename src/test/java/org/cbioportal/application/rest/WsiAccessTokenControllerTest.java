@@ -18,6 +18,8 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.cbioportal.application.security.CancerStudyPermissionEvaluator;
 import org.cbioportal.domain.wsi.WsiSlideAccess;
 import org.cbioportal.domain.wsi.WsiSlideSource;
@@ -27,6 +29,7 @@ import org.cbioportal.domain.wsi.repository.WsiSlideAccessRepository;
 import org.cbioportal.legacy.utils.security.AccessLevel;
 import org.junit.After;
 import org.junit.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -37,14 +40,20 @@ public class WsiAccessTokenControllerTest {
 
   private static final String SECRET = "0123456789abcdef0123456789abcdef";
   private static final String SLIDE_KEY = "2351e12d49557627b24fe71e17ec5c64";
-  private static final String IMAGE_ID = "syn-img-0001";
-  private static final String SOURCE = "s3://bucket/syn-img-0001.svs";
-  private static final String THUMBNAIL = "s3://bucket/thumbs/syn-img-0001.jpg";
+  // A genuine seal for SLIDE_KEY under the contract test key; opaque to cBioPortal.
+  private static final String SEALED_SOURCE =
+      "AQEBAQEBAQEBAQEBMc_tL9dUso8ZSDg1JZIFeeclGKwdmpgGohT4JR793-tUE3oED7qLjtQhP_usT08BCC6kpTQl6az5"
+          + "wJ6AMvgEt1zCZgqnjk2gcXeEODZFCRVg80fRaEk2FQaFx_eROJgD6ajaxtdJ1OJw4aKN06MJD0Hc6zBDxi77WsoS";
 
   private final WsiSlideAccessRepository wsiSlideAccessRepository =
       mock(WsiSlideAccessRepository.class);
   private final CancerStudyPermissionEvaluator cancerStudyPermissionEvaluator =
       mock(CancerStudyPermissionEvaluator.class);
+
+  @SuppressWarnings("unchecked")
+  private final ObjectProvider<CancerStudyPermissionEvaluator> permissionEvaluatorProvider =
+      mock(ObjectProvider.class);
+
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @After
@@ -64,6 +73,15 @@ public class WsiAccessTokenControllerTest {
     assertEquals("Bearer", body.get("token_type"));
     assertEquals(300, body.get("expires_in"));
     JsonNode claims = claims((String) body.get("access_token"));
+    assertEquals("private, no-store", response.getHeaders().getCacheControl());
+    // The tile service accepts only HS256 tokens that declare typ JWT.
+    JsonNode header =
+        objectMapper.readTree(
+            new String(
+                Base64.getUrlDecoder().decode(((String) body.get("access_token")).split("\\.")[0]),
+                StandardCharsets.UTF_8));
+    assertEquals("JWT", header.get("typ").asText());
+    assertEquals("HS256", header.get("alg").asText());
     assertEquals("annotations:read annotations:write", claims.get("scope").asText());
     assertEquals("study-1", claims.get("study_id").asText());
     assertNoSlideClaims(claims);
@@ -88,7 +106,7 @@ public class WsiAccessTokenControllerTest {
   public void neverIssuesAStudyWideSlideCapability() {
     WsiAccessTokenController controller = createStudyReaderController();
 
-    // Slide pixels are reachable only through the per-slide v3 resources access endpoint.
+    // Slide pixels are reachable only through the per-slide resources access endpoint.
     for (String purpose : new String[] {"wsi", "WSI", "Annotations", "tiles", "", " ", null}) {
       assertEquals(
           "purpose should be rejected: " + purpose,
@@ -108,6 +126,14 @@ public class WsiAccessTokenControllerTest {
   }
 
   @Test
+  public void refusesAStudyCapabilityWhenPermissionsAreUnavailable() {
+    WsiAccessTokenController controller = createAuthenticatedController();
+
+    assertEquals(
+        403, controller.issueAccessToken("study-1", "annotations").getStatusCode().value());
+  }
+
+  @Test
   public void refusesAStudyCapabilityWithoutStudyReadPermission() {
     WsiAccessTokenController controller = createStudyReaderController();
 
@@ -123,28 +149,39 @@ public class WsiAccessTokenControllerTest {
     ResponseEntity<?> response = controller.issueSlideAccess("study-1", "patient-1", SLIDE_KEY);
 
     assertEquals(200, response.getStatusCode().value());
+    assertEquals("private, no-store", response.getHeaders().getCacheControl());
     WsiSlideAccess body = (WsiSlideAccess) response.getBody();
     assertNotNull(body);
     assertEquals(SLIDE_KEY, body.slideKey());
     assertEquals("Bearer", body.tokenType());
     assertEquals(300, body.expiresIn());
 
-    // The serialized browser response carries no image id, object URI or barcode.
+    // The serialized browser response carries no image id, object URI or barcode, and the sealed
+    // source appears only inside the signed capability.
     String json = objectMapper.writeValueAsString(body);
     JsonNode tree = objectMapper.readTree(json);
     List<String> keys = new ArrayList<>();
     collectKeys(tree, keys);
-    for (String forbidden : List.of("imageId", "image_id", "sourceUrl", "barcode")) {
+    for (String forbidden :
+        List.of(
+            "imageId",
+            "image_id",
+            "sourceUrl",
+            "barcode",
+            "sealedSource",
+            "sealed_source",
+            "enc")) {
       assertFalse("response exposes " + forbidden, keys.contains(forbidden));
     }
     assertEquals(3, tree.get("thumbnail").size());
-    assertFalse(json.contains(IMAGE_ID));
+    String withoutToken = json.replace(body.accessToken(), "");
+    assertFalse(withoutToken.contains(SEALED_SOURCE));
     assertFalse(json.contains("s3://"));
     assertFalse(json.contains("file://"));
   }
 
   @Test
-  public void issuesAVersionThreeTokenWithOnlyEncryptedSourceClaims() throws Exception {
+  public void issuesAVersionFourTokenThatForwardsTheSealedSource() throws Exception {
     WsiAccessTokenController controller = createAuthenticatedController();
     when(wsiSlideAccessRepository.getSlideSource("study-1", "patient-1", SLIDE_KEY))
         .thenReturn(source());
@@ -152,37 +189,66 @@ public class WsiAccessTokenControllerTest {
     WsiSlideAccess body =
         (WsiSlideAccess) controller.issueSlideAccess("study-1", "patient-1", SLIDE_KEY).getBody();
     String[] token = body.accessToken().split("\\.");
+    JsonNode header =
+        objectMapper.readTree(
+            new String(Base64.getUrlDecoder().decode(token[0]), StandardCharsets.UTF_8));
     String payload = new String(Base64.getUrlDecoder().decode(token[1]), StandardCharsets.UTF_8);
     JsonNode claims = objectMapper.readTree(payload);
 
+    assertEquals("HS256", header.get("alg").asText());
+    assertEquals("user", claims.get("sub").asText());
+    assertEquals("cbioportal-wsi", claims.get("aud").asText());
     assertEquals("study-1", claims.get("study_id").asText());
     assertEquals(SLIDE_KEY, claims.get("slide_key").asText());
     assertEquals("wsi:read", claims.get("scope").asText());
-    assertEquals(3, claims.get("wsi_auth_version").asInt());
+    assertEquals(4, claims.get("wsi_auth_version").asInt());
     assertEquals(128, claims.get("thumbnail_width").asInt());
     assertEquals(64, claims.get("thumbnail_height").asInt());
+    assertEquals(300, claims.get("exp").asLong() - claims.get("iat").asLong());
+    assertEquals(SEALED_SOURCE, claims.get("enc").asText());
     for (String removed :
         List.of(
             "image_id",
             "tile_source",
             "thumbnail_source",
             "tile_source_sha256",
-            "thumbnail_source_sha256")) {
-      assertFalse("token carries plaintext " + removed, claims.has(removed));
+            "thumbnail_source_sha256",
+            "sealed_source")) {
+      assertFalse("token carries " + removed, claims.has(removed));
     }
-    assertFalse(payload.contains(IMAGE_ID));
     assertFalse(payload.contains("s3://"));
     assertFalse(payload.contains("file://"));
+  }
+
+  @Test
+  public void signsTheTokenWithTheAccessTokenSecret() throws Exception {
+    WsiAccessTokenController controller = createAuthenticatedController();
+    when(wsiSlideAccessRepository.getSlideSource("study-1", "patient-1", SLIDE_KEY))
+        .thenReturn(source());
+
+    WsiSlideAccess body =
+        (WsiSlideAccess) controller.issueSlideAccess("study-1", "patient-1", SLIDE_KEY).getBody();
+    String[] token = body.accessToken().split("\\.");
+    Mac mac = Mac.getInstance("HmacSHA256");
+    mac.init(new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+    String expected =
+        Base64.getUrlEncoder()
+            .withoutPadding()
+            .encodeToString(
+                mac.doFinal((token[0] + "." + token[1]).getBytes(StandardCharsets.US_ASCII)));
+
+    assertEquals(expected, token[2]);
+  }
+
+  @Test
+  public void refusesToIssueWithoutAStrongSecret() {
+    WsiAccessTokenController controller = createAuthenticatedController();
+    ReflectionTestUtils.setField(controller, "accessTokenSecret", "short");
 
     assertEquals(
-        "{\"image_id\":\""
-            + IMAGE_ID
-            + "\",\"tile_source\":\""
-            + SOURCE
-            + "\",\"thumbnail_source\":\""
-            + THUMBNAIL
-            + "\"}",
-        WsiClaimEncryptionTest.decrypt(SECRET, SLIDE_KEY, claims.get("enc").asText()));
+        503,
+        controller.issueSlideAccess("study-1", "patient-1", SLIDE_KEY).getStatusCode().value());
+    verifyNoInteractions(wsiSlideAccessRepository);
   }
 
   @Test
@@ -191,7 +257,7 @@ public class WsiAccessTokenControllerTest {
 
     for (String invalid :
         new String[] {
-          IMAGE_ID,
+          "syn-img-0001",
           "3020726",
           SLIDE_KEY.toUpperCase(),
           SLIDE_KEY + "0",
@@ -241,14 +307,13 @@ public class WsiAccessTokenControllerTest {
   }
 
   @Test
-  public void neverSerializesOrPrintsTheServerSideSource() throws Exception {
+  public void neverSerializesOrPrintsTheSealedSource() throws Exception {
     WsiSlideSource source = source();
     String json = objectMapper.writeValueAsString(source);
 
-    assertFalse(json.contains(IMAGE_ID));
-    assertFalse(json.contains("s3://"));
-    assertFalse(source.toString().contains(IMAGE_ID));
-    assertFalse(source.toString().contains("s3://"));
+    assertFalse(json.contains(SEALED_SOURCE));
+    assertFalse(json.contains("sealedSource"));
+    assertFalse(source.toString().contains(SEALED_SOURCE));
     assertTrue(source.toString().contains(SLIDE_KEY));
   }
 
@@ -270,7 +335,7 @@ public class WsiAccessTokenControllerTest {
             null,
             null);
     return new WsiSlideSource(
-        SLIDE_KEY, IMAGE_ID, SOURCE, THUMBNAIL, metadata, new WsiThumbnail(128, 64, "image/jpeg"));
+        SLIDE_KEY, SEALED_SOURCE, metadata, new WsiThumbnail(128, 64, "image/jpeg"));
   }
 
   private static void collectKeys(JsonNode node, List<String> keys) {
@@ -279,11 +344,11 @@ public class WsiAccessTokenControllerTest {
   }
 
   private WsiAccessTokenController createAuthenticatedController() {
-    WsiAccessTokenController controller = new WsiAccessTokenController();
+    WsiAccessTokenController controller =
+        new WsiAccessTokenController(wsiSlideAccessRepository, permissionEvaluatorProvider);
     ReflectionTestUtils.setField(controller, "accessTokenSecret", SECRET);
     ReflectionTestUtils.setField(controller, "accessTokenAudience", "cbioportal-wsi");
     ReflectionTestUtils.setField(controller, "accessTokenTtlSeconds", 300);
-    ReflectionTestUtils.setField(controller, "wsiSlideAccessRepository", wsiSlideAccessRepository);
     TestingAuthenticationToken authentication =
         new TestingAuthenticationToken("user", "password", "ROLE_USER");
     authentication.setAuthenticated(true);
@@ -317,8 +382,7 @@ public class WsiAccessTokenControllerTest {
 
   private WsiAccessTokenController createStudyReaderController() {
     WsiAccessTokenController controller = createAuthenticatedController();
-    ReflectionTestUtils.setField(
-        controller, "cancerStudyPermissionEvaluator", cancerStudyPermissionEvaluator);
+    when(permissionEvaluatorProvider.getIfAvailable()).thenReturn(cancerStudyPermissionEvaluator);
     when(cancerStudyPermissionEvaluator.hasPermission(
             any(Authentication.class), eq("study-1"), eq("CancerStudyId"), eq(AccessLevel.READ)))
         .thenReturn(true);
