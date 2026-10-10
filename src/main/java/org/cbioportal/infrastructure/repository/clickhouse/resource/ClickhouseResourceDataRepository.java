@@ -134,6 +134,11 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
   }
 
   private MetadataContext resolveMetadataContext(ResourceTableQuery scoped) {
+    if (WsiDeidentification.isStudyTableResource(scoped.resourceId())) {
+      // The study slide table's typed allowlist is its complete contract: it alone decides the
+      // columns, and no key discovery runs over the (large) slide resource.
+      return new MetadataContext(WsiDeidentification.STUDY_TABLE_SCHEMA, Map.of(), true);
+    }
     List<ResourceContractRow> contractRows = contractRows(scoped);
     ResourceMetadataSchema schema = mergedSchema(scoped, contractRows);
     boolean coversEveryStudy =
@@ -153,11 +158,12 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
   }
 
   /*
-   * WSI_SAMPLE / WSI_PATIENT rows are excluded in SQL by every statement (ExcludeWsiResourceRows in
-   * ResourceDataMapper.xml). Each entry point below checks again here so a future statement that
-   * forgets the predicate still cannot hand a slide row, or anything derived from one, to the
-   * generic resource table: tabs, rows (query/fetch), and columns, facets, ranges and counts
-   * (metadata/fetch).
+   * WSI_PATIENT rows are excluded in SQL by every statement (ExcludeWsiResourceRows in
+   * ResourceDataMapper.xml), and WSI_SAMPLE rows are served only as the study slide table, through
+   * its metadata allowlist. Each entry point below checks again here so a future statement that
+   * forgets the predicate still cannot hand a hidden slide row, or a non-allowlisted slide field,
+   * to the generic resource table: tabs, rows (query/fetch), and columns, facets, ranges and
+   * counts (metadata/fetch).
    */
 
   @Override
@@ -167,13 +173,13 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
       return tabs;
     }
     return tabs.stream()
-        .filter(tab -> !WsiDeidentification.isWsiResourceId(tab.resourceId()))
+        .filter(tab -> !WsiDeidentification.isHiddenFromResourceTable(tab.resourceId()))
         .toList();
   }
 
   @Override
   public List<ResourceTableRow> getResourceTableRows(ResourceTableQuery query) {
-    if (WsiDeidentification.isWsiResourceId(query.resourceId())) {
+    if (WsiDeidentification.isHiddenFromResourceTable(query.resourceId())) {
       return List.of();
     }
     List<ResourceTableRow> rows = mapper.getResourceTableRows(query);
@@ -181,17 +187,32 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
       return rows;
     }
     return rows.stream()
-        .filter(row -> !WsiDeidentification.isWsiResourceId(row.resourceId()))
-        .map(ClickhouseResourceDataRepository::withoutServingMetadata)
+        .filter(row -> !WsiDeidentification.isHiddenFromResourceTable(row.resourceId()))
+        .map(ClickhouseResourceDataRepository::withPublicMetadataOnly)
         .toList();
   }
 
-  private static ResourceTableRow withoutServingMetadata(ResourceTableRow row) {
-    if (row.metadata() == null || !row.metadata().containsKey(WSI_SERVING_KEY)) {
+  /**
+   * Drops wsi_serving from every row, and reduces a study slide table row to its allowlisted
+   * metadata, as wsi_slide_table_derived already does.
+   */
+  private static ResourceTableRow withPublicMetadataOnly(ResourceTableRow row) {
+    if (row.metadata() == null) {
       return row;
     }
-    Map<String, Object> metadata = new LinkedHashMap<>(row.metadata());
-    metadata.remove(WSI_SERVING_KEY);
+    boolean slideRow = WsiDeidentification.isStudyTableResource(row.resourceId());
+    if (!slideRow && !row.metadata().containsKey(WSI_SERVING_KEY)) {
+      return row;
+    }
+    Map<String, Object> metadata = new LinkedHashMap<>();
+    row.metadata()
+        .forEach(
+            (key, value) -> {
+              if (!WSI_SERVING_KEY.equals(key)
+                  && (!slideRow || WsiDeidentification.isStudyTableMetadataKey(key))) {
+                metadata.put(key, value);
+              }
+            });
     return new ResourceTableRow(
         row.studyId(),
         row.resourceId(),
@@ -207,7 +228,7 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
 
   @Override
   public ResourceTableMetadataView getResourceTableMetadata(ResourceTableQuery query) {
-    if (WsiDeidentification.isWsiResourceId(query.resourceId())) {
+    if (WsiDeidentification.isHiddenFromResourceTable(query.resourceId())) {
       return ResourceTableMetadataView.empty();
     }
     // Facets and key discovery are always computed against the query with ALL column-level filters
@@ -457,7 +478,7 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
 
   @Override
   public ResourceTableCounts getResourceTableCounts(ResourceTableQuery query) {
-    if (WsiDeidentification.isWsiResourceId(query.resourceId())) {
+    if (WsiDeidentification.isHiddenFromResourceTable(query.resourceId())) {
       return ResourceTableCounts.empty();
     }
     ResourceTableCounts counts = mapper.getResourceTableCounts(query);

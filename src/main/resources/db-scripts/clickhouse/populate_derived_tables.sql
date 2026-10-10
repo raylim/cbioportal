@@ -29,6 +29,7 @@ DROP TABLE IF EXISTS generic_assay_data_derived_temp;
 DROP TABLE IF EXISTS mutation_derived_temp;
 DROP TABLE IF EXISTS generic_assay_profile_entity_derived_temp;
 DROP TABLE IF EXISTS generic_assay_meta_derived_temp;
+DROP TABLE IF EXISTS wsi_slide_table_derived_temp;
 
 -- Force deduplication of ReplacingMergeTree source tables before building derived tables
 OPTIMIZE TABLE clinical_patient FINAL;
@@ -531,6 +532,22 @@ LEFT JOIN generic_entity_properties gep ON ge.id = gep.genetic_entity_id
 WHERE ge.entity_type = 'GENERIC_ASSAY'
 GROUP BY ge.stable_id, ge.entity_type;
 
+-- The study slide table (see wsi_slide_table_derived in schema.sql).
+CREATE TABLE wsi_slide_table_derived_temp AS wsi_slide_table_derived;
+INSERT INTO wsi_slide_table_derived_temp
+SELECT resource_data_id, 'WSI_SAMPLE' AS slide_table_resource_id, cancer_study_id, entity_type, patient_id, sample_id, url,
+       CAST(NULL, 'Nullable(String)') AS display_name, type,
+       concat('{', arrayStringConcat(
+         arrayMap(kv -> concat(toJSONString(kv.1), ':', kv.2),
+           arrayFilter(kv -> has(['stain_name', 'stain_group', 'magnification', 'part_number', 'block_number', 'match_level'], kv.1),
+             JSONExtractKeysAndValuesRaw(ifNull(metadata, '{}')))), ','), '}') AS slide_table_metadata
+FROM resource_data
+WHERE resource_id IN ('WSI_SAMPLE', 'WSI_PATIENT')
+  AND type = 'WHOLE_SLIDE_IMAGE'
+  AND patient_id IS NOT NULL
+  AND match(JSONExtractString(ifNull(metadata, '{}'), 'slide_key'), '^[0-9a-f]{32}$')
+  AND JSONExtractBool(ifNull(metadata, '{}'), 'can_serve_tiles');
+
 -- Merge parts.
 OPTIMIZE TABLE sample_to_gene_panel_derived_temp;
 OPTIMIZE TABLE gene_panel_to_gene_derived_temp;
@@ -543,6 +560,7 @@ OPTIMIZE TABLE genetic_alteration_derived_temp;
 OPTIMIZE TABLE generic_assay_data_derived_temp;
 OPTIMIZE TABLE generic_assay_profile_entity_derived_temp;
 OPTIMIZE TABLE generic_assay_meta_derived_temp;
+OPTIMIZE TABLE wsi_slide_table_derived_temp;
 
 -- Cutover.
 EXCHANGE TABLES sample_to_gene_panel_derived AND sample_to_gene_panel_derived_temp;
@@ -557,6 +575,7 @@ EXCHANGE TABLES generic_assay_data_derived AND generic_assay_data_derived_temp;
 EXCHANGE TABLES mutation_derived AND mutation_derived_temp;
 EXCHANGE TABLES generic_assay_profile_entity_derived AND generic_assay_profile_entity_derived_temp;
 EXCHANGE TABLES generic_assay_meta_derived AND generic_assay_meta_derived_temp;
+EXCHANGE TABLES wsi_slide_table_derived AND wsi_slide_table_derived_temp;
 
 DROP TABLE IF EXISTS sample_to_gene_panel_derived_temp;
 DROP TABLE IF EXISTS gene_panel_to_gene_derived_temp;
@@ -570,3 +589,4 @@ DROP TABLE IF EXISTS generic_assay_data_derived_temp;
 DROP TABLE IF EXISTS mutation_derived_temp;
 DROP TABLE IF EXISTS generic_assay_profile_entity_derived_temp;
 DROP TABLE IF EXISTS generic_assay_meta_derived_temp;
+DROP TABLE IF EXISTS wsi_slide_table_derived_temp;

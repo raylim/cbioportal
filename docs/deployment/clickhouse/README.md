@@ -496,6 +496,14 @@ resources are re-imported from a `data_wsi.txt` that carries `SEALED_SOURCE`.
 The delete is a mutation; `migrate_db.py` waits for it to finish before
 recording the version.
 
+**`3.8.0` (study slide table).** `3.8.0` adds `wsi_slide_table_derived`, the
+study slide table the resource table serves as `WSI_SAMPLE`: every slide the
+viewer can open (`WSI_SAMPLE` rows, and unmatched `WSI_PATIENT` ones with no
+sample), with metadata reduced to the allowlisted public slide fields. The
+migration creates it empty; it is filled by `populate_derived_tables.sql`, so a
+manual `migrate_db.py` run needs `--populate-derived-tables` (or a separate
+derived-table rebuild) before the slide table lists anything.
+
 Versions `3.1.0` to `3.4.0` are reserved and change nothing; earlier builds of
 them created the native WSI tables that `3.7.0` drops. Slide procedure dates
 are not served yet; they arrive with slides on the patient Summary timeline.

@@ -2,10 +2,15 @@ package org.cbioportal.infrastructure.repository.clickhouse.resource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.cbioportal.domain.resource.ResourceColumnFilter;
 import org.cbioportal.domain.resource.ResourceColumnInfo;
+import org.cbioportal.domain.resource.ResourceFacetOption;
+import org.cbioportal.domain.resource.ResourceMetadataKeyStats;
+import org.cbioportal.domain.resource.ResourceTableCounts;
 import org.cbioportal.domain.resource.ResourceTableMetadataResult;
 import org.cbioportal.domain.resource.ResourceTableMetadataView;
 import org.cbioportal.domain.resource.ResourceTableQuery;
@@ -13,6 +18,7 @@ import org.cbioportal.domain.resource.ResourceTableRow;
 import org.cbioportal.domain.resource.ResourceTableTab;
 import org.cbioportal.domain.resource.ResourceTabsRequest;
 import org.cbioportal.domain.resource.usecase.GetResourceTableMetadataUseCase;
+import org.cbioportal.domain.wsi.WsiDeidentification;
 import org.cbioportal.infrastructure.repository.clickhouse.AbstractTestcontainers;
 import org.cbioportal.infrastructure.repository.clickhouse.config.MyBatisConfig;
 import org.junit.Test;
@@ -21,16 +27,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 
 /**
- * WSI_SAMPLE / WSI_PATIENT rows never reach the generic resource table, and for every other row
- * public metadata stays searchable while wsi_serving stays private, whatever its TYPE. Uses the
- * wsi_resource_table_study fixture: WSI_SAMPLE rows 900501/900502, and EXTERNAL_SLIDES rows
- * 900505/900506 whose sealed serving values contain "secretpath" and sort in the opposite order
- * ("zzz" for 900505, "aaa" for 900506) to the rows' ids.
+ * WSI_PATIENT rows never reach the generic resource table; WSI_SAMPLE rows are served as the study
+ * slide table with only their allowlisted metadata; and for every other row public metadata stays
+ * searchable while wsi_serving stays private, whatever its TYPE. Uses the wsi_resource_table_study
+ * fixture: WSI_SAMPLE rows 900501/900502 (with hidden block_key and reference_sample_id values),
+ * WSI_PATIENT row 900507, and EXTERNAL_SLIDES rows 900505/900506 whose sealed serving values
+ * contain "secretpath" and sort in the opposite order ("zzz" for 900505, "aaa" for 900506) to the
+ * rows' ids.
  */
 @RunWith(SpringRunner.class)
 @Import({MyBatisConfig.class, ClickhouseResourceDataRepository.class})
@@ -42,6 +51,7 @@ public class ClickhouseResourceDataPrivacyTest {
 
   private static final String STUDY = "wsi_resource_table_study";
   private static final String WSI = "WSI_SAMPLE";
+  private static final String WSI_PATIENT = "WSI_PATIENT";
   private static final String EXTERNAL = "EXTERNAL_SLIDES";
   private static final String NOTES = "PATHOLOGY_NOTES";
   private static final List<String> WSI_ROW_IDS = List.of("900501", "900502");
@@ -72,80 +82,296 @@ public class ClickhouseResourceDataPrivacyTest {
 
   @Autowired private ClickhouseResourceDataRepository repository;
   @Autowired private ClickhouseResourceDataMapper mapper;
+  @Autowired private JdbcTemplate jdbcTemplate;
 
-  // ---- WSI resources are invisible to the generic resource table ----
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+  // ---- WSI_PATIENT is invisible to the generic resource table ----
 
   @Test
-  public void wsiResourceIsNotATab() {
+  public void wsiPatientIsNotATabAndWsiSampleIsTheSlideTable() {
     List<ResourceTableTab> tabs =
         repository.getResourceTableTabs(new ResourceTabsRequest(List.of(STUDY), null, null));
 
     assertThat(tabs)
         .extracting(ResourceTableTab::resourceId)
-        .containsExactlyInAnyOrder(EXTERNAL, NOTES)
-        .doesNotContain("WSI_SAMPLE", "WSI_PATIENT");
+        .containsExactlyInAnyOrder(WSI, EXTERNAL, NOTES)
+        .doesNotContain(WSI_PATIENT);
     assertThat(mapper.getResourceTableTabs(new ResourceTabsRequest(List.of(STUDY), null, null)))
         .extracting(ResourceTableTab::resourceId)
-        .doesNotContain("WSI_SAMPLE", "WSI_PATIENT");
+        .doesNotContain(WSI_PATIENT);
   }
 
   @Test
-  public void wsiRowsAreNeverReturnedOrCounted() {
-    for (String resourceId : List.of("WSI_SAMPLE", "WSI_PATIENT")) {
-      ResourceTableQuery query = query(resourceId, null, null, null, null);
+  public void wsiPatientRowsAreNeverReturnedCountedOrDescribed() {
+    for (String search : Arrays.asList(null, "Gomori", "syn-img-t007")) {
+      ResourceTableQuery query = query(WSI_PATIENT, search, null, null, null);
 
-      assertThat(repository.getResourceTableRows(query)).as(resourceId).isEmpty();
-      assertThat(mapper.getResourceTableRows(query)).as(resourceId).isEmpty();
-      assertThat(repository.getResourceTableCounts(query).rowCount()).as(resourceId).isZero();
-      assertThat(mapper.getResourceDefinitionCustomMetadata(query)).as(resourceId).isEmpty();
+      assertThat(repository.getResourceTableRows(query)).isEmpty();
+      assertThat(mapper.getResourceTableRows(query)).isEmpty();
+      assertThat(repository.getResourceTableCounts(query).rowCount()).isZero();
+      assertThat(mapper.getResourceDefinitionCustomMetadata(query)).isEmpty();
+      ResourceTableMetadataView metadata = repository.getResourceTableMetadata(query);
+      assertThat(metadata.columns()).isEmpty();
+      assertThat(metadata.facets()).isEmpty();
+      assertThat(metadata.facetRanges()).isEmpty();
+    }
+    for (String resourceId : List.of(WSI, EXTERNAL, NOTES)) {
+      assertThat(ids(query(resourceId, "Gomori", null, null, null))).as(resourceId).isEmpty();
+    }
+  }
+
+  // ---- WSI_SAMPLE is served through its allowlisted contract only ----
+
+  @Test
+  public void slideTableRowsCarryOnlyAllowlistedMetadata() {
+    List<String> documents =
+        jdbcTemplate.queryForList("SELECT metadata FROM wsi_slide_table_derived", String.class);
+    assertThat(documents)
+        .isNotEmpty()
+        .allSatisfy(
+            document ->
+                assertThat(OBJECT_MAPPER.readTree(document).fieldNames())
+                    .toIterable()
+                    .isSubsetOf(WsiDeidentification.STUDY_TABLE_METADATA_KEYS));
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT DISTINCT resource_id FROM wsi_slide_table_derived", String.class))
+        .containsExactly(WSI);
+
+    List<ResourceTableRow> rows =
+        repository.getResourceTableRows(query(WSI, null, null, null, null));
+
+    assertThat(rows)
+        .extracting(ClickhouseResourceDataPrivacyTest::rowId)
+        .containsExactly("900501", "900502");
+    // The caption repeats the stain, part and block columns, so the table leaves it empty.
+    assertThat(rows).extracting(ResourceTableRow::displayName).containsOnlyNulls();
+    assertThat(rows)
+        .allSatisfy(
+            row ->
+                assertThat(row.metadata().keySet())
+                    .isSubsetOf(WsiDeidentification.STUDY_TABLE_METADATA_KEYS)
+                    .contains("stain_name", "part_number", "block_number", "magnification")
+                    .doesNotContain("part_description"));
+    assertThat(rows.toString())
+        .doesNotContain("hiddenblock")
+        .doesNotContain("WSI-HIDDEN-REF")
+        .doesNotContain("wsipath")
+        .doesNotContain("syn-img")
+        .doesNotContain("sealed_source");
+  }
+
+  @Test
+  public void slideTableSearchMatchesOnlyPublicText() {
+    assertThat(ids(query(WSI, "Masson", null, null, null))).containsExactly("900501", "900502");
+    assertThat(ids(query(WSI, "40x", null, null, null))).containsExactly("900501");
+    for (String term :
+        List.of(
+            "liver wedge",
+            "hiddenblock",
+            "WSI-HIDDEN-REF",
+            "wsipath",
+            "syn-img-t001",
+            "sealed_source",
+            "block_key")) {
+      ResourceTableQuery query = query(WSI, term, null, null, null);
+      assertThat(repository.getResourceTableRows(query)).as(term).isEmpty();
+      assertThat(repository.getResourceTableCounts(query).rowCount()).as(term).isZero();
     }
   }
 
   @Test
-  public void wsiMetadataIsNeitherDiscoveredNorFaceted() {
+  public void slideTableFiltersAndSortsOnHiddenKeysMatchNothing() {
+    // wsi_slide_table_derived holds no hidden key, so a filter on one matches no row.
+    for (ResourceColumnFilter filter :
+        List.of(
+            new ResourceColumnFilter("metadata:block_key", "in", List.of("block:hiddenblockone")),
+            new ResourceColumnFilter("metadata:reference_sample_id", "equals", List.of("x")),
+            new ResourceColumnFilter("metadata:slide_key", "in", List.of(WSI_SLIDE_KEY)),
+            new ResourceColumnFilter("metadata:part_description", "in", List.of("liver margin")))) {
+      ResourceTableQuery filtered = query(WSI, null, null, null, List.of(filter));
+      assertThat(ids(filtered)).as(filter.toString()).isEmpty();
+      assertThat(repository.getResourceTableCounts(filtered).rowCount())
+          .as(filter.toString())
+          .isZero();
+    }
+    assertThat(
+            ids(
+                query(
+                    WSI,
+                    null,
+                    null,
+                    null,
+                    List.of(
+                        new ResourceColumnFilter("metadata:magnification", "in", List.of("20x"))))))
+        .containsExactly("900502");
+    // block_key and reference_sample_id would order the rows 900502-first when descending; with no
+    // value to sort on, both directions fall back to row order.
+    for (String sortBy : List.of("metadata:block_key", "metadata:reference_sample_id")) {
+      for (String direction : List.of("ASC", "DESC")) {
+        assertThat(ids(query(WSI, null, sortBy, direction, null)))
+            .as(sortBy + " " + direction)
+            .containsExactly("900501", "900502");
+      }
+    }
+  }
+
+  @Test
+  public void slideTableListsOnlyViewableSlides() {
+    // 900508 is a WSI_SAMPLE slide the viewer cannot open (can_serve_tiles false).
+    ResourceTableQuery query = query(WSI, null, null, null, null);
+    assertThat(ids(query)).containsExactly("900501", "900502");
+    assertThat(ids(query(WSI, "Unviewable", null, null, null))).isEmpty();
+    ResourceTableCounts counts = repository.getResourceTableCounts(query);
+    assertThat(counts.rowCount()).isEqualTo(2);
+    assertThat(counts.sampleCount()).isEqualTo(2);
+    assertThat(repository.getResourceTableMetadata(query).facets().get("metadata:stain_name"))
+        .extracting(ResourceFacetOption::value)
+        .containsExactly("Masson trichrome");
+    assertThat(repository.getResourceTableTabs(new ResourceTabsRequest(List.of(STUDY), null, null)))
+        .filteredOn(tab -> tab.resourceId().equals(WSI))
+        .singleElement()
+        .satisfies(
+            tab -> {
+              assertThat(tab.totalCount()).isEqualTo(2);
+              assertThat(tab.sampleCount()).isEqualTo(2);
+            });
+  }
+
+  @Test
+  public void slideTableListsUnmatchedViewableSlidesWithoutASample() {
+    // wsi_unmatched_study: 901001 is matched to a sample, 901002 is a viewable WSI_PATIENT slide
+    // with no sample, and 901003 is a WSI_PATIENT slide the viewer cannot open.
+    ResourceTableQuery query =
+        new ResourceTableQuery(
+            List.of("wsi_unmatched_study"), WSI, null, null, null, 0, 10, null, null, null);
+    List<ResourceTableRow> rows = repository.getResourceTableRows(query);
+
+    assertThat(rows)
+        .extracting(ResourceTableRow::sampleId)
+        .containsExactly("WSI-UNMATCHED-SAMPLE-1", null);
+    ResourceTableRow unmatched = rows.get(1);
+    assertThat(unmatched.patientId()).isEqualTo("WSI-UNMATCHED-PATIENT");
+    assertThat(unmatched.url()).endsWith("slideKey=eccbc87e4b5ce2fe28308fd9f2a7baf3");
+    assertThat(unmatched.metadata())
+        .containsEntry("stain_name", "Toluidine blue")
+        .containsEntry("match_level", "UNMATCHED");
+    assertThat(unmatched.metadata().keySet())
+        .isSubsetOf(WsiDeidentification.STUDY_TABLE_METADATA_KEYS);
+    assertThat(rows.toString())
+        .doesNotContain("unmatchedhidden")
+        .doesNotContain("unmatchedpath")
+        .doesNotContain("syn-img-u")
+        .doesNotContain("Unviewable");
+
+    ResourceTableCounts counts = repository.getResourceTableCounts(query);
+    assertThat(counts.rowCount()).isEqualTo(2);
+    assertThat(counts.patientCount()).isEqualTo(1);
+    assertThat(counts.sampleCount()).isEqualTo(1);
+    assertThat(
+            repository.getResourceTableTabs(
+                new ResourceTabsRequest(List.of("wsi_unmatched_study"), null, null)))
+        .extracting(ResourceTableTab::resourceId, ResourceTableTab::totalCount)
+        .containsExactly(org.assertj.core.groups.Tuple.tuple(WSI, 2L));
+    assertThat(
+            ids(
+                new ResourceTableQuery(
+                    List.of("wsi_unmatched_study"),
+                    WSI,
+                    null,
+                    null,
+                    "Toluidine",
+                    0,
+                    10,
+                    null,
+                    null,
+                    null)))
+        .hasSize(1);
+    assertThat(
+            repository.getResourceTableRows(
+                new ResourceTableQuery(
+                    List.of("wsi_unmatched_study"),
+                    WSI_PATIENT,
+                    null,
+                    null,
+                    null,
+                    0,
+                    10,
+                    null,
+                    null,
+                    null)))
+        .isEmpty();
+  }
+
+  @Test
+  public void slideTablePartAndBlockAreNumbers() {
+    // Part "10" (900501) and "2" (900502): text order would put 10 first.
+    assertThat(ids(query(WSI, null, "metadata:part_number", "ASC", null)))
+        .containsExactly("900502", "900501");
+    assertThat(ids(query(WSI, null, "metadata:part_number", "DESC", null)))
+        .containsExactly("900501", "900502");
+    assertThat(
+            ids(
+                query(
+                    WSI,
+                    null,
+                    null,
+                    null,
+                    List.of(
+                        new ResourceColumnFilter(
+                            "metadata:block_number", "between", List.of("2", "5"))))))
+        .containsExactly("900502");
+  }
+
+  @Test
+  public void slideTableColumnsAreTheContractAndHiddenKeysAreNeverFaceted() {
     ResourceTableQuery query = query(WSI, null, null, null, null);
 
     ResourceTableMetadataView metadata = repository.getResourceTableMetadata(query);
 
-    assertThat(metadata.columns()).isEmpty();
-    assertThat(metadata.facets()).isEmpty();
-    assertThat(metadata.facetRanges()).isEmpty();
+    assertThat(metadata.columns())
+        .extracting(ResourceColumnInfo::id)
+        .containsExactlyElementsOf(
+            WsiDeidentification.STUDY_TABLE_METADATA_KEYS.stream()
+                .map(key -> ResourceColumnInfo.METADATA_COLUMN_PREFIX + key)
+                .toList());
+    assertThat(metadata.facets().get("metadata:stain_name"))
+        .extracting(ResourceFacetOption::value)
+        .containsExactly("Masson trichrome");
+    assertThat(metadata.facets().get("metadata:magnification")).hasSize(2);
+    assertThat(metadata.facets().toString())
+        .doesNotContain("hiddenblock")
+        .doesNotContain("WSI-HIDDEN-REF")
+        .doesNotContain("wsipath");
     assertThat(
             mapper.getResourceTableMetadataKeyStats(query, KEY_SAMPLE_ROWS, KEY_MAX_MEMORY_BYTES))
-        .isEmpty();
-    for (String key : List.of("slide_key", "stain_name", "part_description")) {
+        .extracting(ResourceMetadataKeyStats::key)
+        .containsExactlyInAnyOrder("block_number", "magnification", "part_number", "stain_name");
+    for (String key : List.of("block_key", "reference_sample_id", "slide_key", "wsi_serving")) {
       assertThat(mapper.getResourceTableMetadataFacets(query, new String[] {key}, FACET_LIMIT))
           .as(key)
           .isEmpty();
+      assertThat(mapper.getResourceTableMetadataRanges(query, new String[] {key}))
+          .as(key)
+          .isEmpty();
     }
-    assertThat(mapper.getResourceTableFacetValues(query, "rdata.type", FACET_LIMIT)).isEmpty();
   }
 
-  /**
-   * metadata/fetch serves the page-invariant half of the table (columns, facets, ranges, counts).
-   * For a WSI resource it must describe an empty resource: only the builtin columns, no facets or
-   * ranges, zero counts.
-   */
   @Test
-  public void metadataEndpointDescribesWsiResourcesAsEmpty() {
+  public void metadataEndpointDescribesTheSlideTableWithoutHiddenValues() {
     GetResourceTableMetadataUseCase useCase = new GetResourceTableMetadataUseCase(repository);
-    for (String resourceId : List.of("WSI_SAMPLE", "WSI_PATIENT")) {
-      ResourceTableMetadataResult result =
-          useCase.execute(query(resourceId, null, null, null, null));
 
-      assertThat(result.columns())
-          .as(resourceId)
-          .isNotEmpty()
-          .allSatisfy(
-              column ->
-                  assertThat(column.source()).isNotEqualTo(ResourceColumnInfo.SOURCE_METADATA));
-      assertThat(result.totalRowCount()).as(resourceId).isZero();
-      assertThat(result.filteredPatientCount()).as(resourceId).isZero();
-      assertThat(result.filteredSampleCount()).as(resourceId).isZero();
-      assertThat(result.facets()).as(resourceId).isEmpty();
-      assertThat(result.facetRanges()).as(resourceId).isEmpty();
-      assertThat(result.toString()).doesNotContain("Masson").doesNotContain("slide_key");
-    }
+    ResourceTableMetadataResult result = useCase.execute(query(WSI, null, null, null, null));
+
+    assertThat(result.totalRowCount()).isEqualTo(2);
+    assertThat(result.filteredSampleCount()).isEqualTo(2);
+    assertThat(result.toString())
+        .doesNotContain("hiddenblock")
+        .doesNotContain("WSI-HIDDEN-REF")
+        .doesNotContain("wsipath")
+        .doesNotContain("metadata:slide_key")
+        .doesNotContain("metadata:block_key");
     ResourceTableMetadataResult external = useCase.execute(query(EXTERNAL, null, null, null, null));
     assertThat(external.totalRowCount()).isEqualTo(2);
     assertThat(external.columns())
@@ -155,7 +381,7 @@ public class ClickhouseResourceDataPrivacyTest {
   }
 
   @Test
-  public void otherResourcesNeverSurfaceWsiRowsOrValues() {
+  public void otherResourcesNeverSurfaceSlideRowsOrValues() {
     for (String resourceId : List.of(EXTERNAL, NOTES)) {
       ResourceTableQuery query = query(resourceId, null, null, null, null);
       List<ResourceTableRow> rows = repository.getResourceTableRows(query);
@@ -168,6 +394,33 @@ public class ClickhouseResourceDataPrivacyTest {
       assertThat(repository.getResourceTableMetadata(query).facets().toString())
           .doesNotContain("Masson")
           .doesNotContain("liver");
+    }
+  }
+
+  /** The SQL that builds wsi_slide_table_derived must allowlist exactly the Java contract. */
+  @Test
+  public void derivedTableSqlAllowlistMatchesTheContract() throws Exception {
+    for (String resource :
+        List.of(
+            "/db-scripts/clickhouse/populate_derived_tables.sql",
+            "/clickhouse/populate_derived_tables.sql")) {
+      String sql;
+      try (var in = getClass().getResourceAsStream(resource)) {
+        assertThat(in).as(resource).isNotNull();
+        sql = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+      }
+      int insert = sql.indexOf("INSERT INTO wsi_slide_table_derived");
+      assertThat(insert).as(resource).isNotNegative();
+      var matcher =
+          java.util.regex.Pattern.compile("has\\(\\[([^\\]]*)\\]").matcher(sql.substring(insert));
+      assertThat(matcher.find()).as(resource).isTrue();
+      List<String> keys =
+          Arrays.stream(matcher.group(1).split(","))
+              .map(key -> key.trim().replace("'", ""))
+              .toList();
+      assertThat(keys)
+          .as(resource)
+          .containsExactlyElementsOf(WsiDeidentification.STUDY_TABLE_METADATA_KEYS);
     }
   }
 

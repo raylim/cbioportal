@@ -6,6 +6,7 @@
 TRUNCATE TABLE IF EXISTS sample_to_gene_panel_derived SETTINGS alter_sync = 2;
 TRUNCATE TABLE IF EXISTS gene_panel_to_gene_derived SETTINGS alter_sync = 2;
 TRUNCATE TABLE IF EXISTS sample_derived SETTINGS alter_sync = 2;
+TRUNCATE TABLE IF EXISTS wsi_slide_table_derived SETTINGS alter_sync = 2;
 TRUNCATE TABLE IF EXISTS genomic_event_derived SETTINGS alter_sync = 2;
 TRUNCATE TABLE IF EXISTS clinical_data_derived SETTINGS alter_sync = 2;
 TRUNCATE TABLE IF EXISTS clinical_event_derived SETTINGS alter_sync = 2;
@@ -507,3 +508,19 @@ OPTIMIZE TABLE genetic_alteration_derived;
 OPTIMIZE TABLE generic_assay_data_derived;
 OPTIMIZE TABLE generic_assay_profile_entity_derived;
 OPTIMIZE TABLE generic_assay_meta_derived;
+
+-- The study slide table (see wsi_slide_table_derived in schema.sql).
+INSERT INTO wsi_slide_table_derived
+SELECT resource_data_id, 'WSI_SAMPLE' AS slide_table_resource_id, cancer_study_id, entity_type, patient_id, sample_id, url,
+       CAST(NULL, 'Nullable(String)') AS display_name, type,
+       concat('{', arrayStringConcat(
+         arrayMap(kv -> concat(toJSONString(kv.1), ':', kv.2),
+           arrayFilter(kv -> has(['stain_name', 'stain_group', 'magnification', 'part_number', 'block_number', 'match_level'], kv.1),
+             JSONExtractKeysAndValuesRaw(ifNull(metadata, '{}')))), ','), '}') AS slide_table_metadata
+FROM resource_data
+WHERE resource_id IN ('WSI_SAMPLE', 'WSI_PATIENT')
+  AND type = 'WHOLE_SLIDE_IMAGE'
+  AND patient_id IS NOT NULL
+  AND match(JSONExtractString(ifNull(metadata, '{}'), 'slide_key'), '^[0-9a-f]{32}$')
+  AND JSONExtractBool(ifNull(metadata, '{}'), 'can_serve_tiles');
+OPTIMIZE TABLE wsi_slide_table_derived;

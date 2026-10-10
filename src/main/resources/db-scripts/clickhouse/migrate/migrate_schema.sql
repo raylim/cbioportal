@@ -185,3 +185,19 @@ WHERE resource_id IN ('WSI_SAMPLE', 'WSI_PATIENT')
     OR JSONHas(ifNull(metadata, '{}'), 'wsi_serving', 'image_id')
     OR JSONHas(ifNull(metadata, '{}'), 'wsi_serving', 'source_url')
     OR JSONHas(ifNull(metadata, '{}'), 'wsi_serving', 'thumbnail_url'));
+
+## db_schema_version: 3.8.0
+## description: Add wsi_slide_table_derived, the study slide table's allowlisted WSI_SAMPLE rows
+CREATE TABLE IF NOT EXISTS wsi_slide_table_derived (
+    `resource_data_id` Int64,
+    `resource_id` String,
+    `cancer_study_id` Int32,
+    `entity_type` String,
+    `patient_id` Nullable(String),
+    `sample_id` Nullable(String),
+    `url` String,
+    `display_name` Nullable(String),
+    `type` Nullable(String),
+    `metadata` Nullable(String)
+) ENGINE = MergeTree ORDER BY (cancer_study_id, resource_id, patient_id, sample_id, resource_data_id)
+  SETTINGS allow_nullable_key = 1;
