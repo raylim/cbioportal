@@ -6,10 +6,14 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import org.cbioportal.application.security.CancerStudyPermissionEvaluator;
 import org.cbioportal.domain.wsi.WsiDeidentification;
 import org.cbioportal.domain.wsi.WsiSlideAccess;
 import org.cbioportal.domain.wsi.WsiSlideSource;
 import org.cbioportal.domain.wsi.repository.WsiSlideAccessRepository;
+import org.cbioportal.legacy.utils.security.AccessLevel;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +35,16 @@ public class WsiAccessTokenController {
   /** Tile capability format: slide_key + sealed source claim (contract wsi-serving-v6). */
   static final int WSI_AUTH_VERSION = 4;
 
+  /**
+   * Study-scoped capabilities by purpose. They name no slide and carry no {@code wsi_auth_version},
+   * so the tile service never accepts them for pixels: slides are reachable only through the
+   * per-slide capability from {@link #issueSlideAccess}.
+   */
+  static final Map<String, String> PURPOSE_SCOPES =
+      Map.of(
+          "annotations", "annotations:read annotations:write",
+          "agent", "agent:chat research:read annotations:read annotations:write");
+
   @Value("${wsi.access-token-secret:}")
   private String accessTokenSecret;
 
@@ -46,8 +60,60 @@ public class WsiAccessTokenController {
 
   private final WsiSlideAccessRepository wsiSlideAccessRepository;
 
-  public WsiAccessTokenController(WsiSlideAccessRepository wsiSlideAccessRepository) {
+  /** Absent when portal authentication is off; then no study capability is issued. */
+  private final ObjectProvider<CancerStudyPermissionEvaluator> cancerStudyPermissionEvaluator;
+
+  public WsiAccessTokenController(
+      WsiSlideAccessRepository wsiSlideAccessRepository,
+      ObjectProvider<CancerStudyPermissionEvaluator> cancerStudyPermissionEvaluator) {
     this.wsiSlideAccessRepository = wsiSlideAccessRepository;
+    this.cancerStudyPermissionEvaluator = cancerStudyPermissionEvaluator;
+  }
+
+  /**
+   * Issues a study-scoped capability for the annotation service ({@code purpose=annotations}) or
+   * the slide assistant ({@code purpose=agent}). Any other or missing purpose is a 400: slide
+   * access is per slide, from the resources access endpoint only.
+   */
+  @GetMapping("/access-token")
+  @PreAuthorize(
+      "!isAuthenticated() or hasPermission(#studyId, 'CancerStudyId', "
+          + "T(org.cbioportal.legacy.utils.security.AccessLevel).READ)")
+  public ResponseEntity<?> issueAccessToken(
+      @RequestParam(required = false) String studyId,
+      @RequestParam(required = false) String purpose) {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    boolean anonymous = WsiResponses.isAnonymous(authentication);
+    if (anonymous && !localAuthBypass) {
+      return WsiResponses.privateResponse(HttpStatus.UNAUTHORIZED).build();
+    }
+    if (anonymous) {
+      authentication = localDevelopmentAuthentication();
+    }
+    if (studyId == null
+        || studyId.isBlank()
+        || purpose == null
+        || !PURPOSE_SCOPES.containsKey(purpose)) {
+      return WsiResponses.privateResponse(HttpStatus.BAD_REQUEST).build();
+    }
+    if (!anonymous) {
+      CancerStudyPermissionEvaluator evaluator = cancerStudyPermissionEvaluator.getIfAvailable();
+      if (evaluator == null
+          || !evaluator.hasPermission(authentication, studyId, "CancerStudyId", AccessLevel.READ)) {
+        return WsiResponses.privateResponse(HttpStatus.FORBIDDEN).build();
+      }
+    }
+    if (accessTokenSecret == null
+        || accessTokenSecret.getBytes(StandardCharsets.UTF_8).length < 32) {
+      return WsiResponses.privateResponse(HttpStatus.SERVICE_UNAVAILABLE).build();
+    }
+
+    int ttl = Math.max(60, Math.min(accessTokenTtlSeconds, 300));
+    Instant issuedAt = Instant.now();
+    Instant expiresAt = issuedAt.plusSeconds(ttl);
+    String token = issuePurposeToken(authentication, studyId, purpose, issuedAt, expiresAt);
+    return WsiResponses.privateResponse(HttpStatus.OK)
+        .body(Map.of("access_token", token, "token_type", "Bearer", "expires_in", ttl));
   }
 
   /**
@@ -124,6 +190,24 @@ public class WsiAccessTokenController {
         .claim("thumbnail_height", source.thumbnail().height())
         .claim("wsi_auth_version", WSI_AUTH_VERSION)
         .claim("enc", source.sealedSource())
+        .setIssuedAt(Date.from(issuedAt))
+        .setExpiration(Date.from(expiresAt))
+        .signWith(SignatureAlgorithm.HS256, accessTokenSecret.getBytes(StandardCharsets.UTF_8))
+        .compact();
+  }
+
+  private String issuePurposeToken(
+      Authentication authentication,
+      String studyId,
+      String purpose,
+      Instant issuedAt,
+      Instant expiresAt) {
+    return Jwts.builder()
+        .setHeaderParam("typ", "JWT")
+        .setSubject(authentication.getName())
+        .setAudience(accessTokenAudience)
+        .claim("scope", PURPOSE_SCOPES.get(purpose))
+        .claim("study_id", studyId)
         .setIssuedAt(Date.from(issuedAt))
         .setExpiration(Date.from(expiresAt))
         .signWith(SignatureAlgorithm.HS256, accessTokenSecret.getBytes(StandardCharsets.UTF_8))
