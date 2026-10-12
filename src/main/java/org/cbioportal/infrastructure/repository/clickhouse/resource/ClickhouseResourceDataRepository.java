@@ -200,7 +200,6 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
         row.sampleId(),
         row.url(),
         row.displayName(),
-        row.type(),
         metadata);
   }
 

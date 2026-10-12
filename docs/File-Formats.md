@@ -282,8 +282,7 @@ The Clinical Data Dictionary from MSKCC is used to normalize clinical data, and 
 ## Pathology Slide Data
 
 Whole-slide images (WSI) are served from standard [Resource Data](#resource-data)
-files. Each slide is one resource row with `TYPE` `WHOLE_SLIDE_IMAGE` in one of
-two resources:
+files. Each slide is one resource row in one of two resources:
 
 | `RESOURCE_ID` | `RESOURCE_TYPE` | Holds |
 | --- | --- | --- |
@@ -302,7 +301,7 @@ in cBioPortal at all: they travel only inside an opaque, upstream-sealed
 The generic resource APIs (the resource table and the
 `/studies/.../resource-data` endpoints) never return `WSI_SAMPLE` or
 `WSI_PATIENT` rows; slides are reached only through the endpoints above. A
-`WHOLE_SLIDE_IMAGE` row in any other resource is shown in the generic resource
+slide row in any other resource is shown in the generic resource
 table but is never served as a slide.
 
 Declare the per-slide keys non-filterable in each definition's
@@ -333,7 +332,6 @@ In `data_resource_sample.txt` and `data_resource_patient.txt`:
   never contains the image ID.
 - `DISPLAY_NAME` is a non-identifying label, for example
   `H&E, Initial · Specimen 1 / Block 2`. It is never the image ID.
-- `TYPE` is `WHOLE_SLIDE_IMAGE`.
 - `METADATA` is one JSON object with lower-case keys:
   - public slide fields: `slide_key` (32 lowercase hex characters, unique
     within the study), `reference_sample_id`, `part_key`, `part_number`,

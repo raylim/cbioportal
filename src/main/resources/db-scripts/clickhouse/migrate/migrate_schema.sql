@@ -194,3 +194,42 @@ WHERE resource_id IN ('WSI_SAMPLE', 'WSI_PATIENT')
     OR JSONHas(ifNull(metadata, '{}'), 'wsi_serving', 'image_id')
     OR JSONHas(ifNull(metadata, '{}'), 'wsi_serving', 'source_url')
     OR JSONHas(ifNull(metadata, '{}'), 'wsi_serving', 'thumbnail_url'));
+
+## db_schema_version: 3.8.0
+## description: Bring resource_data created by an earlier 3.5.0 to the current shape (resource_scope, no type, Int64 cancer_study_id)
+-- 3.5.0 was revised after some databases applied it: entity_type became resource_scope, the type
+-- column was dropped in favour of METADATA, and cancer_study_id became Int64. A database that ran
+-- the revised 3.5.0 already has that shape, and every statement below is then a no-op or an
+-- exact copy, so the section is safe on any database and on a retry.
+ALTER TABLE resource_data RENAME COLUMN IF EXISTS entity_type TO resource_scope;
+ALTER TABLE resource_data DROP COLUMN IF EXISTS type;
+-- cancer_study_id leads the sorting key, and ClickHouse forbids widening a key column in place, so
+-- the table is rebuilt. Rows already copied by an interrupted run are skipped; the old table is
+-- dropped only after the rename, and a leftover one from an interrupted run is dropped first.
+CREATE TABLE IF NOT EXISTS resource_data_rebuild
+(
+    `resource_data_id` Int64,
+    `resource_id`      String,
+    `cancer_study_id`  Int64,
+    `resource_scope`   String,
+    `patient_id`       Nullable(String),
+    `sample_id`        Nullable(String),
+    `url`              String,
+    `display_name`     Nullable(String),
+    `metadata`         Nullable(String)
+) ENGINE = MergeTree ORDER BY (cancer_study_id, resource_id, patient_id, sample_id, resource_data_id)
+  SETTINGS allow_nullable_key = 1;
+INSERT INTO resource_data_rebuild
+    (resource_data_id, resource_id, cancer_study_id, resource_scope,
+     patient_id, sample_id, url, display_name, metadata)
+SELECT resource_data_id, resource_id, toInt64(cancer_study_id), resource_scope,
+       patient_id, sample_id, url, display_name, metadata
+FROM resource_data
+WHERE resource_data_id NOT IN (SELECT resource_data_id FROM resource_data_rebuild);
+SELECT throwIf(
+    (SELECT count() FROM resource_data) != (SELECT count() FROM resource_data_rebuild),
+    'resource_data rebuild row count mismatch'
+);
+DROP TABLE IF EXISTS resource_data_pre_3_8_0 SYNC;
+RENAME TABLE resource_data TO resource_data_pre_3_8_0, resource_data_rebuild TO resource_data;
+DROP TABLE IF EXISTS resource_data_pre_3_8_0 SYNC;

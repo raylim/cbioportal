@@ -102,7 +102,7 @@ public class ClickhouseWsiSlideAccessMapperTest {
 
   @Test
   public void returnsNullForNonWsiResourceRow() {
-    // The OTHER_SLIDES row is a WHOLE_SLIDE_IMAGE row with a slide key and complete serving
+    // The OTHER_SLIDES row is a slide row with a slide key and complete serving
     // metadata, but it belongs to a resource other than WSI_SAMPLE/WSI_PATIENT.
     assertNull(mapper.getSlideAccess(WSI_TEST_STUDY, "WSI-PATIENT", OTHER_RESOURCE_SLIDE_KEY));
   }
