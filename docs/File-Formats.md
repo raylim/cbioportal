@@ -1888,13 +1888,30 @@ data_filename: data_resource_sample.txt
 ### Data files
 
 ### Resource Definition Data File
-The resource definition file should follow this format, it has three **required** columns:
-- **RESOURCE_ID (required)**: a unique resource ID. This field allows only numbers, letters, points, underscores and hyphens.
-- **DISPLAY_NAME (required)**: a display name for resources.
-- **RESOURCE_TYPE (required)**: resource type for resources, must be SAMPLE, PATIENT or STUDY.
-- **DESCRIPTION (optional)**: a discription for resources.
-- **OPEN_BY_DEFAULT (optional)**: define if the resource will be open by default (`true` / `false`), dafault is `false`.
-- **PRIORITY (optional)**: if not given, will give a default value.
+
+This file declares the **kinds** of resource a study has. It does not list the resources
+themselves -- the data files below do that, one row per item, each naming the kind it belongs to.
+A study that attaches pathology slides to its samples declares `PATHOLOGY_SLIDE` here once, then
+lists one row per slide in `data_resource_sample.txt`.
+
+The file has three **required** columns:
+- **RESOURCE_ID (required)**: the name of this kind of resource, e.g. `PATHOLOGY_SLIDE`. Every row
+  in a resource data file carries a RESOURCE_ID naming the kind it belongs to, so this value is
+  repeated by each item of that kind -- it identifies the kind, not an individual item. It has to
+  be unique within the study, but it is scoped to the study: two studies may each declare
+  `PATHOLOGY_SLIDE`, independently and with different contracts. This field allows only numbers,
+  letters, points, underscores and hyphens.
+- **DISPLAY_NAME (required)**: how this kind of resource is labelled in the portal, e.g.
+  `Pathology Slide`. Individual items can carry their own DISPLAY_NAME in the data file.
+- **RESOURCE_TYPE (required)**: what the resource is attached to -- `SAMPLE`, `PATIENT` or
+  `STUDY`. This is the entity level, not a classification of the resource itself: a slide and a
+  report are both `SAMPLE` if both hang off a sample. It decides which data file the items go in
+  and where they surface in the portal, which displays it as **Scope**. To classify the resource
+  itself -- image versus report, a modality -- use METADATA on the individual rows, where
+  CUSTOM_METADATA can label it, type it and decide whether it filters.
+- **DESCRIPTION (optional)**: a description for resources.
+- **OPEN_BY_DEFAULT (optional)**: whether this resource opens on its own (`true` / `false`, default `false`). With `true`, loading a patient or study view opens a tab for this resource without the user asking for it, showing the resource's URL embedded in the page; the user can close the tab again. With `false` the resource is reached from the resources table instead. Use it sparingly -- every resource marked `true` costs the reader a tab on every page load.
+- **PRIORITY (optional)**: an integer ordering hint for this resource, defaulting to `1`. It is carried through the API but nothing currently orders by it -- the resource tabs are ordered by resource id. Set it if you want the intent recorded; expect no visible effect today.
 - **CUSTOM_METADATA (optional)**: a JSON object declaring the metadata keys this resource's rows carry, so the portal can label, type and filter them. See [Describing metadata columns](#describing-metadata-columns-with-custom_metadata) below.
 
 ### Example *Resource Definition* data file
@@ -1970,50 +1987,50 @@ key no row carries is a **warning**: the column renders, always empty.
 The sample resource file should follow this format, it has four **required** columns:
 - **PATIENT_ID (required)**: a unique patient ID. This field allows only numbers, letters, points, underscores and hyphens.
 - **SAMPLE_ID (required)**: a unique sample ID. This field allows only numbers, letters, points, underscores and hyphens.
-- **RESOURCE_ID (required)**: a unique resource ID which should also be included in the `Resource Definition data file`.
+- **RESOURCE_ID (required)**: the kind of resource this item is, naming a RESOURCE_ID declared in the `Resource Definition data file`. Many rows share one RESOURCE_ID -- it groups items of the same kind rather than identifying this one.
 - **URL (required)**: url to the resources, start with `http` or `https`.
-- **DISPLAY_NAME (optional)**: a human-readable label for this individual item. Without it the table shows the resource's own name on every row.
-- **TYPE (optional)**: free-text classification of the item, for example `IMAGE` or `REPORT`.
+- **DISPLAY_NAME (optional)**: a human-readable label for this individual item. Without it the item's label column is blank and the table still names the resource itself in its own column.
 - **METADATA (optional)**: a JSON **object** of descriptive fields for this item. Each key becomes a searchable, sortable, filterable column in the resource table; where the resource definition gives a [CUSTOM_METADATA](#describing-metadata-columns-with-custom_metadata) contract, every key used here must be declared in it. Arrays, scalars and malformed JSON are rejected at import.
 
 ### Example *Sample Resource* data file
 <table>
-<thead><tr><th>PATIENT_ID</th><th>SAMPLE_ID</th><th>RESOURCE_ID</th><th>URL</th><th>DISPLAY_NAME</th><th>TYPE</th><th>METADATA</th></tr></thead>
-<tr><td>TCGA-A2-A04P</td><td>TCGA-A2-A04P-01</td><td>PATHOLOGY_SLIDE</td><td>https://url-to-slide-sample1</td><td>H&amp;E Slide 1</td><td>IMAGE</td><td>{"stain": "H&amp;E", "magnification": "20x", "percent_tumor_cells": 65}</td></tr>
-<tr><td>TCGA-A1-A0SK</td><td>TCGA-A1-A0SK-01</td><td>PATHOLOGY_SLIDE</td><td>https://url-to-slide-sample2</td><td>H&amp;E Slide 2</td><td>IMAGE</td><td>{"stain": "IHC", "magnification": "40x", "percent_tumor_cells": 30}</td></tr>
+<thead><tr><th>PATIENT_ID</th><th>SAMPLE_ID</th><th>RESOURCE_ID</th><th>URL</th><th>DISPLAY_NAME</th><th>METADATA</th></tr></thead>
+<tr><td>TCGA-A2-A04P</td><td>TCGA-A2-A04P-01</td><td>PATHOLOGY_SLIDE</td><td>https://url-to-slide-sample1</td><td>H&amp;E Slide 1</td><td>{"stain": "H&amp;E", "magnification": "20x", "percent_tumor_cells": 65}</td></tr>
+<tr><td>TCGA-A1-A0SK</td><td>TCGA-A1-A0SK-01</td><td>PATHOLOGY_SLIDE</td><td>https://url-to-slide-sample2</td><td>H&amp;E Slide 2</td><td>{"stain": "IHC", "magnification": "40x", "percent_tumor_cells": 30}</td></tr>
 </table>
 
-The three optional columns are independent of one another, and files without them import exactly
-as before.
+Both optional columns are independent of one another, and files without them import exactly as
+before. A classification of the item -- `IMAGE`, `REPORT`, a modality -- belongs in `METADATA`,
+where a `CUSTOM_METADATA` contract can label it, type it and decide whether it filters.
 
 ### Patient Resource Data File
 The patient resource file should follow this format, it has three **required** columns:
 - **PATIENT_ID (required)**: a unique patient ID. This field allows only numbers, letters, points, underscores and hyphens.
-- **RESOURCE_ID (required)**: a unique resource ID which should also be included in the `Resource Definition data file`.
+- **RESOURCE_ID (required)**: the kind of resource this item is, naming a RESOURCE_ID declared in the `Resource Definition data file`. Many rows share one RESOURCE_ID -- it groups items of the same kind rather than identifying this one.
 - **URL (required)**: url to the resources, start with `http` or `https`.
 
-`DISPLAY_NAME`, `TYPE` and `METADATA` are also accepted here, with the same meaning as in the
+`DISPLAY_NAME` and `METADATA` are also accepted here, with the same meaning as in the
 [Sample Resource data file](#sample-resource-data-file).
 
 ### Example *Patient Resource* data file
 <table>
-<thead><tr><th>PATIENT_ID</th><th>RESOURCE_ID</th><th>URL</th><th>DISPLAY_NAME</th><th>TYPE</th><th>METADATA</th></tr></thead>
+<thead><tr><th>PATIENT_ID</th><th>RESOURCE_ID</th><th>URL</th><th>DISPLAY_NAME</th><th>METADATA</th></tr></thead>
 <tr><td>TCGA-A2-A04P</td><td>PATIENT_NOTES</td><td>https://url-to-slide-patient1</td><td>Consult note</td><td>REPORT</td><td>{"author": "Dr Smith", "pages": 3}</td></tr>
 <tr><td>TCGA-A1-A0SK</td><td>PATIENT_NOTES</td><td>https://url-to-slide-patient2</td><td>Consult note</td><td>REPORT</td><td>{"author": "Dr Jones", "pages": 5}</td></tr>
 </table>
 
 ### Study Resource Data File
 The study resource file should follow this format, it has two **required** columns:
-- **RESOURCE_ID (required)**: a unique resource ID which should also be included in the `Resource Definition data file`.
+- **RESOURCE_ID (required)**: the kind of resource this item is, naming a RESOURCE_ID declared in the `Resource Definition data file`. Many rows share one RESOURCE_ID -- it groups items of the same kind rather than identifying this one.
 - **URL (required)**: url to the resources, start with `http` or `https`.
 
-`DISPLAY_NAME`, `TYPE` and `METADATA` are also accepted here, with the same meaning as in the
+`DISPLAY_NAME` and `METADATA` are also accepted here, with the same meaning as in the
 [Sample Resource data file](#sample-resource-data-file).
 
 ### Example *Study Resource* data file
 <table>
-<thead><tr><th>RESOURCE_ID</th><th>URL</th><th>DISPLAY_NAME</th><th>TYPE</th><th>METADATA</th></tr></thead>
-<tr><td>STUDY_SPONSORS</td><td>https://url-to-study-sponsors</td><td>Sponsor list</td><td>REPORT</td><td>{"year": 2026}</td></tr>
+<thead><tr><th>RESOURCE_ID</th><th>URL</th><th>DISPLAY_NAME</th><th>METADATA</th></tr></thead>
+<tr><td>STUDY_SPONSORS</td><td>https://url-to-study-sponsors</td><td>Sponsor list</td><td>{"year": 2026}</td></tr>
 </table>
 
 ## Custom namespace columns
