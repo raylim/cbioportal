@@ -279,8 +279,7 @@ After importing studies and rebuilding derived tables, you can verify that your 
 ## WSI hierarchy materialization and authenticated rollout
 
 WSI is served from the generic `resource_data` table. Each slide is one row
-with `type = 'WHOLE_SLIDE_IMAGE'` in the `WSI_SAMPLE` (sample-matched) or
-`WSI_PATIENT` (unmatched) resource. Its `metadata` JSON carries the public
+in the `WSI_SAMPLE` (sample-matched) or `WSI_PATIENT` (unmatched) resource. Its `metadata` JSON carries the public
 hierarchy and stain fields, including the opaque `slide_key`, and, for a
 servable slide, a private `wsi_serving` object with the opaque `sealed_source`,
 intrinsic tile metadata and the thumbnail width, height and content type. The
@@ -310,8 +309,8 @@ Clients use two endpoints:
   returns the pixel access bundle and capability for one slide. `slideKey`
   must be 32 lowercase hex characters (`400` otherwise). It reads
   `wsi_serving` from the row whose `metadata.slide_key` matches, and only when
-  the row belongs to the study and patient, its resource is `WSI_SAMPLE` or
-  `WSI_PATIENT`, and its `type` is `WHOLE_SLIDE_IMAGE`. The slide key is
+  the row belongs to the study and patient and its resource is `WSI_SAMPLE` or
+  `WSI_PATIENT`. The slide key is
   unique within a study and, unlike the resource-data row ID, survives a
   reimport. A slide is servable only when `can_serve_tiles` is true, the slide
   key is valid, `sealed_source` is well formed (unpadded base64url, at most
@@ -496,11 +495,20 @@ resources are re-imported from a `data_wsi.txt` that carries `SEALED_SOURCE`.
 The delete is a mutation; `migrate_db.py` waits for it to finish before
 recording the version.
 
-**`3.8.0` (study slide table).** `3.8.0` adds `wsi_slide_table_derived`, the
+**`3.8.0` (resource_data shape).** `3.5.0` was revised after some databases
+applied it: `entity_type` became `resource_scope`, the `type` column was
+dropped in favour of `METADATA`, and `cancer_study_id` became `Int64`. `3.8.0`
+brings a `resource_data` created by the earlier `3.5.0` to that shape. It
+renames and drops the columns if present, and rebuilds the table because
+ClickHouse cannot widen a sorting-key column in place. On a database that
+already has the current shape it only copies the table, and it is safe to
+re-run.
+
+**`3.9.0` (study slide table).** `3.9.0` adds `wsi_slide_table_derived`, the
 study slide table the resource table serves as `WSI_SAMPLE`: every slide the
 viewer can open (`WSI_SAMPLE` rows, and unmatched `WSI_PATIENT` ones with no
 sample), with metadata reduced to the allowlisted public slide fields. The
-migration creates it empty; it is filled by `populate_derived_tables.sql`, so a
+migration (re)creates it empty; it is filled by `populate_derived_tables.sql`, so a
 manual `migrate_db.py` run needs `--populate-derived-tables` (or a separate
 derived-table rebuild) before the slide table lists anything.
 

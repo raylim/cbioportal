@@ -33,7 +33,6 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
   private static final Logger LOG = LoggerFactory.getLogger(ClickhouseResourceDataRepository.class);
 
   // Only non-ID builtin columns that benefit from categorical filtering
-  private static final Map<String, String> FACET_COLUMNS = Map.of("type", "rdata.type");
 
   /**
    * Metadata key holding WSI serving data (the sealed slide source). It is private to the WSI
@@ -222,7 +221,6 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
         row.sampleId(),
         row.url(),
         row.displayName(),
-        row.type(),
         metadata);
   }
 
@@ -241,13 +239,6 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
     MetadataContext context = resolveMetadataContext(scoped);
 
     Map<String, List<ResourceFacetOption>> facets = new LinkedHashMap<>();
-    for (Map.Entry<String, String> entry : FACET_COLUMNS.entrySet()) {
-      List<ResourceFacetOption> values =
-          mapper.getResourceTableFacetValues(scoped, entry.getValue(), MAX_FACET_VALUES + 1);
-      if (withinFacetCap(entry.getKey(), values)) {
-        facets.put(entry.getKey(), values);
-      }
-    }
 
     Map<String, ResourceNumericRange> facetRanges = new LinkedHashMap<>();
     List<String> categoricalKeys = new ArrayList<>();
