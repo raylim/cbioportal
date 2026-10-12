@@ -43,7 +43,6 @@
         PREWHERE r.cancer_study_id = #{studyInternalId}
             AND r.patient_id = #{patientId}
         WHERE r.resource_id IN ('WSI_SAMPLE', 'WSI_PATIENT')
-          AND r.type = 'WHOLE_SLIDE_IMAGE'
         <!-- Unmatched slides (no sample) sort first. part/block/slide keys are salted hashes, so
              ordering by them alone is random: order by the pipeline's Specimen/Block ranks first,
              keep the keys as tie-breakers that hold each part/block together, then finish on the

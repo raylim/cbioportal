@@ -279,8 +279,7 @@ After importing studies and rebuilding derived tables, you can verify that your 
 ## WSI hierarchy materialization and authenticated rollout
 
 WSI is served from the generic `resource_data` table. Each slide is one row
-with `type = 'WHOLE_SLIDE_IMAGE'` in the `WSI_SAMPLE` (sample-matched) or
-`WSI_PATIENT` (unmatched) resource. Its `metadata` JSON carries the public
+in the `WSI_SAMPLE` (sample-matched) or `WSI_PATIENT` (unmatched) resource. Its `metadata` JSON carries the public
 hierarchy and stain fields, including the opaque `slide_key`, optional slide
 timing keys (relative days, never absolute dates), and, for a
 servable slide, a private `wsi_serving` object with the opaque `sealed_source`,
@@ -311,13 +310,14 @@ Clients use two endpoints:
   returns the pixel access bundle and capability for one slide. `slideKey`
   must be 32 lowercase hex characters (`400` otherwise). It reads
   `wsi_serving` from the row whose `metadata.slide_key` matches, and only when
-  the row belongs to the study and patient, its resource is `WSI_SAMPLE` or
-  `WSI_PATIENT`, and its `type` is `WHOLE_SLIDE_IMAGE`. The slide key is
+  the row belongs to the study and patient and its resource is `WSI_SAMPLE` or
+  `WSI_PATIENT`. The slide key is
   unique within a study and, unlike the resource-data row ID, survives a
   reimport. A slide is servable only when `can_serve_tiles` is true, the slide
   key is valid, `sealed_source` is well formed (unpadded base64url, at most
-  4096 characters, decoding to at least 29 bytes), the tile metadata passes
-  the key allowlist and identifier/date checks, and the thumbnail is
+  4096 characters, decoding to at least 29 bytes), the tile metadata has
+  `tile_metadata_schema_version` 2 and passes the key allowlist and
+  identifier/date checks, and the thumbnail is
   `image/jpeg` or `image/png` with dimensions between 1 and 8192; otherwise
   the endpoint returns `404`. The response carries `slideKey`, the tile
   metadata, the thumbnail width/height/content type and the capability;
@@ -370,25 +370,17 @@ index. Setting only `msk.wsi.tile_server.url` configures a frontend URL; the
 WSI resource rows must also contain `sealed_source`, the tile metadata and the
 thumbnail fields in `wsi_serving`.
 
-### Upstream thumbnail publication
+### Upstream serving data
 
-The ClickHouse snapshot depends on a separate scheduled thumbnail workload. It
-must read eligible inventory/source rows, generate master JPEGs in the
-S3/Dell ECS-compatible object store, and populate
-`cdsi_prod.pathology_data_mining.slide_thumbnail_registry` with
-`artifact_uri`, `tile_metadata_json`, dimensions, and content type before the
-Databricks canonical-association refresh runs. That refresh seals each
-servable slide's image ID and slide/thumbnail URIs into `sealed_source`; the
-canonical export passes `SEALED_SOURCE`, `TILE_METADATA_JSON`, dimensions, and
-content type (never the image ID or the URIs) in the `data_wsi.txt` file,
-which the offline converter turns into resource rows for the standard
-cBioPortal core importer.
-
-Neither the frontend nor the online tile-server API is a production thumbnail
-publisher. The frontend only requests `/thumbnails`; the tile-server
-on-demand worker is limited to development/rehearsal or controlled remediation
-and does not populate the registry. A missing registry row or missing metadata
-must be fixed in the scheduled batch before importing a new WSI snapshot.
+The serving fields are produced by the data provider before export, not by
+cBioPortal: a thumbnail for each servable slide, its tile metadata,
+dimensions and content type, and the `sealed_source` that seals the slide and
+thumbnail locations. The `data_wsi.txt` file carries only `SEALED_SOURCE`,
+`TILE_METADATA_JSON`, the thumbnail dimensions and content type (never an
+image ID or object URI), and the offline converter turns it into resource rows
+for the standard cBioPortal core importer. Neither the frontend nor the tile
+server publishes thumbnails; a slide missing any of these fields must be
+fixed upstream before importing a new WSI snapshot.
 
 WSI is login-only, including for public studies. Anonymous users receive
 `401`, authenticated users without study access receive `403`, authenticated
@@ -411,9 +403,7 @@ Before enabling the Pathology Slides feature for a private study:
    the legacy pair, and validate and import the study with the standard
    importer. The resource rows carry `sealed_source`, `tile_metadata_json`,
    thumbnail dimensions, and content type in `wsi_serving` for each
-   servable slide; with `--study-dir` the converter also merges the six
-   `WSI_*` slide-count clinical attributes into copies of the study's clinical
-   sample and patient files. The pathology timeline pair is imported unchanged.
+   servable slide. The pathology timeline pair is imported unchanged.
    MRNs and absolute dates must not occur in the study files:
 
    ```bash
@@ -506,6 +496,15 @@ resources are re-imported from a `data_wsi.txt` that carries `SEALED_SOURCE`.
 The delete is a mutation; `migrate_db.py` waits for it to finish before
 recording the version.
 
+**`3.8.0` (resource_data shape).** `3.5.0` was revised after some databases
+applied it: `entity_type` became `resource_scope`, the `type` column was
+dropped in favour of `METADATA`, and `cancer_study_id` became `Int64`. `3.8.0`
+brings a `resource_data` created by the earlier `3.5.0` to that shape. It
+renames and drops the columns if present, and rebuilds the table because
+ClickHouse cannot widen a sorting-key column in place. On a database that
+already has the current shape it only copies the table, and it is safe to
+re-run.
+
 Versions `3.1.0` to `3.4.0` are reserved and change nothing; earlier builds of
 them created the native WSI tables that `3.7.0` drops.
 
@@ -522,15 +521,6 @@ patient's hierarchy request; see
 
 Import WSI resources into the inactive blue/green database and promote it only
 after validation.
-
-Before a production migration, rehearse the exact candidate image against an
-isolated clone of the active production database. The `web-and-data` image
-contains `scripts/rehearse_clickhouse_production_clone.sh`; it refuses to write
-to the source database, requires a target name containing
-`migration_rehearsal`, clones base-table data with ClickHouse `CLONE AS`, and
-rebuilds derived tables only in the target. Run it from that exact immutable
-candidate image with the production Cloud connection settings and retain its
-schema/count evidence with the release record.
 
 For **ClickHouse Cloud** specifically, set `CLICKHOUSE_SECURE=true` (in addition to the usual
 `CLICKHOUSE_HOST`/`CLICKHOUSE_NATIVE_PORT`/`CLICKHOUSE_USER`/`CLICKHOUSE_PASSWORD`/`CLICKHOUSE_DB`)

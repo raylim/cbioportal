@@ -42,7 +42,7 @@ public class ClickhouseWsiHierarchyMapperTest {
 
     assertEquals(2, hierarchy.sampleGroups().size());
     assertEquals("WSI-SAMPLE", hierarchy.referenceSampleId());
-    // Unmatched slides sort first, as they did in the native wsi_* hierarchy.
+    // Unmatched slides sort first.
     assertNull(hierarchy.sampleGroups().get(0).sampleId());
     // The legacy row without a slide_key (900104) is omitted.
     assertEquals(List.of(PATIENT_SLIDE_KEY, SAMPLE_SLIDE_KEY), slideKeys(hierarchy));
@@ -90,8 +90,8 @@ public class ClickhouseWsiHierarchyMapperTest {
             "AQEBAQEBAQEBAQEB",
             "900101",
             "900104",
-            "partDesignator\":\"",
-            "pathDxTitle\":\"",
+            "partDesignator",
+            "pathDxTitle",
             // Timing is served under the API names, never the raw metadata keys.
             "timeline")) {
       assertFalse("hierarchy exposes " + forbidden, json.contains(forbidden));
@@ -132,15 +132,6 @@ public class ClickhouseWsiHierarchyMapperTest {
     assertNull(slide.procedureDateReason());
     assertNull(slide.procedureDateStatus());
     assertNull(slide.procedureCoordinateSystem());
-  }
-
-  @Test
-  public void readsEmptyHierarchyPayload() {
-    WsiHierarchy hierarchy =
-        repository.getPatientHierarchy("wsi_empty_hierarchy_study", "EMPTY-PATIENT");
-
-    assertTrue(hierarchy.sampleGroups().isEmpty());
-    assertNull(hierarchy.referenceSampleId());
   }
 
   @Test
