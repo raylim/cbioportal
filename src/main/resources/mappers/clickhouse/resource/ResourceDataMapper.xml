@@ -2,6 +2,22 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.cbioportal.infrastructure.repository.clickhouse.resource.ClickhouseResourceDataMapper">
 
+  <!--
+    WARNING: every select in this mapper must restrict cs.cancer_study_identifier to the study
+    list the caller supplied, either by including ResourceTableBaseFilters or by carrying the same
+    condition inline (getResourceTableTabs does the latter, because it is passed a different
+    parameter object). Do not add a select, or relax an existing one, in a way that can return rows
+    from a study the request did not name.
+
+    This is what makes authorization bind to the data. The controller's @PreAuthorize checks that
+    the user may read the studies named in the request; it cannot check what the query then reads.
+    A select that omits the filter would hand a user who is legitimately authorized for one study
+    the rows of every other study: authorization passes and the data still leaks.
+
+    ResourceDataMapperStudyFilterTest fails the build if a select here has neither form of the
+    filter.
+  -->
+
   <resultMap id="ResourceContractRowResultMap" type="org.cbioportal.domain.resource.ResourceContractRow">
     <constructor>
       <arg column="customMetadata" javaType="String"/>
@@ -29,7 +45,6 @@
       <arg column="sampleId" javaType="String"/>
       <arg column="url" javaType="String"/>
       <arg column="displayName" javaType="String"/>
-      <arg column="type" javaType="String"/>
       <arg column="metadata" javaType="java.util.Map"
            typeHandler="org.cbioportal.infrastructure.repository.clickhouse.typehandlers.ClickhouseJsonMapTypeHandler"/>
     </constructor>
@@ -138,7 +153,6 @@
         AND (
           rdata.patient_id LIKE CONCAT('%', #{query.search}, '%')
           OR rdata.sample_id LIKE CONCAT('%', #{query.search}, '%')
-          OR rdata.type LIKE CONCAT('%', #{query.search}, '%')
           OR rdata.url LIKE CONCAT('%', #{query.search}, '%')
           OR position(<include refid="PublicMetadataText"/>, #{query.search}) > 0
         )
@@ -153,9 +167,6 @@
               </when>
               <when test="filter.columnId == 'sampleId'">
                 <include refid="ApplyStringFilterOnSampleId"/>
-              </when>
-              <when test="filter.columnId == 'type'">
-                <include refid="ApplyStringFilterOnType"/>
               </when>
               <when test="filter.columnId == 'url'">
                 <include refid="ApplyStringFilterOnUrl"/>
@@ -185,12 +196,6 @@
   <sql id="ApplyStringFilterOnSampleId">
     <include refid="ApplyStringFilterTemplate">
       <property name="column" value="rdata.sample_id"/>
-    </include>
-  </sql>
-
-  <sql id="ApplyStringFilterOnType">
-    <include refid="ApplyStringFilterTemplate">
-      <property name="column" value="rdata.type"/>
     </include>
   </sql>
 
@@ -323,7 +328,6 @@
       <when test="query.sortBy == 'sampleId'">ORDER BY rdata.sample_id <include refid="ResourceTableSortDirection"/></when>
       <when test="query.sortBy == 'url'">ORDER BY rdata.url <include refid="ResourceTableSortDirection"/></when>
       <when test="query.sortBy == 'displayName'">ORDER BY rdata.display_name <include refid="ResourceTableSortDirection"/></when>
-      <when test="query.sortBy == 'type'">ORDER BY rdata.type <include refid="ResourceTableSortDirection"/></when>
       <when test="query.sortBy == 'resourceDisplayName'">ORDER BY rdef.display_name <include refid="ResourceTableSortDirection"/></when>
       <!-- wsi_serving is private: sorting on it falls back to row order and reveals nothing. -->
       <when test="query.sortBy == 'metadata:wsi_serving'">
@@ -413,12 +417,11 @@
       cs.cancer_study_identifier AS studyId,
       rdata.resource_id AS resourceId,
       coalesce(rdef.display_name, rdata.resource_id) AS resourceDisplayName,
-      rdata.entity_type AS resourceType,
+      rdata.resource_scope AS resourceType,
       rdata.patient_id AS patientId,
       rdata.sample_id AS sampleId,
       rdata.url AS url,
       rdata.display_name AS displayName,
-      rdata.type AS type,
       rdata.metadata AS metadata
     <include refid="ResourceTableFromClause"/>
     <include refid="ResourceTableBaseFilters"/>
@@ -426,19 +429,6 @@
     LIMIT #{query.limit} OFFSET #{query.offset}
   </select>
 
-  <!--
-    LIMIT is one more than the caller's cap: if the extra row comes back the column has too many
-    distinct values to offer as a dropdown and the caller drops the facet entirely.
-  -->
-  <select id="getResourceTableFacetValues" resultMap="ResourceFacetOptionResultMap">
-    SELECT ${column} AS value, count(*) AS count
-    <include refid="ResourceTableFromClause"/>
-    <include refid="ResourceTableBaseFilters"/>
-    AND ${column} IS NOT NULL AND ${column} != ''
-    GROUP BY ${column}
-    ORDER BY value ASC
-    LIMIT #{limit}
-  </select>
 
   <!--
     Every metadata facet in one pass. The per-key form needed one aggregation over the resource
@@ -577,10 +567,10 @@
   -->
   <select id="getResourceTableCounts" resultType="org.cbioportal.domain.resource.ResourceTableCounts">
     SELECT count(*) AS rowCount,
-           countDistinctIf(concat(cs.cancer_study_identifier, '_', rdata.patient_id), rdata.patient_id IS NOT NULL AND rdata.entity_type IN ('PATIENT', 'SAMPLE')) AS patientCount,
-           countDistinctIf(concat(cs.cancer_study_identifier, '_', rdata.sample_id), rdata.sample_id IS NOT NULL AND rdata.entity_type = 'SAMPLE') AS sampleCount,
+           countDistinctIf(concat(cs.cancer_study_identifier, '_', rdata.patient_id), rdata.patient_id IS NOT NULL AND rdata.resource_scope IN ('PATIENT', 'SAMPLE')) AS patientCount,
+           countDistinctIf(concat(cs.cancer_study_identifier, '_', rdata.sample_id), rdata.sample_id IS NOT NULL AND rdata.resource_scope = 'SAMPLE') AS sampleCount,
            uniqExact(coalesce(rdef.display_name, rdata.resource_id)) AS distinctResourceDisplayNames,
-           uniqExact(rdata.entity_type) AS distinctScopes,
+           uniqExact(rdata.resource_scope) AS distinctScopes,
            uniqExact(ifNull(rdata.display_name, '')) AS distinctDisplayNames
     <include refid="ResourceTableFromClause"/>
     <include refid="ResourceTableBaseFilters"/>

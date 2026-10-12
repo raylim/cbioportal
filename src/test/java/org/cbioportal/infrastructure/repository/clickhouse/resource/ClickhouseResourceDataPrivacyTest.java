@@ -27,7 +27,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * WSI_SAMPLE / WSI_PATIENT rows never reach the generic resource table, and for every other row
- * public metadata stays searchable while wsi_serving stays private, whatever its TYPE. Uses the
+ * public metadata stays searchable while wsi_serving stays private. Uses the
  * wsi_resource_table_study fixture: WSI_SAMPLE rows 900501/900502, and EXTERNAL_SLIDES rows
  * 900505/900506 whose sealed serving values contain "secretpath" and sort in the opposite order
  * ("zzz" for 900505, "aaa" for 900506) to the rows' ids.
@@ -118,7 +118,6 @@ public class ClickhouseResourceDataPrivacyTest {
           .as(key)
           .isEmpty();
     }
-    assertThat(mapper.getResourceTableFacetValues(query, "rdata.type", FACET_LIMIT)).isEmpty();
   }
 
   /**
@@ -194,13 +193,10 @@ public class ClickhouseResourceDataPrivacyTest {
   }
 
   @Test
-  public void searchMatchesMetadataOfRowsWithNullType() {
+  public void searchMatchesRowMetadata() {
     ResourceTableQuery query = query(NOTES, "tumor board", null, null, null);
 
-    List<ResourceTableRow> rows = repository.getResourceTableRows(query);
-
     assertThat(ids(query)).containsExactly("900503");
-    assertThat(rows.get(0).type()).isNull();
     assertThat(repository.getResourceTableCounts(query).rowCount()).isEqualTo(1);
     assertThat(repository.getResourceTableRows(query(NOTES, "secretpath", null, null, null)))
         .isEmpty();
