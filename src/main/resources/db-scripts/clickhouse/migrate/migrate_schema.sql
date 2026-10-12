@@ -57,24 +57,26 @@ CREATE TABLE IF NOT EXISTS resource_data
 (
     `resource_data_id` Int64,
     `resource_id`      String,
-    `cancer_study_id`  Int32,
-    `entity_type`      String,
+    `cancer_study_id`  Int64,
+    `resource_scope`   String,
     `patient_id`       Nullable(String),
     `sample_id`        Nullable(String),
     `url`              String,
     `display_name`     Nullable(String),
-    `type`             Nullable(String),
     `metadata`         Nullable(String)
 ) ENGINE = MergeTree ORDER BY (cancer_study_id, resource_id, patient_id, sample_id, resource_data_id)
   SETTINGS allow_nullable_key = 1;
 
--- Backfill is guarded by a deterministic resource_data_id (hash of the natural key) so this
--- section is safe to re-run: rows already present are excluded via NOT IN. The study id is part
--- of that key: stable ids are unique only within a study and the same URL can be attached in more
--- than one, so hashing without it mints the same id for two studies' rows -- and because the
--- importer deletes a resource's stale rows by id, re-importing one study would then delete the
--- other study's rows. Study-level rows key on the study's own internal_id, which already carries
--- it.
+-- resource_data_id is a running row number, not a hash of the row: a 64-bit hash is a
+-- fingerprint rather than a unique id, the chance of two rows sharing one grows with the square
+-- of the row count, and a collision would be absorbed silently by the NOT IN guard below --
+-- losing a row on upgrade with no error. Row numbers are exact at any size. They start above the
+-- current maximum, so a retry keeps the ids already issued and the importer carries on from
+-- there: its sequence seeds from the table's maximum.
+-- Re-running the section is safe because each insert skips rows whose natural key is already
+-- present, which after a partial run restores exactly the rows that are missing. The study id is
+-- part of that key: stable ids are unique only within a study, and the same URL can be attached
+-- in more than one. Study-level rows key on the study's own internal_id, which already carries it.
 -- Recreate the legacy tables if they are missing, so this section can be retried after a run
 -- that reached the drops below but died before migrate_db.py advanced db_schema_version. On a
 -- first run they already exist and this is a no-op; on a retry they come back empty, the
@@ -84,59 +86,66 @@ CREATE TABLE IF NOT EXISTS resource_patient (`internal_id` Int64, `resource_id` 
 CREATE TABLE IF NOT EXISTS resource_study (`internal_id` Int64, `resource_id` String, `url` String) ENGINE = MergeTree ORDER BY (internal_id, resource_id, url);
 
 INSERT INTO resource_data
-    (resource_data_id, resource_id, cancer_study_id, entity_type,
-     patient_id, sample_id, url, display_name, type, metadata)
+    (resource_data_id, resource_id, cancer_study_id, resource_scope,
+     patient_id, sample_id, url, display_name, metadata)
 SELECT
-    toInt64(cityHash64(cs.cancer_study_id, rs.resource_id, s.stable_id, rs.url)),
+    (SELECT ifNull(max(resource_data_id), 0) FROM resource_data) + row_number() OVER (),
     rs.resource_id,
-    toInt32(cs.cancer_study_id),
+    cs.cancer_study_id,
     'SAMPLE',
     p.stable_id,
     s.stable_id,
     rs.url,
-    NULL, NULL, NULL
+    NULL, NULL
 FROM resource_sample rs
 INNER JOIN sample       s  ON rs.internal_id    = s.internal_id
 INNER JOIN patient      p  ON s.patient_id      = p.internal_id
 INNER JOIN cancer_study cs ON p.cancer_study_id = cs.cancer_study_id
-WHERE toInt64(cityHash64(cs.cancer_study_id, rs.resource_id, s.stable_id, rs.url)) NOT IN (
-    SELECT resource_data_id FROM resource_data
+WHERE (cs.cancer_study_id, rs.resource_id, s.stable_id, rs.url) NOT IN (
+    SELECT (cancer_study_id, resource_id, sample_id, url) FROM resource_data WHERE resource_scope = 'SAMPLE'
 );
 
 INSERT INTO resource_data
-    (resource_data_id, resource_id, cancer_study_id, entity_type,
-     patient_id, sample_id, url, display_name, type, metadata)
+    (resource_data_id, resource_id, cancer_study_id, resource_scope,
+     patient_id, sample_id, url, display_name, metadata)
 SELECT
-    toInt64(cityHash64(cs.cancer_study_id, rp.resource_id, pt.stable_id, rp.url)),
+    (SELECT ifNull(max(resource_data_id), 0) FROM resource_data) + row_number() OVER (),
     rp.resource_id,
-    toInt32(cs.cancer_study_id),
+    cs.cancer_study_id,
     'PATIENT',
     pt.stable_id,
     NULL,
     rp.url,
-    NULL, NULL, NULL
+    NULL, NULL
 FROM resource_patient rp
 INNER JOIN patient      pt ON rp.internal_id     = pt.internal_id
 INNER JOIN cancer_study cs ON pt.cancer_study_id = cs.cancer_study_id
-WHERE toInt64(cityHash64(cs.cancer_study_id, rp.resource_id, pt.stable_id, rp.url)) NOT IN (
-    SELECT resource_data_id FROM resource_data
+WHERE (cs.cancer_study_id, rp.resource_id, pt.stable_id, rp.url) NOT IN (
+    SELECT (cancer_study_id, resource_id, patient_id, url) FROM resource_data WHERE resource_scope = 'PATIENT'
 );
 
 INSERT INTO resource_data
-    (resource_data_id, resource_id, cancer_study_id, entity_type,
-     patient_id, sample_id, url, display_name, type, metadata)
+    (resource_data_id, resource_id, cancer_study_id, resource_scope,
+     patient_id, sample_id, url, display_name, metadata)
 SELECT
-    toInt64(cityHash64(rst.internal_id, rst.resource_id, rst.url)),
+    (SELECT ifNull(max(resource_data_id), 0) FROM resource_data) + row_number() OVER (),
     rst.resource_id,
-    toInt32(rst.internal_id),
+    rst.internal_id,
     'STUDY',
     NULL, NULL,
     rst.url,
-    NULL, NULL, NULL
+    NULL, NULL
 FROM resource_study rst
-WHERE toInt64(cityHash64(rst.internal_id, rst.resource_id, rst.url)) NOT IN (
-    SELECT resource_data_id FROM resource_data
+WHERE (rst.internal_id, rst.resource_id, rst.url) NOT IN (
+    SELECT (cancer_study_id, resource_id, url) FROM resource_data WHERE resource_scope = 'STUDY'
 );
+
+-- Deletions select rows by resource_data_id, so a duplicate id would make one row's deletion
+-- take another row with it. Fail the migration rather than leave that in place.
+SELECT throwIf(
+    count() != uniqExact(resource_data_id),
+    'resource_data backfill produced duplicate resource_data_id values'
+) FROM resource_data;
 
 -- Nothing reads the legacy split tables any more: the importer writes only resource_data, and
 -- the API paths that used to read them (the legacy resource endpoints, the study resource
@@ -187,17 +196,58 @@ WHERE resource_id IN ('WSI_SAMPLE', 'WSI_PATIENT')
     OR JSONHas(ifNull(metadata, '{}'), 'wsi_serving', 'thumbnail_url'));
 
 ## db_schema_version: 3.8.0
+## description: Bring resource_data created by an earlier 3.5.0 to the current shape (resource_scope, no type, Int64 cancer_study_id)
+-- 3.5.0 was revised after some databases applied it: entity_type became resource_scope, the type
+-- column was dropped in favour of METADATA, and cancer_study_id became Int64. A database that ran
+-- the revised 3.5.0 already has that shape, and every statement below is then a no-op or an
+-- exact copy, so the section is safe on any database and on a retry.
+ALTER TABLE resource_data RENAME COLUMN IF EXISTS entity_type TO resource_scope;
+ALTER TABLE resource_data DROP COLUMN IF EXISTS type;
+-- cancer_study_id leads the sorting key, and ClickHouse forbids widening a key column in place, so
+-- the table is rebuilt. Rows already copied by an interrupted run are skipped; the old table is
+-- dropped only after the rename, and a leftover one from an interrupted run is dropped first.
+CREATE TABLE IF NOT EXISTS resource_data_rebuild
+(
+    `resource_data_id` Int64,
+    `resource_id`      String,
+    `cancer_study_id`  Int64,
+    `resource_scope`   String,
+    `patient_id`       Nullable(String),
+    `sample_id`        Nullable(String),
+    `url`              String,
+    `display_name`     Nullable(String),
+    `metadata`         Nullable(String)
+) ENGINE = MergeTree ORDER BY (cancer_study_id, resource_id, patient_id, sample_id, resource_data_id)
+  SETTINGS allow_nullable_key = 1;
+INSERT INTO resource_data_rebuild
+    (resource_data_id, resource_id, cancer_study_id, resource_scope,
+     patient_id, sample_id, url, display_name, metadata)
+SELECT resource_data_id, resource_id, toInt64(cancer_study_id), resource_scope,
+       patient_id, sample_id, url, display_name, metadata
+FROM resource_data
+WHERE resource_data_id NOT IN (SELECT resource_data_id FROM resource_data_rebuild);
+SELECT throwIf(
+    (SELECT count() FROM resource_data) != (SELECT count() FROM resource_data_rebuild),
+    'resource_data rebuild row count mismatch'
+);
+DROP TABLE IF EXISTS resource_data_pre_3_8_0 SYNC;
+RENAME TABLE resource_data TO resource_data_pre_3_8_0, resource_data_rebuild TO resource_data;
+DROP TABLE IF EXISTS resource_data_pre_3_8_0 SYNC;
+
+## db_schema_version: 3.9.0
 ## description: Add wsi_slide_table_derived, the study slide table's allowlisted WSI_SAMPLE rows
-CREATE TABLE IF NOT EXISTS wsi_slide_table_derived (
+-- The table is derived (populate_derived_tables.sql fills it), so an earlier build's copy, made in
+-- resource_data's pre-3.8.0 shape, is dropped and recreated in the current one.
+DROP TABLE IF EXISTS wsi_slide_table_derived SYNC;
+CREATE TABLE wsi_slide_table_derived (
     `resource_data_id` Int64,
     `resource_id` String,
-    `cancer_study_id` Int32,
-    `entity_type` String,
+    `cancer_study_id` Int64,
+    `resource_scope` String,
     `patient_id` Nullable(String),
     `sample_id` Nullable(String),
     `url` String,
     `display_name` Nullable(String),
-    `type` Nullable(String),
     `metadata` Nullable(String)
 ) ENGINE = MergeTree ORDER BY (cancer_study_id, resource_id, patient_id, sample_id, resource_data_id)
   SETTINGS allow_nullable_key = 1;
