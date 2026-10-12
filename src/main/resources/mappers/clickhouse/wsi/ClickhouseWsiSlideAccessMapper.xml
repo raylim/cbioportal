@@ -20,8 +20,7 @@
         PREWHERE row.cancer_study_id = #{studyInternalId}
             AND row.resource_id IN ('WSI_SAMPLE', 'WSI_PATIENT')
             AND row.patient_id = #{patientId}
-        WHERE row.type = 'WHOLE_SLIDE_IMAGE'
-            AND JSONExtractString(ifNull(row.metadata, '{}'), 'slide_key') = #{slideKey}
+        WHERE JSONExtractString(ifNull(row.metadata, '{}'), 'slide_key') = #{slideKey}
         LIMIT 1
     </select>
 </mapper>
