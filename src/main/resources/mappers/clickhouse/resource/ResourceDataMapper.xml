@@ -83,22 +83,6 @@
   </sql>
 
   <!--
-    Searchable text for a row's public metadata: every top-level key with its raw JSON value,
-    except wsi_serving. wsi_serving (and everything nested under it) holds serving data, such as
-    the sealed slide source, that is private to the WSI access API for every row regardless of
-    type, so it must not be able to influence search results, filters, sorting, facets or key
-    discovery. Rows with no
-    metadata contribute an empty string, which keeps the predicate non-null for null-type rows.
-  -->
-  <sql id="PublicMetadataText">
-    arrayStringConcat(
-      arrayMap(kv -> concat(kv.1, ':', kv.2),
-        arrayFilter(kv -> kv.1 != 'wsi_serving',
-          JSONExtractKeysAndValuesRaw(ifNull(rdata.metadata, '{}')))),
-      '\n')
-  </sql>
-
-  <!--
     WSI_SAMPLE / WSI_PATIENT hold one row per whole-slide image, with the private wsi_serving
     object and slide-level metadata. WSI_SAMPLE is served as the study slide table, read from
     wsi_slide_table_derived: every slide the viewer can open, including WSI_PATIENT's unmatched
@@ -165,7 +149,7 @@
           rdata.patient_id LIKE CONCAT('%', #{query.search}, '%')
           OR rdata.sample_id LIKE CONCAT('%', #{query.search}, '%')
           OR rdata.url LIKE CONCAT('%', #{query.search}, '%')
-          OR position(<include refid="PublicMetadataText"/>, #{query.search}) > 0
+          OR (rdata.metadata IS NOT NULL AND position(rdata.metadata, #{query.search}) > 0)
         )
       </if>
       <if test="query.filters != null and !query.filters.isEmpty()">
@@ -235,12 +219,6 @@
   -->
   <sql id="ApplyStringFilterOnMetadata">
     <choose>
-      <!-- wsi_serving contains serving data and is private to the WSI access API for every row
-           (see PublicMetadataText). A filter on it is ignored, like a filter on an unsupported
-           builtin column, so neither its values nor the request itself change rows or counts. -->
-      <when test="filter.metadataKey == 'wsi_serving'">
-        1 = 1
-      </when>
       <when test="(filter.operator == 'in' || filter.operator == 'equalsAny') and (filter.values == null || filter.values.isEmpty())">
         1 = 0
       </when>
@@ -340,10 +318,6 @@
       <when test="query.sortBy == 'url'">ORDER BY rdata.url <include refid="ResourceTableSortDirection"/></when>
       <when test="query.sortBy == 'displayName'">ORDER BY rdata.display_name <include refid="ResourceTableSortDirection"/></when>
       <when test="query.sortBy == 'resourceDisplayName'">ORDER BY rdef.display_name <include refid="ResourceTableSortDirection"/></when>
-      <!-- wsi_serving is private: sorting on it falls back to row order and reveals nothing. -->
-      <when test="query.sortBy == 'metadata:wsi_serving'">
-        ORDER BY rdata.resource_data_id <include refid="ResourceTableSortDirection"/>
-      </when>
       <when test="query.sortBy != null and query.sortBy.startsWith('metadata:')">
         <bind name="sortMetadataKey" value="query.sortBy.substring(9)"/>
         ORDER BY JSONExtractString(ifNull(rdata.metadata, '{}'), #{sortMetadataKey}) = '' ASC,
@@ -469,8 +443,6 @@
       ) pairs
     ) vals
     WHERE value != ''
-      -- wsi_serving is private for every row (see PublicMetadataText).
-      AND metaKey != 'wsi_serving'
       AND metaKey IN (#{metadataKeys, typeHandler=org.apache.ibatis.type.ArrayTypeHandler})
     GROUP BY metaKey, value
     ORDER BY metaKey ASC, value ASC
@@ -539,7 +511,6 @@
         ) sampled
       ) pairs
     ) vals
-    WHERE metaKey != 'wsi_serving'
     GROUP BY metaKey
     ORDER BY metaKey ASC
     SETTINGS max_memory_usage = #{maxMemoryBytes}
