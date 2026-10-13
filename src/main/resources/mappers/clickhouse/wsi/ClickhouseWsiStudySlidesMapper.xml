@@ -6,8 +6,8 @@
          for it: a slide matched to a sample counts when that sample passes the study-view filter,
          and an unmatched slide (no sample) when any of its patient's samples does. A slide the
          viewer cannot open (no valid opaque slide_key, or can_serve_tiles false) is not listed
-         there and not counted here. Only aggregate-safe public METADATA keys are read; slide
-         identifiers (slide_key, image_id), URL, DISPLAY_NAME and wsi_serving are never selected. -->
+         there and not counted here. Only aggregate-safe public METADATA keys are read; slide_key,
+         URL, DISPLAY_NAME and wsi_serving are never selected. -->
     <sql id="cohortSlideRows">
         SELECT
             cs.cancer_study_identifier AS study_id,
@@ -73,14 +73,18 @@
         </choose>
     </sql>
 
+    <sql id="stainGroupCounts">
+        countIf(stain_group = 'H&amp;E') AS hne,
+        countIf(stain_group = 'IHC') AS ihc,
+        countIf(stain_group = 'Other') AS other,
+        countIf(stain_group = 'Unknown') AS unknown
+    </sql>
+
     <select id="getCohortTotals" resultType="hashmap">
         SELECT
             uniqExactIf((study_id, patient_id), <include refid="stainSelected"/>) AS total_patients,
             countIf(<include refid="stainSelected"/>) AS total_slides,
-            countIf(stain_group = 'H&amp;E') AS hne,
-            countIf(stain_group = 'IHC') AS ihc,
-            countIf(stain_group = 'Other') AS other,
-            countIf(stain_group = 'Unknown') AS unknown
+            <include refid="stainGroupCounts"/>
             <if test="query.locateStudyId != null and query.locatePatientId != null">
                 ,
                 uniqExactIf(
@@ -102,10 +106,7 @@
             study_id,
             patient_id,
             count() AS slide_count,
-            countIf(stain_group = 'H&amp;E') AS hne,
-            countIf(stain_group = 'IHC') AS ihc,
-            countIf(stain_group = 'Other') AS other,
-            countIf(stain_group = 'Unknown') AS unknown
+            <include refid="stainGroupCounts"/>
         FROM (<include refid="cohortSlideRows"/>)
         WHERE <include refid="stainSelected"/>
         GROUP BY study_id, patient_id
