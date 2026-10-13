@@ -24,7 +24,7 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
       Set.of("patient_id", "reference_sample_id", "sample_id");
   private static final Set<String> NON_TEXT_FIELDS =
       Set.of("is_hne", "is_ihc", "file_size_bytes", "can_serve_tiles");
-  private static final String HEX_KEY = "[0-9a-f]{32}";
+  private static final String HEX_KEY = WsiDeidentification.SLIDE_KEY.pattern();
 
   /**
    * Opaque keys derived from salted SHA-256 digests. A hex digest can contain an eight-digit run
@@ -35,9 +35,9 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
   private static final Map<String, Pattern> OPAQUE_KEY_FIELDS =
       Map.of(
           "slide_key", WsiDeidentification.SLIDE_KEY,
-          "part_key", Pattern.compile("^part:" + HEX_KEY + "$"),
-          "block_key", Pattern.compile("^block:" + HEX_KEY + "$"),
-          "specimen_key", Pattern.compile("^[a-z_]+(?:::(?:part|block):" + HEX_KEY + ")+$"));
+          "part_key", Pattern.compile("part:" + HEX_KEY),
+          "block_key", Pattern.compile("block:" + HEX_KEY),
+          "specimen_key", Pattern.compile("[a-z_]+(?:::(?:part|block):" + HEX_KEY + ")+"));
 
   private final ClickhouseWsiHierarchyMapper mapper;
   private final ClickhouseWsiContextMapper contextMapper;
@@ -55,9 +55,7 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
       return null;
     }
     List<Map<String, Object>> rows =
-        mapper.getPatientHierarchy(
-            contextLongValue(context, "cancer_study_id"),
-            value(context, "patient_stable_id", String.class));
+        mapper.getPatientHierarchy(contextLongValue(context, "cancer_study_id"), patientId);
     if (rows.isEmpty()) {
       // The patient exists but has no WSI resource rows: an empty hierarchy, not a missing one.
       return new WsiHierarchy(null, List.of());
@@ -69,48 +67,47 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
       if (!isDeidentifiedRow(row)) {
         return null;
       }
-      String slideKey = value(row, "slide_key", String.class);
+      String slideKey = stringValue(row, "slide_key");
       if (!WsiDeidentification.isSlideKey(slideKey)) {
         // A slide without an opaque key cannot be addressed.
         unkeyedSlides++;
         continue;
       }
-      String sampleKey = value(row, "sample_id", String.class);
+      String sampleKey = stringValue(row, "sample_id");
       String sampleMapKey = sampleKey == null ? "" : sampleKey;
       WsiSampleGroupBuilder sample =
           samples.computeIfAbsent(sampleMapKey, ignored -> new WsiSampleGroupBuilder(sampleKey));
-      String partKey = value(row, "part_key", String.class);
+      String partKey = stringValue(row, "part_key");
       WsiPartBuilder part =
           sample.parts.computeIfAbsent(
               partKey,
               ignored ->
                   new WsiPartBuilder(
-                      value(row, "part_number", String.class),
-                      value(row, "part_type", String.class),
-                      value(row, "part_description", String.class),
-                      value(row, "subspecialty", String.class)));
-      String blockKey = value(row, "block_key", String.class);
+                      stringValue(row, "part_number"),
+                      stringValue(row, "part_type"),
+                      stringValue(row, "part_description"),
+                      stringValue(row, "subspecialty")));
+      String blockKey = stringValue(row, "block_key");
       WsiBlockBuilder block =
           part.blocks.computeIfAbsent(
               blockKey,
               ignored ->
                   new WsiBlockBuilder(
-                      value(row, "block_number", String.class),
-                      value(row, "block_label", String.class)));
+                      stringValue(row, "block_number"), stringValue(row, "block_label")));
       block.slides.add(
           new WsiSlide(
               slideKey,
-              value(row, "stain_name", String.class),
-              value(row, "stain_group", String.class),
+              stringValue(row, "stain_name"),
+              stringValue(row, "stain_group"),
               boolValue(row, "is_hne"),
               boolValue(row, "is_ihc"),
-              value(row, "magnification", String.class),
+              stringValue(row, "magnification"),
               longValue(row, "file_size_bytes"),
               boolValue(row, "can_serve_tiles"),
               resolveSlideType(row),
               sampleKey,
-              value(row, "match_level", String.class),
-              value(row, "specimen_key", String.class)));
+              stringValue(row, "match_level"),
+              stringValue(row, "specimen_key")));
     }
 
     if (unkeyedSlides > 0) {
@@ -130,7 +127,7 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
   static String referenceSampleId(List<Map<String, Object>> rows, String patientId) {
     String reference = null;
     for (Map<String, Object> row : rows) {
-      String candidate = value(row, "reference_sample_id", String.class);
+      String candidate = stringValue(row, "reference_sample_id");
       if (candidate == null) {
         continue;
       }
@@ -149,19 +146,11 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
     return reference;
   }
 
-  private static <T> T value(Map<String, Object> row, String key, Class<T> type) {
+  private static String stringValue(Map<String, Object> row, String key) {
     Object value = row.get(key);
-    if (value == null) {
-      return null;
-    }
-    if (type == String.class) {
-      String stringValue = value.toString();
-      // ClickHouse's toString(Nullable(String)) materializes NULL as an empty
-      // string. Normalize it back to null so left-joined empty hierarchy rows
-      // do not become phantom samples/slides in the domain model.
-      return type.cast(stringValue.isEmpty() ? null : stringValue);
-    }
-    return type.cast(value);
+    // ClickHouse's JSONExtractString yields '' for a missing key. Normalize it back to null so
+    // absent fields do not become phantom samples, parts or blocks in the domain model.
+    return value == null || value.toString().isEmpty() ? null : value.toString();
   }
 
   private static Long longValue(Map<String, Object> row, String key) {
@@ -194,7 +183,7 @@ public class ClickhouseWsiHierarchyRepository implements WsiHierarchyRepository 
     if (boolValue(row, "is_hne")) {
       return "H&E";
     }
-    String slideType = value(row, "slide_type", String.class);
+    String slideType = stringValue(row, "slide_type");
     if ("H&E".equals(slideType)
         || "IHC".equals(slideType)
         || "Other".equals(slideType)
