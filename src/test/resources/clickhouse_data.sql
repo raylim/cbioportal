@@ -452,7 +452,6 @@ insert into clinical_patient (internal_id,attr_id,attr_value) values (309,'cente
 insert into clinical_patient (internal_id,attr_id,attr_value) values (310,'center','ucsf');
 insert into clinical_patient (internal_id,attr_id,attr_value) values (311,'center','NA');
 insert into clinical_patient (internal_id,attr_id,attr_value) values (312,'center','');
-insert into clinical_patient (internal_id,attr_id,attr_value) values (301,'wsi_slides','3');
 insert into clinical_patient (internal_id,attr_id,attr_value) values (301,'dead','True');
 insert into clinical_patient (internal_id,attr_id,attr_value) values (302,'dead','false');
 insert into clinical_patient (internal_id,attr_id,attr_value) values (303,'dead','TRUE');
@@ -551,7 +550,6 @@ insert into clinical_attribute_meta (attr_id,display_name,description,datatype,p
 insert into clinical_attribute_meta (attr_id,display_name,description,datatype,patient_attribute,priority,cancer_study_id) values ('oct_embedded','oct embedded','oct embedded','string',0,'1',2);
 insert into clinical_attribute_meta (attr_id,display_name,description,datatype,patient_attribute,priority,cancer_study_id) values ('pathology_report_file_name','pathology report file name','pathology report file name','string',0,'1',2);
 insert into clinical_attribute_meta (attr_id,display_name,description,datatype,patient_attribute,priority,cancer_study_id) values ('sample_type','sample type','the type of sample (i.e.,normal,primary,met,recurrence).','string',0,'1',2);
-insert into clinical_attribute_meta (attr_id,display_name,description,datatype,patient_attribute,priority,cancer_study_id) values ('wsi_slides','WSI Slides per Patient','Number of whole slide images available for the patient.','number',1,'1',0);
 insert into clinical_attribute_meta (attr_id,display_name,description,datatype,patient_attribute,priority,cancer_study_id) values ('mutation_count','mutaiton count','mutation count','number',0,'30',3);
 insert into clinical_attribute_meta (attr_id,display_name,description,datatype,patient_attribute,priority,cancer_study_id) values ('age','age at metastatic diagnosis (years)','age at metastatic diagnosis (years)','number',1,'3',3);
 insert into clinical_attribute_meta (attr_id,display_name,description,datatype,patient_attribute,priority,cancer_study_id) values ('center','center','center of sequencing','string',1,'1',3);
