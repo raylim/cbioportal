@@ -35,13 +35,6 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
   // Only non-ID builtin columns that benefit from categorical filtering
 
   /**
-   * Metadata key holding WSI serving data (the sealed slide source). It is private to the WSI
-   * access API for every row, whatever its type, matching the search, filter, sort, facet and
-   * key-discovery guards in ResourceDataMapper.xml.
-   */
-  private static final String WSI_SERVING_KEY = "wsi_serving";
-
-  /**
    * Past this many distinct values a facet is no use as a dropdown, and the payload grows with the
    * data: a key that is unique or near-unique per row enumerates the whole resource. An over-cap
    * column keeps its search box but loses its value list, the same way a numeric column gets a
@@ -181,26 +174,7 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
     }
     return rows.stream()
         .filter(row -> !WsiDeidentification.isWsiResourceId(row.resourceId()))
-        .map(ClickhouseResourceDataRepository::withoutServingMetadata)
         .toList();
-  }
-
-  private static ResourceTableRow withoutServingMetadata(ResourceTableRow row) {
-    if (row.metadata() == null || !row.metadata().containsKey(WSI_SERVING_KEY)) {
-      return row;
-    }
-    Map<String, Object> metadata = new LinkedHashMap<>(row.metadata());
-    metadata.remove(WSI_SERVING_KEY);
-    return new ResourceTableRow(
-        row.studyId(),
-        row.resourceId(),
-        row.resourceDisplayName(),
-        row.resourceType(),
-        row.patientId(),
-        row.sampleId(),
-        row.url(),
-        row.displayName(),
-        metadata);
   }
 
   @Override
@@ -351,9 +325,6 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
     Map<String, ResourceMetadataKeyStats> byKey = new LinkedHashMap<>();
     if (stats != null) {
       for (ResourceMetadataKeyStats stat : stats) {
-        if (WSI_SERVING_KEY.equals(stat.key())) {
-          continue;
-        }
         byKey.put(stat.key(), stat);
       }
     }

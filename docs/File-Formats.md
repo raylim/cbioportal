@@ -361,10 +361,7 @@ as additional authenticated data. It is at most 4096 characters and decodes
 to at least 29 bytes; a row whose `sealed_source` is missing or malformed is
 not servable. `wsi_serving` is read only by the slide access endpoint, which
 checks study authorization and returns a short-lived capability whose `enc`
-claim is `sealed_source`, unchanged. `wsi_serving` is private for every
-resource row, in any resource: for non-WSI resources the resource table
-API removes it from row metadata and ignores it in search, filters, sorting,
-facets and column discovery.
+claim is `sealed_source`, unchanged.
 
 Rows written before `slide_key` existed are deleted by the ClickHouse `3.6.0`
 migration, and rows that still hold an image ID or object URI by `3.7.0`;
