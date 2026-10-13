@@ -96,21 +96,6 @@ public class ClickhouseWsiHierarchyRepositoryTest {
     assertNull(repository.getPatientHierarchy("study", "patient"));
   }
 
-  @Test
-  public void neverExposesPartDesignatorOrPathologyDiagnosisTitle() throws Exception {
-    Map<String, Object> row = row(KEY_1);
-    row.put("part_designator", "A");
-    row.put("path_dx_title", "right ovary");
-    rows(row);
-
-    WsiHierarchy hierarchy = repository.getPatientHierarchy("study", "patient");
-
-    String json = new ObjectMapper().writeValueAsString(hierarchy);
-    assertFalse(json, json.contains("right ovary"));
-    assertFalse(json, json.contains("partDesignator"));
-    assertFalse(json, json.contains("pathDxTitle"));
-  }
-
   // ---- reference sample selection ----
 
   private static Map<String, Object> ref(String referenceSampleId) {

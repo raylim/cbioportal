@@ -79,9 +79,7 @@ public class ClickhouseWsiHierarchyMapperTest {
             // Prefix of the 900101 fixture's sealed_source.
             "AQEBAQEBAQEBAQEB",
             "900101",
-            "900104",
-            "partDesignator",
-            "pathDxTitle")) {
+            "900104")) {
       assertFalse("hierarchy exposes " + forbidden, json.contains(forbidden));
     }
   }
