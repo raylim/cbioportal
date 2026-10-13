@@ -314,7 +314,7 @@ Declare the per-slide keys non-filterable in each definition's
 Nearly every slide has its own value for these keys, so they would make poor
 filter options.
 
-The normal study import no longer accepts `meta_wsi.txt`. Convert a
+The study importer does not read `meta_wsi.txt`. Convert a
 format-v4 `meta_wsi.txt`/`data_wsi.txt` pair (described
 [below](#converter-input-meta_wsi-format-v4)) with the offline converter
 in cbioportal-core, then validate and import the study as usual.
@@ -363,21 +363,15 @@ not servable. `wsi_serving` is read only by the slide access endpoint, which
 checks study authorization and returns a short-lived capability whose `enc`
 claim is `sealed_source`, unchanged.
 
-Rows written before `slide_key` existed are deleted by the ClickHouse `3.6.0`
-migration, and rows that still hold an image ID or object URI by `3.7.0`;
-re-import the converted v4 resources to restore them.
-
 The serving fields are produced upstream by the data provider: thumbnails,
-`TILE_METADATA_JSON`, dimensions and content type, and `SEALED_SOURCE`, which
-seals each servable slide's image ID and source/thumbnail URIs before this
-file is exported. The cBioPortal frontend only consumes the resulting access
-bundle; it does not generate or upload thumbnails.
+`TILE_METADATA_JSON`, dimensions and content type, and `SEALED_SOURCE`.
+cBioPortal does not generate or upload thumbnails.
 
 ### Converting a WSI file pair
 
 `scripts/importer/convertWsiToResources.py` in cbioportal-core reads a
-format-v4 pair, applies the same row parsing and cross-row checks as the
-retired native importer, and writes standard study files. It never connects to
+format-v4 pair, checks each row and the rows of each patient together, and
+writes standard study files. It never connects to
 cBioPortal, a database or an artifact store.
 
 ```sh
@@ -449,8 +443,7 @@ format_version: 4
 
 `format_version` fixes the column names, order, and validation rules. The
 converter rejects unsupported versions rather than guessing how to interpret
-them. Slide timing is not part of the format yet; it arrives with slides on the
-patient Summary timeline. Files that still carry the seven timing columns
+them. Files that also carry the seven timing columns
 (`TIMELINE_START_DAYS` through `TIMEPOINT_SOURCE`, between
 `THUMBNAIL_CONTENT_TYPE` and `SLIDE_KEY`) are accepted, but those columns are
 ignored. MRNs and absolute dates are never emitted.
@@ -491,9 +484,7 @@ positive `THUMBNAIL_WIDTH` and `THUMBNAIL_HEIGHT`, and
 `THUMBNAIL_CONTENT_TYPE` are all required; when it is `FALSE`,
 `SEALED_SOURCE` must be empty. `SEALED_SOURCE` has the shape described
 under [Resource rows](#resource-rows). The converter moves these fields into
-`wsi_serving`, so the backend can return a complete access bundle while only
-the tile server can open the sealed source, which it receives as the `enc`
-claim of its short-lived authorization token.
+`wsi_serving`.
 
 ## Discrete Copy Number Data
 The discrete copy number data file contain values that would be derived from copy-number analysis algorithms like [GISTIC 2.0](https://www.ncbi.nlm.nih.gov/sites/entrez?term=18077431) or [RAE](https://www.ncbi.nlm.nih.gov/sites/entrez?term=18784837). GISTIC 2.0 can be [installed](https://www.broadinstitute.org/cgi-bin/cancer/publications/pub_paper.cgi?mode=view&paper_id=216&p=t) or run online using the GISTIC 2.0 module on [GenePattern](https://cloud.genepattern.org). For some help on using GISTIC 2.0, check the [Data Loading: Tips and Best Practices](data-loading/Data-Loading-Tips-and-Best-Practices.md) page. When loading case list data, the `_cna` case list is required. See the [case list section](#case-lists).

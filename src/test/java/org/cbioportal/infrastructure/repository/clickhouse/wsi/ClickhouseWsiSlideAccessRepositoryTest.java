@@ -42,47 +42,30 @@ public class ClickhouseWsiSlideAccessRepositoryTest {
   }
 
   @Test
-  public void acceptsSafeMinimumLevelWithinZoomRange() {
+  public void requiresASafeMinimumLevelWithinTheZoomRange() {
+    String zoom = "\"max_zoom\":0,\"safe_min_level\":0";
     assertTrue(
         isServableRow(
-            row(
-                validMetadata()
-                    .replace(
-                        "\"max_zoom\":0,\"safe_min_level\":0",
-                        "\"max_zoom\":4,\"safe_min_level\":2")),
+            row(validMetadata().replace(zoom, "\"max_zoom\":4,\"safe_min_level\":2")),
             objectMapper));
-  }
-
-  @Test
-  public void rejectsSafeMinimumLevelAboveZoomRange() {
     assertFalse(
         isServableRow(
-            row(
-                validMetadata()
-                    .replace(
-                        "\"max_zoom\":0,\"safe_min_level\":0",
-                        "\"max_zoom\":4,\"safe_min_level\":5")),
+            row(validMetadata().replace(zoom, "\"max_zoom\":4,\"safe_min_level\":5")),
             objectMapper));
+    assertFalse(
+        isServableRow(row(validMetadata().replace("\"safe_min_level\":0,", "")), objectMapper));
   }
 
   @Test
-  public void rejectsTileMetadataWithoutSafeMinimumLevel() {
-    String metadata = validMetadata().replace("\"safe_min_level\":0,", "");
-    assertFalse(isServableRow(row(metadata), objectMapper));
-  }
-
-  @Test
-  public void rejectsTileMetadataWithoutASchemaVersion() {
-    String metadata = validMetadata().replace(",\"tile_metadata_schema_version\":2", "");
-    assertFalse(isServableRow(row(metadata), objectMapper));
-  }
-
-  @Test
-  public void rejectsUnknownTileMetadataSchema() {
-    String metadata =
-        validMetadata()
-            .replace("\"tile_metadata_schema_version\":2", "\"tile_metadata_schema_version\":99");
-    assertFalse(isServableRow(row(metadata), objectMapper));
+  public void requiresTileMetadataSchemaVersion2() {
+    String version = "\"tile_metadata_schema_version\":2";
+    for (String metadata :
+        new String[] {
+          validMetadata().replace("," + version, ""),
+          validMetadata().replace(version, "\"tile_metadata_schema_version\":99")
+        }) {
+      assertFalse(metadata, isServableRow(row(metadata), objectMapper));
+    }
   }
 
   @Test
@@ -93,40 +76,32 @@ public class ClickhouseWsiSlideAccessRepositoryTest {
   }
 
   @Test
-  public void rejectsIdentifierInTileMetadata() {
-    Map<String, Object> row =
-        row(
-            validMetadata()
-                .replace("\"tile_size\":256", "\"tile_size\":256,\"vendor\":\"MRN-123456\""));
-    assertFalse(isServableRow(row, objectMapper));
-  }
-
-  @Test
-  public void rejectsCommonAbsoluteDateFormatsInTileMetadata() {
-    for (String date :
+  public void rejectsIdentifiersAndAbsoluteDatesInTileMetadata() {
+    for (String text :
         new String[] {
-          "2024-01-31", "01/31/2024", "31/01/2024", "January 31, 2024", "31 January 2024"
+          "MRN-123456",
+          "2024-01-31",
+          "01/31/2024",
+          "31/01/2024",
+          "January 31, 2024",
+          "31 January 2024"
         }) {
       Map<String, Object> row =
           row(
               validMetadata()
-                  .replace("\"tile_size\":256", "\"tile_size\":256,\"vendor\":\"" + date + "\""));
-      assertFalse("date should be rejected: " + date, isServableRow(row, objectMapper));
+                  .replace("\"tile_size\":256", "\"tile_size\":256,\"vendor\":\"" + text + "\""));
+      assertFalse("should be rejected: " + text, isServableRow(row, objectMapper));
     }
   }
 
   @Test
-  public void acceptsJpegAndPngThumbnails() {
+  public void acceptsOnlyJpegAndPngThumbnails() {
     for (String contentType : new String[] {"image/jpeg", "image/png", " IMAGE/PNG "}) {
       Map<String, Object> row = row(validMetadata());
       row.put("thumbnail_content_type", contentType);
       assertTrue(
           "content type should be accepted: " + contentType, isServableRow(row, objectMapper));
     }
-  }
-
-  @Test
-  public void rejectsOtherThumbnailContentTypes() {
     for (String contentType :
         new String[] {null, "", "image/gif", "image/svg+xml", "text/html", "image/jpeg; x=1"}) {
       Map<String, Object> row = row(validMetadata());
@@ -187,16 +162,10 @@ public class ClickhouseWsiSlideAccessRepositoryTest {
   }
 
   @Test
-  public void rejectsRowWithoutASealedSource() {
-    Map<String, Object> row = row(validMetadata());
-    row.remove("sealed_source");
-    assertFalse(isServableRow(row, objectMapper));
-  }
-
-  @Test
-  public void rejectsMalformedSealedSources() {
+  public void rejectsMissingOrMalformedSealedSources() {
     for (String sealedSource :
         new String[] {
+          null,
           "",
           " ",
           // Standard-alphabet base64 and padding are not base64url without padding.
@@ -234,16 +203,10 @@ public class ClickhouseWsiSlideAccessRepositoryTest {
 
   @Test
   public void returnsTheStoredSealedSourceVerbatim() {
-    ClickhouseWsiContextMapper contextMapper = mock(ClickhouseWsiContextMapper.class);
-    ClickhouseWsiSlideAccessMapper mapper = mock(ClickhouseWsiSlideAccessMapper.class);
-    when(contextMapper.getStudyContext("study")).thenReturn(Map.of("cancer_study_id", 7L));
     Map<String, Object> row = row(validMetadata());
     row.put("thumbnail_content_type", "image/png");
-    when(mapper.getSlideAccess(7L, "patient", SLIDE_KEY)).thenReturn(row);
-    ClickhouseWsiSlideAccessRepository repository =
-        new ClickhouseWsiSlideAccessRepository(mapper, contextMapper, objectMapper);
 
-    WsiSlideSource source = repository.getSlideSource("study", "patient", SLIDE_KEY);
+    WsiSlideSource source = repositoryReturning(row).getSlideSource("study", "patient", SLIDE_KEY);
 
     assertNotNull(source);
     assertEquals(SLIDE_KEY, source.slideKey());
@@ -255,16 +218,10 @@ public class ClickhouseWsiSlideAccessRepositoryTest {
 
   @Test
   public void returnsNullForAnUnservableRow() {
-    ClickhouseWsiContextMapper contextMapper = mock(ClickhouseWsiContextMapper.class);
-    ClickhouseWsiSlideAccessMapper mapper = mock(ClickhouseWsiSlideAccessMapper.class);
-    when(contextMapper.getStudyContext("study")).thenReturn(Map.of("cancer_study_id", 7L));
     Map<String, Object> row = row(validMetadata());
     row.put("sealed_source", "not a sealed source");
-    when(mapper.getSlideAccess(7L, "patient", SLIDE_KEY)).thenReturn(row);
-    ClickhouseWsiSlideAccessRepository repository =
-        new ClickhouseWsiSlideAccessRepository(mapper, contextMapper, objectMapper);
 
-    assertNull(repository.getSlideSource("study", "patient", SLIDE_KEY));
+    assertNull(repositoryReturning(row).getSlideSource("study", "patient", SLIDE_KEY));
   }
 
   @Test
@@ -274,6 +231,14 @@ public class ClickhouseWsiSlideAccessRepositoryTest {
     for (String slideKey : new String[] {null, "", "syn-img-0001", "3020726"}) {
       assertNull(repository.getSlideSource("study", "patient", slideKey));
     }
+  }
+
+  private ClickhouseWsiSlideAccessRepository repositoryReturning(Map<String, Object> row) {
+    ClickhouseWsiContextMapper contextMapper = mock(ClickhouseWsiContextMapper.class);
+    ClickhouseWsiSlideAccessMapper mapper = mock(ClickhouseWsiSlideAccessMapper.class);
+    when(contextMapper.getStudyContext("study")).thenReturn(Map.of("cancer_study_id", 7L));
+    when(mapper.getSlideAccess(7L, "patient", SLIDE_KEY)).thenReturn(row);
+    return new ClickhouseWsiSlideAccessRepository(mapper, contextMapper, objectMapper);
   }
 
   private static Map<String, Object> row(String metadata) {
