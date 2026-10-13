@@ -1,7 +1,5 @@
 package org.cbioportal.domain.wsi;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import org.cbioportal.domain.studyview.StudyViewService;
 import org.cbioportal.domain.wsi.repository.WsiStudySlidesRepository;
@@ -12,9 +10,6 @@ import org.springframework.stereotype.Service;
 /** Lists a study-view cohort's patients with whole-slide images. */
 @Service
 public class WsiStudySlidesService {
-
-  private static final ObjectMapper FILTER_COPIER =
-      new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
   private final StudyViewService studyViewService;
   private final WsiStudySlidesRepository repository;
@@ -27,18 +22,13 @@ public class WsiStudySlidesService {
 
   public WsiStudySlidesPage getStudySlides(
       StudyViewFilter studyViewFilter, WsiStudySlidesQuery query) {
-    StudyViewFilter filter = copy(studyViewFilter);
-    List<String> studyIds = List.copyOf(filter.getUniqueStudyIds());
-    return repository.getStudySlides(
-        studyViewService.buildStudyViewFilterContext(filter), studyIds, query);
-  }
-
-  /** A copy the filter-context factory can normalize without touching the caller's filter. */
-  private static StudyViewFilter copy(StudyViewFilter studyViewFilter) {
-    StudyViewFilter copy = FILTER_COPIER.convertValue(studyViewFilter, StudyViewFilter.class);
-    if (copy.getAlterationFilter() == null) {
-      copy.setAlterationFilter(new AlterationFilter());
+    // The filter is the request body's, used only here, so it is normalized in place, as the
+    // other study-view endpoints do.
+    if (studyViewFilter.getAlterationFilter() == null) {
+      studyViewFilter.setAlterationFilter(new AlterationFilter());
     }
-    return copy;
+    List<String> studyIds = List.copyOf(studyViewFilter.getUniqueStudyIds());
+    return repository.getStudySlides(
+        studyViewService.buildStudyViewFilterContext(studyViewFilter), studyIds, query);
   }
 }
