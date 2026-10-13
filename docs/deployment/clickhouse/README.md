@@ -278,16 +278,10 @@ After importing studies and rebuilding derived tables, you can verify that your 
 
 ## WSI hierarchy materialization and authenticated rollout
 
-WSI is served from the generic `resource_data` table. Each slide is one row
-in the `WSI_SAMPLE` (sample-matched) or `WSI_PATIENT` (unmatched) resource. Its `metadata` JSON carries the public
-hierarchy and stain fields, including the opaque `slide_key`, and, for a
-servable slide, a private `wsi_serving` object with the opaque `sealed_source`,
-intrinsic tile metadata and the thumbnail width, height and content type. The
-pathology image ID and the slide and thumbnail object URIs are not stored in
-cBioPortal: they exist only inside `sealed_source`, which is sealed upstream
-with a key cBioPortal does not hold. See
-[Pathology Slide Data](../../File-Formats.md#pathology-slide-data) for the
-format and for the offline converter from the legacy `meta_wsi.txt` pair.
+WSI is served from the generic `resource_data` table: one row per slide in the
+`WSI_SAMPLE` or `WSI_PATIENT` resource. The row format, the private
+`wsi_serving` object, `sealed_source` and the offline converter are described
+in [Pathology Slide Data](../../File-Formats.md#pathology-slide-data).
 
 Clients use two endpoints:
 
@@ -295,10 +289,7 @@ Clients use two endpoints:
   the patient's `WSI_SAMPLE`/`WSI_PATIENT` rows. Each slide is identified only
   by its opaque `slideKey`; the response never carries a barcode,
   `resourceId` or `resourceDataId`. Slides without a valid `slide_key` are
-  dropped (counted in the log; values are never logged). Removing
-  institution-specific identifiers such as specimen accession numbers is the
-  data provider's responsibility; the backend does not match any accession
-  format. Parts and blocks are
+  dropped (counted in the log; values are never logged). Parts and blocks are
   ordered by their Specimen/Block ranks, and slides within a block by
   `slide_key`. The response is pathology-only; portal
   clinical labels and pathology timeline events continue to come from the
@@ -324,14 +315,7 @@ Clients use two endpoints:
 
 The generic resource APIs (`/api/resource-table/*` and the legacy
 `/api/studies/.../resource-data*` endpoints) never return `WSI_SAMPLE` or
-`WSI_PATIENT` rows: not as rows, tabs, search or filter matches, sort keys,
-facets, discovered metadata keys or column info. Slides are reached only
-through the two endpoints above. Study-level resource counts still include
-them.
-
-There are no native WSI tables: the schema does not create `wsi_patient`,
-`wsi_part`, `wsi_block`, `wsi_slide`, `wsi_slide_placement` or
-`wsi_slide_timing`, and migration `3.7.0` drops them from older databases.
+`WSI_PATIENT` rows. Study-level resource counts still include them.
 
 The cBioPortal properties for an authenticated deployment are:
 
@@ -362,20 +346,8 @@ enforced by the tile server on the opened sources; cBioPortal cannot see the
 URIs and does not read `WSI_ALLOWED_*` settings. The tile server receives only
 v4 capabilities; it does not load a hierarchy, metadata backend, or resource
 index. Setting only `msk.wsi.tile_server.url` configures a frontend URL; the
-WSI resource rows must also contain `sealed_source`, the tile metadata and the
-thumbnail fields in `wsi_serving`.
-
-### Upstream serving data
-
-The serving fields are produced by the data provider before export, not by
-cBioPortal: a thumbnail for each servable slide, its tile metadata,
-dimensions and content type, and the `sealed_source` that seals the slide and
-thumbnail locations. The `data_wsi.txt` file carries only `SEALED_SOURCE`,
-`TILE_METADATA_JSON`, the thumbnail dimensions and content type (never an
-image ID or object URI), and the offline converter turns it into resource rows
-for the standard cBioPortal core importer. Neither the frontend nor the tile
-server publishes thumbnails; a slide missing any of these fields must be
-fixed upstream before importing a new WSI snapshot.
+WSI resource rows must also carry the `wsi_serving` fields, which the data
+provider produces upstream.
 
 WSI is login-only, including for public studies. Anonymous users receive
 `401`, authenticated users without study access receive `403`, authenticated
@@ -384,22 +356,15 @@ blank study IDs receive `400`, and a nonexistent study deliberately returns
 `wsi.access-token-secret`, with `wsi_auth_version` 4 (serving contract
 `wsi-serving-v6`), and contains `sub`, `aud`, `scope=wsi:read`, `study_id`,
 `slide_key`, bounded thumbnail dimensions, `iat`, `exp` and `enc`. `enc` is the
-row's stored `sealed_source`, copied verbatim: `base64url(nonce[12] ||
-AES-256-GCM ciphertext || tag[16])` over the JSON `{"image_id",
-"tile_source", "thumbnail_source"}`, sealed upstream with
-`WSI_SOURCE_SEAL_KEY` and the `slide_key` as additional authenticated data.
-cBioPortal performs no encryption and cannot open it; the tile server does.
+row's stored `sealed_source`, copied verbatim; it is sealed upstream with
+`WSI_SOURCE_SEAL_KEY`, and only the tile server can open it.
 
 Before enabling the Pathology Slides feature for a private study:
 
-1. Convert the study's complete `meta_wsi.txt`/`data_wsi.txt` pair with
-   `scripts/importer/convertWsiToResources.py` from cbioportal-core
-   (`--meta-wsi`, `--output-dir`, `--portal-base-url`, `--study-dir`), remove
-   the legacy pair, and validate and import the study with the standard
-   importer. The resource rows carry `sealed_source`, `tile_metadata_json`,
-   thumbnail dimensions, and content type in `wsi_serving` for each
-   servable slide. The pathology timeline pair is imported unchanged.
-   MRNs and absolute dates must not occur in the study files:
+1. Convert the study's `meta_wsi.txt`/`data_wsi.txt` pair as described in
+   [Converting a WSI file pair](../../File-Formats.md#converting-a-wsi-file-pair),
+   then validate and import the study with the standard importer. MRNs and
+   absolute dates must not occur in the study files:
 
    ```bash
    metaImport.py -s /path/to/study
@@ -432,12 +397,11 @@ use the primary key.
 
 ## 12. Version Migration
 
-Starting with `DB_SCHEMA_VERSION` `3.0.0`, supported in-place schema upgrades are handled by
+Starting with `DB_SCHEMA_VERSION` `3.0.0`, in-place schema upgrades are handled by
 `db-scripts/clickhouse/migrate/migrate_schema.sql` (a forward-only, version-tagged set of SQL
 sections) applied by `db-scripts/clickhouse/migrate/migrate_db.py`. The runner reads the current
 `db_schema_version` from the `info` table, skips sections already applied, and applies the rest in
-order, advancing `db_schema_version` itself after each section succeeds. Rebuild-only changes are
-still versioned here so an incompatible older database cannot start with a newer backend.
+order, advancing `db_schema_version` itself after each section succeeds.
 
 There is a single `db_schema_version` covering both base and derived tables — derived table
 *structure* is defined in `schema.sql` alongside every other table, so a derived-table structure
@@ -499,12 +463,7 @@ migration (re)creates it empty; it is filled by `populate_derived_tables.sql`, s
 manual `migrate_db.py` run needs `--populate-derived-tables` (or a separate
 derived-table rebuild) before the slide table lists anything.
 
-Versions `3.1.0` to `3.4.0` are reserved and change nothing; earlier builds of
-them created the native WSI tables that `3.7.0` drops. Slide procedure dates
-are not served yet; they arrive with slides on the patient Summary timeline.
-
-Import WSI resources into the inactive blue/green database and promote it only
-after validation.
+Versions `3.1.0` to `3.4.0` are reserved and change nothing.
 
 For **ClickHouse Cloud** specifically, set `CLICKHOUSE_SECURE=true` (in addition to the usual
 `CLICKHOUSE_HOST`/`CLICKHOUSE_NATIVE_PORT`/`CLICKHOUSE_USER`/`CLICKHOUSE_PASSWORD`/`CLICKHOUSE_DB`)
