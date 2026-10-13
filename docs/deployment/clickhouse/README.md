@@ -329,10 +329,6 @@ facets, discovered metadata keys or column info. Slides are reached only
 through the two endpoints above. Study-level resource counts still include
 them.
 
-`wsi_serving` is also private for every other `resource_data` row. The generic
-resource table API strips it from row metadata and ignores it in search,
-filters, sorting, facets and metadata-column discovery.
-
 There are no native WSI tables: the schema does not create `wsi_patient`,
 `wsi_part`, `wsi_block`, `wsi_slide`, `wsi_slide_placement` or
 `wsi_slide_timing`, and migration `3.7.0` drops them from older databases.
