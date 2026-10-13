@@ -652,11 +652,9 @@ CREATE TABLE resource_data (
 ) ENGINE = MergeTree ORDER BY (cancer_study_id, resource_id, patient_id, sample_id, resource_data_id)
   SETTINGS allow_nullable_key = 1;
 
--- The study slide table: every slide the viewer can open (WSI_SAMPLE rows, and unmatched
--- WSI_PATIENT ones with no sample), filed under WSI_SAMPLE in resource_data's shape, with metadata
--- reduced to the allowlisted public slide fields (WsiDeidentification.STUDY_TABLE_SCHEMA). The
--- generic resource table reads WSI_SAMPLE from here, so it parses ~270-byte documents instead of
--- the full slide metadata and never sees wsi_serving or the slide's other identifiers.
+-- The study slide table (see WsiDeidentification.STUDY_TABLE_RESOURCE_ID), in resource_data's
+-- shape with metadata reduced to WsiDeidentification.STUDY_TABLE_SCHEMA. Filled by
+-- populate_derived_tables.sql.
 CREATE TABLE wsi_slide_table_derived (
     `resource_data_id` Int64,
     `resource_id` String,
