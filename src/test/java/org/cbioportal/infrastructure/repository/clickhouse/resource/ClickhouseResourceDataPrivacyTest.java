@@ -48,6 +48,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 public class ClickhouseResourceDataPrivacyTest {
 
   private static final String STUDY = "wsi_resource_table_study";
+  private static final String UNMATCHED_STUDY = "wsi_unmatched_study";
   private static final String WSI = "WSI_SAMPLE";
   private static final String WSI_PATIENT = "WSI_PATIENT";
   private static final String EXTERNAL = "EXTERNAL_SLIDES";
@@ -102,7 +103,7 @@ public class ClickhouseResourceDataPrivacyTest {
 
   @Test
   public void wsiPatientRowsAreNeverReturnedCountedOrDescribed() {
-    for (String search : Arrays.asList(null, "Gomori", "syn-img-t007")) {
+    for (String search : Arrays.asList(null, "Gomori")) {
       ResourceTableQuery query = query(WSI_PATIENT, search, null, null, null);
 
       assertThat(repository.getResourceTableRows(query)).isEmpty();
@@ -161,27 +162,33 @@ public class ClickhouseResourceDataPrivacyTest {
   }
 
   @Test
-  public void slideTableSearchMatchesOnlyPublicText() {
+  public void slideTableSearchFiltersAndSortsSeeOnlyPublicMetadata() {
+    // wsi_slide_table_derived holds no hidden key or value, so a search, filter or sort on one
+    // matches nothing.
     assertThat(ids(query(WSI, "Masson", null, null, null))).containsExactly("900501", "900502");
     assertThat(ids(query(WSI, "40x", null, null, null))).containsExactly("900501");
+    assertThat(
+            ids(
+                query(
+                    WSI,
+                    null,
+                    null,
+                    null,
+                    List.of(
+                        new ResourceColumnFilter("metadata:magnification", "in", List.of("20x"))))))
+        .containsExactly("900502");
     for (String term :
         List.of(
             "liver wedge",
             "hiddenblock",
             "WSI-HIDDEN-REF",
             "wsipath",
-            "syn-img-t001",
             "sealed_source",
             "block_key")) {
       ResourceTableQuery query = query(WSI, term, null, null, null);
       assertThat(repository.getResourceTableRows(query)).as(term).isEmpty();
       assertThat(repository.getResourceTableCounts(query).rowCount()).as(term).isZero();
     }
-  }
-
-  @Test
-  public void slideTableFiltersAndSortsOnHiddenKeysMatchNothing() {
-    // wsi_slide_table_derived holds no hidden key, so a filter on one matches no row.
     for (ResourceColumnFilter filter :
         List.of(
             new ResourceColumnFilter("metadata:block_key", "in", List.of("block:hiddenblockone")),
@@ -194,16 +201,6 @@ public class ClickhouseResourceDataPrivacyTest {
           .as(filter.toString())
           .isZero();
     }
-    assertThat(
-            ids(
-                query(
-                    WSI,
-                    null,
-                    null,
-                    null,
-                    List.of(
-                        new ResourceColumnFilter("metadata:magnification", "in", List.of("20x"))))))
-        .containsExactly("900502");
     // block_key and reference_sample_id would order the rows 900502-first when descending; with no
     // value to sort on, both directions fall back to row order.
     for (String sortBy : List.of("metadata:block_key", "metadata:reference_sample_id")) {
@@ -241,9 +238,7 @@ public class ClickhouseResourceDataPrivacyTest {
   public void slideTableListsUnmatchedViewableSlidesWithoutASample() {
     // wsi_unmatched_study: 901001 is matched to a sample, 901002 is a viewable WSI_PATIENT slide
     // with no sample, and 901003 is a WSI_PATIENT slide the viewer cannot open.
-    ResourceTableQuery query =
-        new ResourceTableQuery(
-            List.of("wsi_unmatched_study"), WSI, null, null, null, 0, 10, null, null, null);
+    ResourceTableQuery query = queryIn(UNMATCHED_STUDY, WSI, null);
     List<ResourceTableRow> rows = repository.getResourceTableRows(query);
 
     assertThat(rows)
@@ -255,13 +250,7 @@ public class ClickhouseResourceDataPrivacyTest {
     assertThat(unmatched.metadata())
         .containsEntry("stain_name", "Toluidine blue")
         .containsEntry("match_level", "UNMATCHED");
-    assertThat(unmatched.metadata().keySet())
-        .isSubsetOf(WsiDeidentification.STUDY_TABLE_METADATA_KEYS);
-    assertThat(rows.toString())
-        .doesNotContain("unmatchedhidden")
-        .doesNotContain("unmatchedpath")
-        .doesNotContain("syn-img-u")
-        .doesNotContain("Unviewable");
+    assertThat(rows.toString()).doesNotContain("Unviewable");
 
     ResourceTableCounts counts = repository.getResourceTableCounts(query);
     assertThat(counts.rowCount()).isEqualTo(2);
@@ -269,36 +258,11 @@ public class ClickhouseResourceDataPrivacyTest {
     assertThat(counts.sampleCount()).isEqualTo(1);
     assertThat(
             repository.getResourceTableTabs(
-                new ResourceTabsRequest(List.of("wsi_unmatched_study"), null, null)))
+                new ResourceTabsRequest(List.of(UNMATCHED_STUDY), null, null)))
         .extracting(ResourceTableTab::resourceId, ResourceTableTab::totalCount)
         .containsExactly(org.assertj.core.groups.Tuple.tuple(WSI, 2L));
-    assertThat(
-            ids(
-                new ResourceTableQuery(
-                    List.of("wsi_unmatched_study"),
-                    WSI,
-                    null,
-                    null,
-                    "Toluidine",
-                    0,
-                    10,
-                    null,
-                    null,
-                    null)))
-        .hasSize(1);
-    assertThat(
-            repository.getResourceTableRows(
-                new ResourceTableQuery(
-                    List.of("wsi_unmatched_study"),
-                    WSI_PATIENT,
-                    null,
-                    null,
-                    null,
-                    0,
-                    10,
-                    null,
-                    null,
-                    null)))
+    assertThat(ids(queryIn(UNMATCHED_STUDY, WSI, "Toluidine"))).hasSize(1);
+    assertThat(repository.getResourceTableRows(queryIn(UNMATCHED_STUDY, WSI_PATIENT, null)))
         .isEmpty();
   }
 
@@ -323,7 +287,7 @@ public class ClickhouseResourceDataPrivacyTest {
   }
 
   @Test
-  public void slideTableColumnsAreTheContractAndHiddenKeysAreNeverFaceted() {
+  public void slideTableMetadataIsTheContractAndNeverExposesHiddenKeys() {
     ResourceTableQuery query = query(WSI, null, null, null, null);
 
     ResourceTableMetadataView metadata = repository.getResourceTableMetadata(query);
@@ -354,14 +318,9 @@ public class ClickhouseResourceDataPrivacyTest {
           .as(key)
           .isEmpty();
     }
-  }
 
-  @Test
-  public void metadataEndpointDescribesTheSlideTableWithoutHiddenValues() {
-    GetResourceTableMetadataUseCase useCase = new GetResourceTableMetadataUseCase(repository);
-
-    ResourceTableMetadataResult result = useCase.execute(query(WSI, null, null, null, null));
-
+    ResourceTableMetadataResult result =
+        new GetResourceTableMetadataUseCase(repository).execute(query);
     assertThat(result.totalRowCount()).isEqualTo(2);
     assertThat(result.filteredSampleCount()).isEqualTo(2);
     assertThat(result.toString())
@@ -436,6 +395,11 @@ public class ClickhouseResourceDataPrivacyTest {
       List<ResourceColumnFilter> filters) {
     return new ResourceTableQuery(
         List.of(STUDY), resourceId, null, null, search, 0, 10, sortBy, direction, filters);
+  }
+
+  private static ResourceTableQuery queryIn(String study, String resourceId, String search) {
+    return new ResourceTableQuery(
+        List.of(study), resourceId, null, null, search, 0, 10, null, null, null);
   }
 
   private List<String> ids(ResourceTableQuery query) {

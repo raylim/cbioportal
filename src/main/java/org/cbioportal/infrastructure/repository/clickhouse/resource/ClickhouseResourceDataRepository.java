@@ -160,11 +160,7 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
 
   @Override
   public List<ResourceTableTab> getResourceTableTabs(ResourceTabsRequest request) {
-    List<ResourceTableTab> tabs = mapper.getResourceTableTabs(request);
-    if (tabs == null || tabs.isEmpty()) {
-      return tabs;
-    }
-    return tabs.stream()
+    return mapper.getResourceTableTabs(request).stream()
         .filter(tab -> !WsiDeidentification.isHiddenFromResourceTable(tab.resourceId()))
         .toList();
   }
@@ -174,12 +170,7 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
     if (WsiDeidentification.isHiddenFromResourceTable(query.resourceId())) {
       return List.of();
     }
-    List<ResourceTableRow> rows = mapper.getResourceTableRows(query);
-    if (rows == null || rows.isEmpty()) {
-      return rows;
-    }
-    return rows.stream()
-        .filter(row -> !WsiDeidentification.isHiddenFromResourceTable(row.resourceId()))
+    return mapper.getResourceTableRows(query).stream()
         .map(ClickhouseResourceDataRepository::withPublicMetadataOnly)
         .toList();
   }

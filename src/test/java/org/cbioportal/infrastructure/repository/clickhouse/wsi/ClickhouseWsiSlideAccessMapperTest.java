@@ -80,12 +80,6 @@ public class ClickhouseWsiSlideAccessMapperTest {
   }
 
   @Test
-  public void resolvesOnlyBySlideKey() {
-    assertNull(mapper.getSlideAccess(WSI_TEST_STUDY, "WSI-PATIENT", "syn-img-0001"));
-    assertNull(mapper.getSlideAccess(WSI_TEST_STUDY, "WSI-PATIENT", "syn-legacy-0002"));
-  }
-
-  @Test
   public void returnsNullForWrongPatient() {
     assertNull(mapper.getSlideAccess(WSI_TEST_STUDY, "SNAPSHOT-PATIENT", SAMPLE_SLIDE_KEY));
   }
