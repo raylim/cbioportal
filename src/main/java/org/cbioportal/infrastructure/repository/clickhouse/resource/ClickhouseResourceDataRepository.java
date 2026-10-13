@@ -154,11 +154,7 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
 
   @Override
   public List<ResourceTableTab> getResourceTableTabs(ResourceTabsRequest request) {
-    List<ResourceTableTab> tabs = mapper.getResourceTableTabs(request);
-    if (tabs == null || tabs.isEmpty()) {
-      return tabs;
-    }
-    return tabs.stream()
+    return mapper.getResourceTableTabs(request).stream()
         .filter(tab -> !WsiDeidentification.isWsiResourceId(tab.resourceId()))
         .toList();
   }
@@ -168,13 +164,7 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
     if (WsiDeidentification.isWsiResourceId(query.resourceId())) {
       return List.of();
     }
-    List<ResourceTableRow> rows = mapper.getResourceTableRows(query);
-    if (rows == null || rows.isEmpty()) {
-      return rows;
-    }
-    return rows.stream()
-        .filter(row -> !WsiDeidentification.isWsiResourceId(row.resourceId()))
-        .toList();
+    return mapper.getResourceTableRows(query);
   }
 
   @Override

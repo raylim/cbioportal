@@ -4,8 +4,7 @@
 <mapper namespace="org.cbioportal.infrastructure.repository.clickhouse.wsi.ClickhouseWsiHierarchyMapper">
     <!--
       Slides are exposed to the browser only by their opaque slide_key. The slide barcode, the
-      resource-data row identifiers and the private wsi_serving object are never selected;
-      part_designator and path_dx_title are not public metadata and are not read either.
+      resource-data row identifiers and the private wsi_serving object are never selected.
       Slide timing keys are optional: a missing key reads as NULL (timeline_start_days) or ''
       (the string keys), which the repository normalizes to null.
     -->

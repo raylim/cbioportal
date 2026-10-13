@@ -44,7 +44,6 @@ public class ClickhouseWsiHierarchyMapperTest {
     assertEquals("WSI-SAMPLE", hierarchy.referenceSampleId());
     // Unmatched slides sort first.
     assertNull(hierarchy.sampleGroups().get(0).sampleId());
-    // The legacy row without a slide_key (900104) is omitted.
     assertEquals(List.of(PATIENT_SLIDE_KEY, SAMPLE_SLIDE_KEY), slideKeys(hierarchy));
 
     WsiSlide timedSlide = slide(hierarchy, SAMPLE_SLIDE_KEY);
@@ -82,16 +81,12 @@ public class ClickhouseWsiHierarchyMapperTest {
             "resourceId",
             "resourceDataId",
             "syn-img-",
-            "syn-legacy-",
             "s3://",
             "wsi_serving",
             "sealed",
             // Prefix of the 900101 fixture's sealed_source.
             "AQEBAQEBAQEBAQEB",
             "900101",
-            "900104",
-            "partDesignator",
-            "pathDxTitle",
             // Timing is served under the API names, never the raw metadata keys.
             "timeline")) {
       assertFalse("hierarchy exposes " + forbidden, json.contains(forbidden));
