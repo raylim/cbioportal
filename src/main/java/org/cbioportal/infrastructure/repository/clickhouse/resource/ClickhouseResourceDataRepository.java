@@ -35,13 +35,6 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
   // Only non-ID builtin columns that benefit from categorical filtering
 
   /**
-   * Metadata key holding WSI serving data (the sealed slide source). It is private to the WSI
-   * access API for every row, whatever its type, matching the search, filter, sort, facet and
-   * key-discovery guards in ResourceDataMapper.xml.
-   */
-  private static final String WSI_SERVING_KEY = "wsi_serving";
-
-  /**
    * Past this many distinct values a facet is no use as a dropdown, and the payload grows with the
    * data: a key that is unique or near-unique per row enumerates the whole resource. An over-cap
    * column keeps its search box but loses its value list, the same way a numeric column gets a
@@ -192,23 +185,18 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
   }
 
   /**
-   * Drops wsi_serving from every row, and reduces a study slide table row to its allowlisted
-   * metadata, as wsi_slide_table_derived already does.
+   * Reduces a study slide table row to its allowlisted metadata, as wsi_slide_table_derived already
+   * does. Rows of every other resource are returned unchanged.
    */
   private static ResourceTableRow withPublicMetadataOnly(ResourceTableRow row) {
-    if (row.metadata() == null) {
-      return row;
-    }
-    boolean slideRow = WsiDeidentification.isStudyTableResource(row.resourceId());
-    if (!slideRow && !row.metadata().containsKey(WSI_SERVING_KEY)) {
+    if (row.metadata() == null || !WsiDeidentification.isStudyTableResource(row.resourceId())) {
       return row;
     }
     Map<String, Object> metadata = new LinkedHashMap<>();
     row.metadata()
         .forEach(
             (key, value) -> {
-              if (!WSI_SERVING_KEY.equals(key)
-                  && (!slideRow || WsiDeidentification.isStudyTableMetadataKey(key))) {
+              if (WsiDeidentification.isStudyTableMetadataKey(key)) {
                 metadata.put(key, value);
               }
             });
@@ -372,9 +360,6 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
     Map<String, ResourceMetadataKeyStats> byKey = new LinkedHashMap<>();
     if (stats != null) {
       for (ResourceMetadataKeyStats stat : stats) {
-        if (WSI_SERVING_KEY.equals(stat.key())) {
-          continue;
-        }
         byKey.put(stat.key(), stat);
       }
     }
