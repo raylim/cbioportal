@@ -32,7 +32,7 @@ public class ClickhouseWsiHierarchyRepositoryTest {
   @Before
   public void setUp() {
     when(contextMapper.getPatientContext("study", "patient"))
-        .thenReturn(Map.of("cancer_study_id", 1L, "patient_stable_id", "patient"));
+        .thenReturn(Map.of("cancer_study_id", 1L));
   }
 
   @Test
