@@ -133,9 +133,8 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     WsiStudySlidePatient last = page.patients().get(3);
     assertEquals("wsi_test_study", last.studyId());
     assertEquals("WSI-PATIENT", last.patientId());
-    // The OTHER_SLIDES whole-slide image is not a WSI resource, and neither the legacy WSI row
-    // without a slide_key nor the patient-level slide that cannot be served is listed: none is
-    // counted.
+    // The OTHER_SLIDES whole-slide image is not a WSI resource, and the patient-level slide that
+    // cannot be served is not listed: neither is counted.
     assertEquals(1, last.slideCount());
   }
 

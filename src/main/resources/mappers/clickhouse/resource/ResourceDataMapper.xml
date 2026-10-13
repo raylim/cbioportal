@@ -66,10 +66,9 @@
   </resultMap>
 
   <!--
-    The study slide table (WSI_SAMPLE) reads wsi_slide_table_derived: the same rows in the same
-    shape, with metadata already reduced to the allowlisted public fields, so its ~570K-row scans
-    parse small documents and never see wsi_serving or a hidden slide field: a search, filter or
-    sort on one matches nothing. Every other resource reads resource_data.
+    The study slide table (WSI_SAMPLE; see WsiDeidentification.STUDY_TABLE_RESOURCE_ID) reads
+    wsi_slide_table_derived, so a search, filter or sort on a hidden slide field matches nothing.
+    Every other resource reads resource_data.
   -->
   <sql id="ResourceTableFromClause">
     FROM <choose>
@@ -83,13 +82,10 @@
   </sql>
 
   <!--
-    WSI_SAMPLE / WSI_PATIENT hold one row per whole-slide image, with the private wsi_serving
-    object and slide-level metadata. WSI_SAMPLE is served as the study slide table, read from
-    wsi_slide_table_derived: every slide the viewer can open, including WSI_PATIENT's unmatched
-    ones (no sample), restricted to the allowlisted metadata. WSI_PATIENT as a resource of its own is read only by the WSI hierarchy
-    and access endpoints and never by the generic resource table:
-    not as rows, tabs, counts, search or filter matches, sort keys, facets, discovered keys,
-    contracts or column info. Every statement in this mapper reaches resource_data through
+    WSI_PATIENT is read only by the WSI hierarchy and access endpoints, never by the generic
+    resource table: not as rows, tabs, counts, search or filter matches, sort keys, facets,
+    discovered keys, contracts or column info. (WSI_SAMPLE is the study slide table; see
+    ResourceTableFromClause.) Every statement in this mapper reaches resource_data through
     ResourceTableBaseFilters, which applies this predicate, or getResourceTableTabs, which reads
     slides only from wsi_slide_table_derived.
   -->

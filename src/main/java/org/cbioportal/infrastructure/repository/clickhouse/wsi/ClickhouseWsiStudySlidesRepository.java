@@ -44,8 +44,9 @@ public class ClickhouseWsiStudySlidesRepository implements WsiStudySlidesReposit
                             stainGroupCounts(row)))
                 .toList()
             : List.of();
+    // An aggregate without GROUP BY always returns one row; "located" is present only with locate.
     Long locatedIndex =
-        totals != null && truthy(totals.get("located")) ? longValue(totals, "located_index") : null;
+        longValue(totals, "located") != 0 ? longValue(totals, "located_index") : null;
     return new WsiStudySlidesPage(
         totalPatients,
         longValue(totals, "total_slides"),
@@ -112,14 +113,6 @@ public class ClickhouseWsiStudySlidesRepository implements WsiStudySlidesReposit
   }
 
   private static long longValue(Map<String, Object> row, String key) {
-    Object value = row == null ? null : row.get(key);
-    return value instanceof Number number ? number.longValue() : 0L;
-  }
-
-  private static boolean truthy(Object value) {
-    if (value instanceof Boolean bool) {
-      return bool;
-    }
-    return value instanceof Number number && number.longValue() != 0;
+    return row.get(key) instanceof Number number ? number.longValue() : 0L;
   }
 }

@@ -36,10 +36,14 @@ public class WsiStudySlidesService {
 
   public WsiStudySlidesPage getStudySlides(
       StudyViewFilter studyViewFilter, WsiStudySlidesQuery query) {
-    StudyViewFilter filter = copy(studyViewFilter);
-    List<String> studyIds = List.copyOf(filter.getUniqueStudyIds());
+    // The filter is the request body's, used only here, so it is normalized in place, as the
+    // other study-view endpoints do.
+    if (studyViewFilter.getAlterationFilter() == null) {
+      studyViewFilter.setAlterationFilter(new AlterationFilter());
+    }
+    List<String> studyIds = List.copyOf(studyViewFilter.getUniqueStudyIds());
     return repository.getStudySlides(
-        studyViewService.buildStudyViewFilterContext(filter), studyIds, query);
+        studyViewService.buildStudyViewFilterContext(studyViewFilter), studyIds, query);
   }
 
   /**
@@ -94,7 +98,10 @@ public class WsiStudySlidesService {
     return new WsiStudySlideFacets(facets, matchLevels);
   }
 
-  /** A copy the filter-context factory can normalize without touching the caller's filter. */
+  /**
+   * A copy the filter-context factory can normalize: the facets build several contexts from one
+   * request filter, some without one attribute's clinical filter.
+   */
   private static StudyViewFilter copy(StudyViewFilter studyViewFilter) {
     StudyViewFilter copy = FILTER_COPIER.convertValue(studyViewFilter, StudyViewFilter.class);
     if (copy.getAlterationFilter() == null) {
