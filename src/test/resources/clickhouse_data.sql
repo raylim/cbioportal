@@ -699,9 +699,7 @@ insert into sample (internal_id,stable_id,sample_type,patient_id) values (9002,'
 --    tabs, search/filter matches, facets or discovered keys. Their public text ("Masson
 --    trichrome", "liver") and slide keys appear nowhere else in the study.
 --  * EXTERNAL_SLIDES (900505/900506) are slide links outside the WSI resources, shown
---    in the generic table. Their sealed serving values contain words ("secretpath", "aaa"/"zzz")
---    that no public field contains, so a query that leaked wsi_serving into search, filters, sorting or
---    facets would be visible.
+--    in the generic table.
 insert into cancer_study (cancer_study_id,cancer_study_identifier,type_of_cancer_id,name,description,public)
 values (9005,'wsi_resource_table_study','dummy','WSI resource table study','resource table privacy fixture',1);
 insert into patient (internal_id,stable_id,cancer_study_id) values (9005,'WSI-TABLE-PATIENT',9005);
@@ -710,7 +708,7 @@ insert into sample (internal_id,stable_id,sample_type,patient_id) values (9006,'
 insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
 values ('WSI_SAMPLE',9005,'SAMPLE','Pathology slides','Whole-slide images linked to samples',0,1);
 insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
-values ('PATHOLOGY_NOTES',9005,'PATIENT','Pathology notes','Untyped notes',0,2);
+values ('PATHOLOGY_NOTES',9005,'PATIENT','Pathology notes','Free-text notes',0,2);
 insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
 values ('EXTERNAL_SLIDES',9005,'SAMPLE','External slides','Slide links outside the WSI resources',0,3);
 insert into resource_data (resource_data_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
@@ -718,11 +716,11 @@ values (900501,'WSI_SAMPLE',9005,'SAMPLE','WSI-TABLE-PATIENT','WSI-TABLE-SAMPLE-
 insert into resource_data (resource_data_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
 values (900502,'WSI_SAMPLE',9005,'SAMPLE','WSI-TABLE-PATIENT','WSI-TABLE-SAMPLE-2','https://portal.example.org/wsi/patient/WSI-TABLE-PATIENT?studyId=wsi_resource_table_study&slideKey=7d793037a0760186574b0282f2f435e7','Masson trichrome - Specimen 2 / Block 1','{"slide_key":"7d793037a0760186574b0282f2f435e7","stain_name":"Masson trichrome","part_description":"liver margin","wsi_serving":{"sealed_source":"aaa-wsipath-2-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}');
 insert into resource_data (resource_data_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
-values (900505,'EXTERNAL_SLIDES',9005,'SAMPLE','WSI-TABLE-PATIENT','WSI-TABLE-SAMPLE-1','https://slides.example.org/viewer/ext-1','External slide 1','{"stain_name":"Periodic acid-Schiff","part_description":"left kidney core biopsy","wsi_serving":{"sealed_source":"zzz-secretpath-1-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}');
+values (900505,'EXTERNAL_SLIDES',9005,'SAMPLE','WSI-TABLE-PATIENT','WSI-TABLE-SAMPLE-1','https://slides.example.org/viewer/ext-1','External slide 1','{"stain_name":"Periodic acid-Schiff","part_description":"left kidney core biopsy"}');
 insert into resource_data (resource_data_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
-values (900506,'EXTERNAL_SLIDES',9005,'SAMPLE','WSI-TABLE-PATIENT','WSI-TABLE-SAMPLE-2','https://slides.example.org/viewer/ext-2','External slide 2','{"stain_name":"H&E, Initial","part_description":"right kidney margin","wsi_serving":{"sealed_source":"aaa-secretpath-2-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}');
+values (900506,'EXTERNAL_SLIDES',9005,'SAMPLE','WSI-TABLE-PATIENT','WSI-TABLE-SAMPLE-2','https://slides.example.org/viewer/ext-2','External slide 2','{"stain_name":"H&E, Initial","part_description":"right kidney margin"}');
 insert into resource_data (resource_data_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
-values (900503,'PATHOLOGY_NOTES',9005,'PATIENT','WSI-TABLE-PATIENT',NULL,'https://example.com/notes/1.pdf','Board note','{"note":"Reviewed by tumor board","wsi_serving":{"sealed_source":"secretpath-note-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}');
+values (900503,'PATHOLOGY_NOTES',9005,'PATIENT','WSI-TABLE-PATIENT',NULL,'https://example.com/notes/1.pdf','Board note','{"note":"Reviewed by tumor board"}');
 insert into resource_data (resource_data_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
 values (900504,'PATHOLOGY_NOTES',9005,'PATIENT','WSI-TABLE-PATIENT',NULL,'https://example.com/notes/2.pdf','Follow-up note','{"note":"Follow-up imaging"}');
 

@@ -330,10 +330,6 @@ facets, discovered metadata keys or column info. Slides are reached only
 through the two endpoints above. Study-level resource counts still include
 them.
 
-`wsi_serving` is also private for every other `resource_data` row. The generic
-resource table API strips it from row metadata and ignores it in search,
-filters, sorting, facets and metadata-column discovery.
-
 There are no native WSI tables: the schema does not create `wsi_patient`,
 `wsi_part`, `wsi_block`, `wsi_slide`, `wsi_slide_placement` or
 `wsi_slide_timing`, and migration `3.7.0` drops them from older databases.
@@ -495,15 +491,6 @@ an `image_id` (top level or in `wsi_serving`) or a `wsi_serving.source_url` or
 resources are re-imported from a `data_wsi.txt` that carries `SEALED_SOURCE`.
 The delete is a mutation; `migrate_db.py` waits for it to finish before
 recording the version.
-
-**`3.8.0` (resource_data shape).** `3.5.0` was revised after some databases
-applied it: `entity_type` became `resource_scope`, the `type` column was
-dropped in favour of `METADATA`, and `cancer_study_id` became `Int64`. `3.8.0`
-brings a `resource_data` created by the earlier `3.5.0` to that shape. It
-renames and drops the columns if present, and rebuilds the table because
-ClickHouse cannot widen a sorting-key column in place. On a database that
-already has the current shape it only copies the table, and it is safe to
-re-run.
 
 Versions `3.1.0` to `3.4.0` are reserved and change nothing; earlier builds of
 them created the native WSI tables that `3.7.0` drops.
