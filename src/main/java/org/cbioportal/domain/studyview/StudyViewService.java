@@ -342,7 +342,7 @@ public class StudyViewService {
             shouldFilterNonEmptyClinicalData);
   }
 
-  private StudyViewFilterContext buildStudyViewFilterContext(StudyViewFilter studyViewFilter) {
+  public StudyViewFilterContext buildStudyViewFilterContext(StudyViewFilter studyViewFilter) {
     return StudyViewFilterFactory.make(
         studyViewFilter, this.customDataFilterUtil, getGenericAssayProfilesMap());
   }
