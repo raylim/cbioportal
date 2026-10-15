@@ -428,6 +428,14 @@ run derivation through your own tooling against ClickHouse Cloud). The backend r
 against a `db_schema_version` that doesn't match its build's `db.version` unless
 `db.suppress_schema_version_mismatch_errors=true` is set.
 
+**`3.2.0` (study slide table).** `3.2.0` adds `wsi_slide_table_derived`, the
+study slide table the resource table serves as `WSI_SAMPLE`: every slide the
+viewer can open (`WSI_SAMPLE` rows, and unmatched `WSI_PATIENT` ones with no
+sample), with metadata reduced to the allowlisted public slide fields. The
+migration (re)creates it empty; it is filled by `populate_derived_tables.sql`, so a
+manual `migrate_db.py` run needs `--populate-derived-tables` (or a separate
+derived-table rebuild) before the slide table lists anything.
+
 For **ClickHouse Cloud** specifically, set `CLICKHOUSE_SECURE=true` (in addition to the usual
 `CLICKHOUSE_HOST`/`CLICKHOUSE_NATIVE_PORT`/`CLICKHOUSE_USER`/`CLICKHOUSE_PASSWORD`/`CLICKHOUSE_DB`)
 so `migrate_db.py` connects over TLS — Cloud's native port (typically `9440`) is TLS-only and will

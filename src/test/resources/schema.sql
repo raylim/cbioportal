@@ -91,6 +91,7 @@ DROP TABLE IF EXISTS reference_genome;
 DROP TABLE IF EXISTS reference_genome_gene;
 DROP TABLE IF EXISTS resource_definition;
 DROP TABLE IF EXISTS resource;
+DROP TABLE IF EXISTS wsi_slide_table_derived;
 DROP TABLE IF EXISTS sample;
 DROP TABLE IF EXISTS sample_cna_event;
 DROP TABLE IF EXISTS sample_derived;
@@ -626,6 +627,20 @@ CREATE TABLE resource (
 
 
 
+-- The study slide table (see wsi_slide_table_derived in schema.sql).
+CREATE TABLE wsi_slide_table_derived (
+    `internal_id` Int64,
+    `resource_id` String,
+    `cancer_study_id` Int64,
+    `resource_scope` String,
+    `patient_id` Nullable(String),
+    `sample_id` Nullable(String),
+    `url` String,
+    `display_name` Nullable(String),
+    `metadata` Nullable(String)
+) ENGINE = MergeTree ORDER BY (cancer_study_id, resource_id, patient_id, sample_id, internal_id)
+  SETTINGS allow_nullable_key = 1;
+
 CREATE TABLE sample (
     `internal_id` Int64,
     `stable_id` String,
@@ -747,4 +762,4 @@ CREATE TABLE users (
     `enabled` Int32
 ) ENGINE = MergeTree ORDER BY (email);
 
-INSERT INTO info (`db_schema_version`, `geneset_version`, `gene_table_version`) VALUES ('3.1.0', 'msigdb_v2025.1.Hs', 'hgnc_v7_2025.10.7');
+INSERT INTO info (`db_schema_version`, `geneset_version`, `gene_table_version`) VALUES ('3.2.0', 'msigdb_v2025.1.Hs', 'hgnc_v7_2025.10.7');
