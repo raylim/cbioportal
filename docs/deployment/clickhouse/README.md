@@ -363,9 +363,11 @@ row's stored `sealed_source`, copied verbatim; it is sealed upstream with
 Before enabling the Pathology Slides feature for a private study:
 
 1. Convert the study's `meta_wsi.txt`/`data_wsi.txt` pair as described in
-   [Converting legacy files](https://github.com/cBioPortal/cbioportal-core/blob/main/docs/wsi-study-format.md#converting-legacy-files),
-   then validate and import the study with the standard importer. MRNs and
-   absolute dates must not occur in the study files:
+   [Converting legacy files](https://github.com/cBioPortal/cbioportal-core/blob/main/docs/wsi-study-format.md#converting-legacy-files)
+   (with `--study-dir`, the converter also merges the six `WSI_*` slide-count
+   clinical attributes into the study's clinical files), then validate and
+   import the study with the standard importer. MRNs and absolute dates must
+   not occur in the study files:
 
    ```bash
    metaImport.py -s /path/to/study
