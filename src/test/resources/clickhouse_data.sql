@@ -836,6 +836,17 @@ values (900605,'WSI_SAMPLE',9006,'SAMPLE','OTHER-D','OTHER-D-1','https://portal.
 -- A WSI row with a malformed slide_key is never listed or served, so it is never counted either.
 insert into resource (internal_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
 values (900608,'WSI_PATIENT',9006,'PATIENT','COHORT-C',NULL,'https://portal.example.org/wsi/patient/COHORT-C?studyId=wsi_cohort_study&slideKey=SYN-NOT-A-KEY','Specimen 1 / Block 1','{"slide_key":"SYN-NOT-A-KEY","is_hne":true,"is_ihc":false,"slide_type":"H&E","can_serve_tiles":true,"wsi_serving":{"sealed_source":"syn-img-c008-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}');
+-- Clinical values for study-slides facets: COHORT-C has no slides, so its value is not counted.
+insert into clinical_attribute_meta (attr_id,display_name,description,datatype,patient_attribute,priority,cancer_study_id) values ('CANCER_TYPE','Cancer Type','Cancer Type','STRING',0,'1',9006);
+insert into clinical_attribute_meta (attr_id,display_name,description,datatype,patient_attribute,priority,cancer_study_id) values ('SEX','Sex','Sex','STRING',1,'1',9006);
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9601,'CANCER_TYPE','Colorectal Cancer');
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9602,'CANCER_TYPE','Colorectal Cancer');
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9603,'CANCER_TYPE','Breast Cancer');
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9604,'CANCER_TYPE','Breast Cancer');
+insert into clinical_sample (internal_id,attr_id,attr_value) values (9605,'CANCER_TYPE','Melanoma');
+insert into clinical_patient (internal_id,attr_id,attr_value) values (9601,'SEX','Female');
+insert into clinical_patient (internal_id,attr_id,attr_value) values (9602,'SEX','Female');
+insert into clinical_patient (internal_id,attr_id,attr_value) values (9604,'SEX','Male');
 -- A non-WSI resource row for COHORT-C, which must not count as a slide.
 insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
 values ('COHORT_NOTES',9006,'PATIENT','Notes','Not slides',0,2);
