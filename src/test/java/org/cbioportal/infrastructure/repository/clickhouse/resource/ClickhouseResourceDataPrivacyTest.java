@@ -54,7 +54,7 @@ public class ClickhouseResourceDataPrivacyTest {
   private static final String EXTERNAL = "EXTERNAL_SLIDES";
   private static final String NOTES = "PATHOLOGY_NOTES";
   private static final List<String> WSI_ROW_IDS = List.of("900501", "900502");
-  private static final String WSI_SLIDE_KEY = "5d41402abc4b2a76b9719d911017c592";
+  private static final String WSI_SLIDE_KEY = "5d41402abc4b";
 
   /**
    * Fixture row id by url. Rows no longer carry their internal_id, and each fixture row has a
@@ -62,9 +62,9 @@ public class ClickhouseResourceDataPrivacyTest {
    */
   private static final Map<String, String> ROW_ID_BY_URL =
       Map.of(
-          "https://portal.example.org/wsi/patient/WSI-TABLE-PATIENT?studyId=wsi_resource_table_study&slideKey=5d41402abc4b2a76b9719d911017c592",
+          "https://portal.example.org/wsi/patient/WSI-TABLE-PATIENT?studyId=wsi_resource_table_study&slideKey=5d41402abc4b",
           "900501",
-          "https://portal.example.org/wsi/patient/WSI-TABLE-PATIENT?studyId=wsi_resource_table_study&slideKey=7d793037a0760186574b0282f2f435e7",
+          "https://portal.example.org/wsi/patient/WSI-TABLE-PATIENT?studyId=wsi_resource_table_study&slideKey=7d793037a076",
           "900502",
           "https://example.com/notes/1.pdf",
           "900503",
@@ -246,7 +246,7 @@ public class ClickhouseResourceDataPrivacyTest {
         .containsExactly("WSI-UNMATCHED-SAMPLE-1", null);
     ResourceTableRow unmatched = rows.get(1);
     assertThat(unmatched.patientId()).isEqualTo("WSI-UNMATCHED-PATIENT");
-    assertThat(unmatched.url()).endsWith("slideKey=eccbc87e4b5ce2fe28308fd9f2a7baf3");
+    assertThat(unmatched.url()).endsWith("slideKey=eccbc87e4b5c");
     assertThat(unmatched.metadata())
         .containsEntry("stain_name", "Toluidine blue")
         .containsEntry("match_level", "UNMATCHED");
