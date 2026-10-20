@@ -544,7 +544,7 @@ SELECT internal_id, 'WSI_SAMPLE' AS slide_table_resource_id, cancer_study_id, re
 FROM resource
 WHERE resource_id IN ('WSI_SAMPLE', 'WSI_PATIENT')
   AND patient_id IS NOT NULL
-  AND match(JSONExtractString(ifNull(metadata, '{}'), 'slide_key'), '^[0-9a-f]{32}$')
+  AND match(JSONExtractString(ifNull(metadata, '{}'), 'slide_key'), '^[0-9a-f]{12}$')
   AND JSONExtractBool(ifNull(metadata, '{}'), 'can_serve_tiles');
 
 -- Merge parts.
