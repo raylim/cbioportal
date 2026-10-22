@@ -193,7 +193,6 @@ public class ClickhouseResourceDataPrivacyTest {
         List.of(
             new ResourceColumnFilter("metadata:block_key", "in", List.of("block:hiddenblockone")),
             new ResourceColumnFilter("metadata:reference_sample_id", "equals", List.of("x")),
-            new ResourceColumnFilter("metadata:slide_key", "in", List.of(WSI_SLIDE_KEY)),
             new ResourceColumnFilter("metadata:part_description", "in", List.of("liver margin")))) {
       ResourceTableQuery filtered = query(WSI, null, null, null, List.of(filter));
       assertThat(ids(filtered)).as(filter.toString()).isEmpty();
@@ -309,8 +308,9 @@ public class ClickhouseResourceDataPrivacyTest {
     assertThat(
             mapper.getResourceTableMetadataKeyStats(query, KEY_SAMPLE_ROWS, KEY_MAX_MEMORY_BYTES))
         .extracting(ResourceMetadataKeyStats::key)
-        .containsExactlyInAnyOrder("block_number", "magnification", "part_number", "stain_name");
-    for (String key : List.of("block_key", "reference_sample_id", "slide_key", "wsi_serving")) {
+        .containsExactlyInAnyOrder(
+            "block_number", "magnification", "part_number", "slide_key", "stain_name");
+    for (String key : List.of("block_key", "reference_sample_id", "wsi_serving")) {
       assertThat(mapper.getResourceTableMetadataFacets(query, new String[] {key}, FACET_LIMIT))
           .as(key)
           .isEmpty();
@@ -327,8 +327,23 @@ public class ClickhouseResourceDataPrivacyTest {
         .doesNotContain("hiddenblock")
         .doesNotContain("WSI-HIDDEN-REF")
         .doesNotContain("wsipath")
-        .doesNotContain("metadata:slide_key")
         .doesNotContain("metadata:block_key");
+  }
+
+  @Test
+  public void slideTableShowsAndFiltersByTheDeidentifiedSlideId() {
+    assertThat(repository.getResourceTableRows(query(WSI, null, null, null, null)))
+        .extracting(row -> row.metadata().get("slide_key"))
+        .containsExactly(WSI_SLIDE_KEY, "7d793037a076");
+    ResourceTableQuery filtered =
+        query(
+            WSI,
+            null,
+            null,
+            null,
+            List.of(new ResourceColumnFilter("metadata:slide_key", "in", List.of(WSI_SLIDE_KEY))));
+    assertThat(ids(filtered)).containsExactly("900501");
+    assertThat(repository.getResourceTableCounts(filtered).rowCount()).isEqualTo(1);
   }
 
   @Test
