@@ -806,6 +806,42 @@ values (901002,'WSI_PATIENT',9010,'PATIENT','WSI-UNMATCHED-PATIENT',NULL,'https:
 insert into resource (internal_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
 values (901003,'WSI_PATIENT',9010,'PATIENT','WSI-UNMATCHED-PATIENT',NULL,'https://portal.example.org/wsi/patient/WSI-UNMATCHED-PATIENT?studyId=wsi_unmatched_study&slideKey=a87ff679a2f3','Unviewable unmatched - Specimen 5 / Block 1','{"slide_key":"a87ff679a2f3","stain_name":"Unviewable unmatched","part_number":"5","block_number":"1","match_level":"UNMATCHED","can_serve_tiles":false,"wsi_serving":{"sealed_source":"syn-img-u003-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}');
 
+-- Study-slides cohort fixture: four patients, three with slides, for cohort paging, prefix search,
+-- stain-group filtering and sample-identifier cohort restriction.
+insert into cancer_study (cancer_study_id,cancer_study_identifier,type_of_cancer_id,name,description,public)
+values (9006,'wsi_cohort_study','dummy','WSI cohort study','study slides fixture',1);
+insert into patient (internal_id,stable_id,cancer_study_id) values (9601,'COHORT-A',9006);
+insert into patient (internal_id,stable_id,cancer_study_id) values (9602,'COHORT-B',9006);
+insert into patient (internal_id,stable_id,cancer_study_id) values (9603,'COHORT-C',9006);
+insert into patient (internal_id,stable_id,cancer_study_id) values (9604,'OTHER-D',9006);
+insert into sample (internal_id,stable_id,sample_type,patient_id) values (9601,'COHORT-A-1','primary tumor',9601);
+insert into sample (internal_id,stable_id,sample_type,patient_id) values (9602,'COHORT-A-2','primary tumor',9601);
+insert into sample (internal_id,stable_id,sample_type,patient_id) values (9603,'COHORT-B-1','primary tumor',9602);
+insert into sample (internal_id,stable_id,sample_type,patient_id) values (9604,'COHORT-C-1','primary tumor',9603);
+insert into sample (internal_id,stable_id,sample_type,patient_id) values (9605,'OTHER-D-1','primary tumor',9604);
+insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
+values ('WSI_SAMPLE',9006,'SAMPLE','Pathology slides','Whole-slide images linked to samples',0,1);
+insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
+values ('WSI_PATIENT',9006,'PATIENT','Pathology slides','Whole-slide images linked to patients',0,1);
+insert into resource (internal_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
+values (900601,'WSI_SAMPLE',9006,'SAMPLE','COHORT-A','COHORT-A-1','https://portal.example.org/wsi/patient/COHORT-A?studyId=wsi_cohort_study&slideKey=411eaca47f68','H&E - Specimen 1 / Block 1','{"slide_key":"411eaca47f68","is_hne":true,"is_ihc":false,"slide_type":"H&E","match_level":"PART","can_serve_tiles":true,"wsi_serving":{"sealed_source":"syn-img-c001-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}');
+insert into resource (internal_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
+values (900602,'WSI_SAMPLE',9006,'SAMPLE','COHORT-A','COHORT-A-2','https://portal.example.org/wsi/patient/COHORT-A?studyId=wsi_cohort_study&slideKey=61e8ae5db42f','IHC - Specimen 2 / Block 1','{"slide_key":"61e8ae5db42f","is_hne":false,"is_ihc":true,"slide_type":"IHC","can_serve_tiles":false,"wsi_serving":{"sealed_source":"syn-img-c002-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}');
+insert into resource (internal_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
+values (900603,'WSI_PATIENT',9006,'PATIENT','COHORT-A',NULL,'https://portal.example.org/wsi/patient/COHORT-A?studyId=wsi_cohort_study&slideKey=0d6eec45ccec','Specimen 3 / Block 1','{"slide_key":"0d6eec45ccec","is_hne":false,"is_ihc":false,"slide_type":"Unknown","can_serve_tiles":true,"wsi_serving":{"sealed_source":"syn-img-c003-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}');
+insert into resource (internal_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
+values (900604,'WSI_SAMPLE',9006,'SAMPLE','COHORT-B','COHORT-B-1','https://portal.example.org/wsi/patient/COHORT-B?studyId=wsi_cohort_study&slideKey=0735692ff064','Special stain - Specimen 1 / Block 1','{"slide_key":"0735692ff064","is_hne":false,"is_ihc":false,"slide_type":"Special stain","can_serve_tiles":true,"wsi_serving":{"sealed_source":"syn-img-c004-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}');
+insert into resource (internal_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
+values (900605,'WSI_SAMPLE',9006,'SAMPLE','OTHER-D','OTHER-D-1','https://portal.example.org/wsi/patient/OTHER-D?studyId=wsi_cohort_study&slideKey=8f1010453740','H&E - Specimen 1 / Block 1','{"slide_key":"8f1010453740","is_hne":true,"is_ihc":false,"slide_type":"H&E","can_serve_tiles":true,"wsi_serving":{"sealed_source":"syn-img-c005-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}');
+-- A WSI row with a malformed slide_key is never listed or served, so it is never counted either.
+insert into resource (internal_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
+values (900608,'WSI_PATIENT',9006,'PATIENT','COHORT-C',NULL,'https://portal.example.org/wsi/patient/COHORT-C?studyId=wsi_cohort_study&slideKey=SYN-NOT-A-KEY','Specimen 1 / Block 1','{"slide_key":"SYN-NOT-A-KEY","is_hne":true,"is_ihc":false,"slide_type":"H&E","can_serve_tiles":true,"wsi_serving":{"sealed_source":"syn-img-c008-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}');
+-- A non-WSI resource row for COHORT-C, which must not count as a slide.
+insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
+values ('COHORT_NOTES',9006,'PATIENT','Notes','Not slides',0,2);
+insert into resource (internal_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
+values (900606,'COHORT_NOTES',9006,'PATIENT','COHORT-C',NULL,'https://example.com/notes/c.pdf','Note','{}');
+
 -- WSI is served exclusively from generic resource. The nested wsi_serving object is
 -- intentionally absent from generic table responses and is read only by the access repository.
 -- The servable rows' sealed_source values are well-formed seals (contract wsi-serving-v6 test
