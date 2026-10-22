@@ -41,7 +41,7 @@ public final class WsiDeidentification {
   /**
    * The study slide table's columns, and its allowlist: a WSI_SAMPLE row exposes these metadata
    * keys and no others. The slide key is the de-identified Slide ID that the viewer shows and slide
-   * links already carry. Part and block are bare numbers and display_name (the "stain · specimen /
+   * links already carry. Part and block are bare numbers and display_name (the "stain · part /
    * block" caption) is left empty, since either would repeat the columns. Specimen, part and block
    * keys, the reference sample id, file size and wsi_serving stay with the WSI hierarchy and access
    * endpoints.
@@ -69,8 +69,8 @@ public final class WsiDeidentification {
               new ResourceMetadataField(
                   "match_level",
                   "string",
-                  "Matched At",
-                  "Whether the slide was matched to the sample by specimen part or by block",
+                  "Match",
+                  "Whether the slide was matched to the sample by part or by block",
                   true,
                   false)));
 
