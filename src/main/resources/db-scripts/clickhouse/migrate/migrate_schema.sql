@@ -143,7 +143,7 @@ DROP TABLE IF EXISTS resource_patient;
 DROP TABLE IF EXISTS resource_study;
 
 ## db_schema_version: 3.2.0
-## description: Add wsi_slide_table_derived, the study slide table's allowlisted WSI_SAMPLE rows
+## description: Add wsi_slide_table_derived, the study slide table's (WSI_SLIDES) allowlisted slide rows
 -- The table is derived (populate_derived_tables.sql fills it), so an earlier build's copy, made in
 -- an older resource shape, is dropped and recreated in the current one.
 DROP TABLE IF EXISTS wsi_slide_table_derived SYNC;

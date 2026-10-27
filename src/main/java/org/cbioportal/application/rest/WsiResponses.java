@@ -6,7 +6,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 
-/** Helpers shared by the WSI endpoints, whose responses are private to the requesting user. */
+/**
+ * Helpers for the WSI study slides endpoint, whose responses are private to the requesting user.
+ */
 final class WsiResponses {
 
   private WsiResponses() {}

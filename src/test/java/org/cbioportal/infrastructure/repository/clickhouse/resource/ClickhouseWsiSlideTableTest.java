@@ -18,7 +18,7 @@ import org.cbioportal.domain.resource.ResourceTableRow;
 import org.cbioportal.domain.resource.ResourceTableTab;
 import org.cbioportal.domain.resource.ResourceTabsRequest;
 import org.cbioportal.domain.resource.usecase.GetResourceTableMetadataUseCase;
-import org.cbioportal.domain.wsi.WsiContract;
+import org.cbioportal.domain.wsi.WsiSlideTable;
 import org.cbioportal.infrastructure.repository.clickhouse.AbstractTestcontainers;
 import org.cbioportal.infrastructure.repository.clickhouse.config.MyBatisConfig;
 import org.junit.Test;
@@ -33,11 +33,11 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 
 /**
- * WSI_PATIENT rows never reach the generic resource table; WSI_SAMPLE rows are served as the study
- * slide table with only their allowlisted metadata; and every other resource's public metadata
- * stays searchable. Uses the wsi_resource_table_study fixture: WSI_SAMPLE rows 900501/900502 (with
- * hidden block_key and reference_sample_id values), WSI_PATIENT row 900507, EXTERNAL_SLIDES rows
- * 900505/900506 and PATHOLOGY_NOTES rows 900503/900504.
+ * The study slide table (WSI_SLIDES) lists the study's viewable slides with only its allowlisted
+ * columns, while WSI_SAMPLE and WSI_PATIENT stay ordinary resources whose rows keep every field.
+ * Uses the wsi_resource_table_study fixture: WSI_SAMPLE rows 900501/900502 (with block_key and
+ * reference_sample_id values outside the table) and 900508 (not viewable), WSI_PATIENT row 900507,
+ * EXTERNAL_SLIDES rows 900505/900506 and PATHOLOGY_NOTES rows 900503/900504.
  */
 @RunWith(SpringRunner.class)
 @Import({MyBatisConfig.class, ClickhouseResourceDataRepository.class})
@@ -45,11 +45,12 @@ import org.springframework.test.context.junit4.SpringRunner;
 @DirtiesContext
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ContextConfiguration(initializers = AbstractTestcontainers.Initializer.class)
-public class ClickhouseResourceDataPrivacyTest {
+public class ClickhouseWsiSlideTableTest {
 
   private static final String STUDY = "wsi_resource_table_study";
   private static final String UNMATCHED_STUDY = "wsi_unmatched_study";
-  private static final String WSI = "WSI_SAMPLE";
+  private static final String WSI = WsiSlideTable.RESOURCE_ID;
+  private static final String WSI_SAMPLE = "WSI_SAMPLE";
   private static final String WSI_PATIENT = "WSI_PATIENT";
   private static final String EXTERNAL = "EXTERNAL_SLIDES";
   private static final String NOTES = "PATHOLOGY_NOTES";
@@ -85,42 +86,43 @@ public class ClickhouseResourceDataPrivacyTest {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  // ---- WSI_PATIENT is invisible to the generic resource table ----
+  // ---- The slide table is a tab of its own; the slide resources stay ordinary ----
 
   @Test
-  public void wsiPatientIsNotATabAndWsiSampleIsTheSlideTable() {
+  public void theSlideTableIsATabNamedByTheWsiSampleDefinition() {
     List<ResourceTableTab> tabs =
         repository.getResourceTableTabs(new ResourceTabsRequest(List.of(STUDY), null, null));
 
     assertThat(tabs)
         .extracting(ResourceTableTab::resourceId)
-        .containsExactlyInAnyOrder(WSI, EXTERNAL, NOTES)
-        .doesNotContain(WSI_PATIENT);
-    assertThat(mapper.getResourceTableTabs(new ResourceTabsRequest(List.of(STUDY), null, null)))
-        .extracting(ResourceTableTab::resourceId)
-        .doesNotContain(WSI_PATIENT);
+        .containsExactlyInAnyOrder(WSI, WSI_SAMPLE, WSI_PATIENT, EXTERNAL, NOTES);
+    assertThat(tabs)
+        .filteredOn(tab -> tab.resourceId().equals(WSI))
+        .singleElement()
+        .satisfies(tab -> assertThat(tab.label()).isEqualTo("Pathology slides"));
   }
 
   @Test
-  public void wsiPatientRowsAreNeverReturnedCountedOrDescribed() {
-    for (String search : Arrays.asList(null, "Gomori")) {
-      ResourceTableQuery query = query(WSI_PATIENT, search, null, null, null);
+  public void slideResourceRowsKeepEveryField() {
+    List<ResourceTableRow> patientRows =
+        repository.getResourceTableRows(query(WSI_PATIENT, null, null, null, null));
+    assertThat(patientRows)
+        .singleElement()
+        .satisfies(
+            row -> {
+              assertThat(row.sampleId()).isNull();
+              assertThat(row.metadata()).containsKey("wsi_serving");
+            });
 
-      assertThat(repository.getResourceTableRows(query)).isEmpty();
-      assertThat(mapper.getResourceTableRows(query)).isEmpty();
-      assertThat(repository.getResourceTableCounts(query).rowCount()).isZero();
-      assertThat(mapper.getResourceDefinitionCustomMetadata(query)).isEmpty();
-      ResourceTableMetadataView metadata = repository.getResourceTableMetadata(query);
-      assertThat(metadata.columns()).isEmpty();
-      assertThat(metadata.facets()).isEmpty();
-      assertThat(metadata.facetRanges()).isEmpty();
-    }
-    for (String resourceId : List.of(WSI, EXTERNAL, NOTES)) {
-      assertThat(ids(query(resourceId, "Gomori", null, null, null))).as(resourceId).isEmpty();
-    }
+    List<ResourceTableRow> sampleRows =
+        repository.getResourceTableRows(query(WSI_SAMPLE, null, null, null, null));
+    // 900508 cannot serve tiles: the slide table leaves it out, the resource keeps it.
+    assertThat(sampleRows).hasSize(3);
+    assertThat(sampleRows)
+        .allSatisfy(row -> assertThat(row.metadata()).containsKeys("slide_key", "wsi_serving"));
   }
 
-  // ---- WSI_SAMPLE is served through its allowlisted contract only ----
+  // ---- The slide table is served through its allowlisted contract only ----
 
   @Test
   public void slideTableRowsCarryOnlyAllowlistedMetadata() {
@@ -132,7 +134,7 @@ public class ClickhouseResourceDataPrivacyTest {
             document ->
                 assertThat(OBJECT_MAPPER.readTree(document).fieldNames())
                     .toIterable()
-                    .isSubsetOf(WsiContract.STUDY_TABLE_METADATA_KEYS));
+                    .isSubsetOf(WsiSlideTable.METADATA_KEYS));
     assertThat(
             jdbcTemplate.queryForList(
                 "SELECT DISTINCT resource_id FROM wsi_slide_table_derived", String.class))
@@ -142,7 +144,7 @@ public class ClickhouseResourceDataPrivacyTest {
         repository.getResourceTableRows(query(WSI, null, null, null, null));
 
     assertThat(rows)
-        .extracting(ClickhouseResourceDataPrivacyTest::rowId)
+        .extracting(ClickhouseWsiSlideTableTest::rowId)
         .containsExactly("900501", "900502");
     // The caption repeats the stain, part and block columns, so the table leaves it empty.
     assertThat(rows).extracting(ResourceTableRow::displayName).containsOnlyNulls();
@@ -150,7 +152,7 @@ public class ClickhouseResourceDataPrivacyTest {
         .allSatisfy(
             row ->
                 assertThat(row.metadata().keySet())
-                    .isSubsetOf(WsiContract.STUDY_TABLE_METADATA_KEYS)
+                    .isSubsetOf(WsiSlideTable.METADATA_KEYS)
                     .contains("stain_name", "part_number", "block_number", "magnification")
                     .doesNotContain("part_description"));
     assertThat(rows.toString())
@@ -258,11 +260,13 @@ public class ClickhouseResourceDataPrivacyTest {
     assertThat(
             repository.getResourceTableTabs(
                 new ResourceTabsRequest(List.of(UNMATCHED_STUDY), null, null)))
-        .extracting(ResourceTableTab::resourceId, ResourceTableTab::totalCount)
-        .containsExactly(org.assertj.core.groups.Tuple.tuple(WSI, 2L));
+        .filteredOn(tab -> tab.resourceId().equals(WSI))
+        .extracting(ResourceTableTab::totalCount)
+        .containsExactly(2L);
     assertThat(ids(queryIn(UNMATCHED_STUDY, WSI, "Toluidine"))).hasSize(1);
+    // WSI_PATIENT itself keeps both unmatched slides, viewable or not.
     assertThat(repository.getResourceTableRows(queryIn(UNMATCHED_STUDY, WSI_PATIENT, null)))
-        .isEmpty();
+        .hasSize(2);
   }
 
   @Test
@@ -294,7 +298,7 @@ public class ClickhouseResourceDataPrivacyTest {
     assertThat(metadata.columns())
         .extracting(ResourceColumnInfo::id)
         .containsExactlyElementsOf(
-            WsiContract.STUDY_TABLE_METADATA_KEYS.stream()
+            WsiSlideTable.METADATA_KEYS.stream()
                 .map(key -> ResourceColumnInfo.METADATA_COLUMN_PREFIX + key)
                 .toList());
     assertThat(metadata.facets().get("metadata:stain_name"))
@@ -353,7 +357,7 @@ public class ClickhouseResourceDataPrivacyTest {
       List<ResourceTableRow> rows = repository.getResourceTableRows(query);
 
       assertThat(rows)
-          .extracting(ClickhouseResourceDataPrivacyTest::rowId)
+          .extracting(ClickhouseWsiSlideTableTest::rowId)
           .doesNotContainAnyElementsOf(WSI_ROW_IDS);
       assertThat(rows).extracting(ResourceTableRow::resourceId).containsOnly(resourceId);
       assertThat(rows.toString()).doesNotContain(WSI_SLIDE_KEY).doesNotContain("Masson");
@@ -384,9 +388,7 @@ public class ClickhouseResourceDataPrivacyTest {
           Arrays.stream(matcher.group(1).split(","))
               .map(key -> key.trim().replace("'", ""))
               .toList();
-      assertThat(keys)
-          .as(resource)
-          .containsExactlyElementsOf(WsiContract.STUDY_TABLE_METADATA_KEYS);
+      assertThat(keys).as(resource).containsExactlyElementsOf(WsiSlideTable.METADATA_KEYS);
     }
   }
 
@@ -419,7 +421,7 @@ public class ClickhouseResourceDataPrivacyTest {
 
   private List<String> ids(ResourceTableQuery query) {
     return repository.getResourceTableRows(query).stream()
-        .map(ClickhouseResourceDataPrivacyTest::rowId)
+        .map(ClickhouseWsiSlideTableTest::rowId)
         .toList();
   }
 
