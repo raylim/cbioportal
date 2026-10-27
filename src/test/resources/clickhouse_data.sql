@@ -742,24 +742,19 @@ insert into cancer_study (cancer_study_id,cancer_study_identifier,type_of_cancer
 values (9001,'wsi_test_study','dummy','WSI test study','WSI fixture',1);
 insert into cancer_study (cancer_study_id,cancer_study_identifier,type_of_cancer_id,name,description,public)
 values (9002,'wsi_snapshot_study','dummy','WSI snapshot study','WSI fixture',1);
-insert into cancer_study (cancer_study_id,cancer_study_identifier,type_of_cancer_id,name,description,public)
-values (9004,'wsi_missing_data_study','dummy','WSI missing data study','WSI fixture',1);
 insert into patient (internal_id,stable_id,cancer_study_id) values (9001,'WSI-PATIENT',9001);
 insert into patient (internal_id,stable_id,cancer_study_id) values (9002,'SNAPSHOT-PATIENT',9002);
-insert into patient (internal_id,stable_id,cancer_study_id) values (9004,'MISSING-DATA',9004);
 insert into sample (internal_id,stable_id,sample_type,patient_id) values (9001,'WSI-SAMPLE','primary tumor',9001);
 insert into sample (internal_id,stable_id,sample_type,patient_id) values (9002,'active-sample','primary tumor',9002);
 
--- Resource table privacy fixture. Kept in its own study so the study_tcga_pub resource counts
--- used by other tests are unchanged.
---  * WSI_SAMPLE (900501/900502) is the study slide table: served with its allowlisted metadata
---    only. Their public text ("Masson trichrome", "liver", "40x"/"20x") appears nowhere else in
---    the study, and their non-allowlisted keys (block_key "hiddenblock...", reference_sample_id
---    "WSI-HIDDEN-REF-...") and serving paths ("wsipath") must never surface.
---  * WSI_PATIENT (900507) must never reach the generic resource APIs at all. Its public text
---    ("Gomori") appears nowhere else.
---  * EXTERNAL_SLIDES (900505/900506) are slide links outside the WSI resources, shown
---    in the generic table.
+-- Study slide table fixture. Kept in its own study so the study_tcga_pub resource counts used
+-- by other tests are unchanged.
+--  * The slide table (WSI_SLIDES) lists the viewable WSI_SAMPLE (900501/900502) and WSI_PATIENT
+--    (900507) slides with the table's columns only. Their text ("Masson trichrome", "liver",
+--    "40x"/"20x", "Gomori") appears nowhere else in the study; their other keys (block_key
+--    "hiddenblock...", reference_sample_id "WSI-HIDDEN-REF-...") and serving data ("wsipath")
+--    stay in the WSI_SAMPLE and WSI_PATIENT rows.
+--  * EXTERNAL_SLIDES (900505/900506) are slide links outside the WSI resources.
 insert into cancer_study (cancer_study_id,cancer_study_identifier,type_of_cancer_id,name,description,public)
 values (9005,'wsi_resource_table_study','dummy','WSI resource table study','resource table privacy fixture',1);
 insert into patient (internal_id,stable_id,cancer_study_id) values (9005,'WSI-TABLE-PATIENT',9005);
@@ -806,10 +801,9 @@ values (901002,'WSI_PATIENT',9010,'PATIENT','WSI-UNMATCHED-PATIENT',NULL,'https:
 insert into resource (internal_id, resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url, display_name, metadata)
 values (901003,'WSI_PATIENT',9010,'PATIENT','WSI-UNMATCHED-PATIENT',NULL,'https://portal.example.org/wsi/patient/WSI-UNMATCHED-PATIENT?studyId=wsi_unmatched_study&slideKey=a87ff679a2f3','Unviewable unmatched - Specimen 5 / Block 1','{"slide_key":"a87ff679a2f3","stain_name":"Unviewable unmatched","part_number":"5","block_number":"1","match_level":"UNMATCHED","can_serve_tiles":false,"wsi_serving":{"sealed_source":"syn-img-u003-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}');
 
--- WSI is served exclusively from generic resource. The nested wsi_serving object is
--- intentionally absent from generic table responses and is read only by the access repository.
--- The servable rows' sealed_source values are well-formed seals (contract wsi-serving-v6 test
--- key); cBioPortal never decrypts them, it only checks their shape and forwards them.
+-- WSI slide rows. The access endpoint reads sealed_source and the thumbnail size from a servable
+-- row's wsi_serving object and forwards them in the tile capability; cBioPortal never decrypts
+-- sealed_source (contract test key).
 insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)
 values ('WSI_SAMPLE',9001,'SAMPLE','Pathology slides','Whole-slide images linked to samples',0,1);
 insert into resource_definition (resource_id, cancer_study_id, resource_type, display_name, description, open_by_default, priority)

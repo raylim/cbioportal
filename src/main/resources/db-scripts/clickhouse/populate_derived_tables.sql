@@ -535,7 +535,7 @@ GROUP BY ge.stable_id, ge.entity_type;
 -- The study slide table (see wsi_slide_table_derived in schema.sql).
 CREATE TABLE wsi_slide_table_derived_temp AS wsi_slide_table_derived;
 INSERT INTO wsi_slide_table_derived_temp
-SELECT internal_id, 'WSI_SAMPLE' AS slide_table_resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url,
+SELECT internal_id, 'WSI_SLIDES' AS slide_table_resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url,
        CAST(NULL, 'Nullable(String)') AS display_name,
        concat('{', arrayStringConcat(
          arrayMap(kv -> concat(toJSONString(kv.1), ':', kv.2),
