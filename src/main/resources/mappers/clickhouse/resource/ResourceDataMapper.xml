@@ -66,13 +66,13 @@
   </resultMap>
 
   <!--
-    The study slide table (WSI_SAMPLE; see WsiDeidentification.STUDY_TABLE_RESOURCE_ID) reads
+    The study slide table (WSI_SAMPLE; see WsiContract.STUDY_TABLE_RESOURCE_ID) reads
     wsi_slide_table_derived, so a search, filter or sort on a hidden slide field matches nothing.
     Every other resource reads resource.
   -->
   <sql id="ResourceTableFromClause">
     FROM <choose>
-      <when test="@org.cbioportal.domain.wsi.WsiDeidentification@isStudyTableResource(query.resourceId)">wsi_slide_table_derived</when>
+      <when test="@org.cbioportal.domain.wsi.WsiContract@isStudyTableResource(query.resourceId)">wsi_slide_table_derived</when>
       <otherwise>resource</otherwise>
     </choose> rdata
     INNER JOIN cancer_study cs ON cs.cancer_study_id = rdata.cancer_study_id

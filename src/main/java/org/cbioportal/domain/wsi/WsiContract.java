@@ -7,14 +7,11 @@ import java.util.regex.Pattern;
 import org.cbioportal.domain.resource.ResourceMetadataField;
 import org.cbioportal.domain.resource.ResourceMetadataSchema;
 
-/** Shared de-identification rules for the browser-facing WSI contract (wsi-serving-v6). */
-public final class WsiDeidentification {
+/** Shared formats of the browser-facing WSI contract (wsi-serving-v6). */
+public final class WsiContract {
 
-  /**
-   * Opaque per-slide key: the first 12 hex chars of a salted SHA-256 of the image identifier. Match
-   * it whole ({@code matches()}); it is unanchored so the hierarchy's part/block keys can embed it.
-   */
-  public static final Pattern SLIDE_KEY = Pattern.compile("[0-9a-f]{12}");
+  /** Opaque per-slide key: the first 12 hex chars of a salted SHA-256 of the image identifier. */
+  public static final Pattern SLIDE_KEY = Pattern.compile("^[0-9a-f]{12}$");
 
   /**
    * The resource rows that hold one row per slide. Their rows carry the private {@code wsi_serving}
@@ -78,30 +75,7 @@ public final class WsiDeidentification {
   public static final List<String> STUDY_TABLE_METADATA_KEYS =
       List.copyOf(STUDY_TABLE_SCHEMA.fieldsByKey().keySet());
 
-  private static final Pattern ABSOLUTE_DATE =
-      Pattern.compile(
-          "(?<!\\d)(?:19|20)\\d{2}[-_/](?:0?[1-9]|1[0-2])[-_/](?:0?[1-9]|[12]\\d|3[01])(?!\\d)");
-  private static final Pattern MONTH_FIRST_DATE =
-      Pattern.compile(
-          "(?<!\\d)(?:0?[1-9]|1[0-2])[-_/](?:0?[1-9]|[12]\\d|3[01])[-_/](?:19|20)\\d{2}(?!\\d)");
-  private static final Pattern DAY_FIRST_DATE =
-      Pattern.compile(
-          "(?<!\\d)(?:0?[1-9]|[12]\\d|3[01])[-_/](?:0?[1-9]|1[0-2])[-_/](?:19|20)\\d{2}(?!\\d)");
-  private static final Pattern NAMED_MONTH_DATE =
-      Pattern.compile(
-          "(?i)(?<![a-z0-9])(?:(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|"
-              + "may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|"
-              + "nov(?:ember)?|dec(?:ember)?)\\s+(?:0?[1-9]|[12]\\d|3[01])(?:st|nd|rd|th)?"
-              + "(?:,)?\\s+(?:19|20)\\d{2}|(?:0?[1-9]|[12]\\d|3[01])[-/\\s]+"
-              + "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|"
-              + "jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|"
-              + "dec(?:ember)?)[-/\\s]+(?:19|20)\\d{2})(?![a-z0-9])");
-  private static final Pattern COMPACT_DATE = Pattern.compile("(?<!\\d)(?:19|20)\\d{6}(?!\\d)");
-  private static final Pattern LABELLED_MRN =
-      Pattern.compile(
-          "(?i)\\b(?:mrn|medical[ _-]?record(?:[ _-]?number)?)\\b\\s*[:=#-]?\\s*\\d{4,}");
-
-  private WsiDeidentification() {}
+  private WsiContract() {}
 
   public static boolean isSlideKey(String value) {
     return value != null && SLIDE_KEY.matcher(value).matches();
@@ -122,21 +96,6 @@ public final class WsiDeidentification {
     } catch (IllegalArgumentException exception) {
       return false;
     }
-  }
-
-  /**
-   * Whether free text served to the browser contains a labelled medical record number or an
-   * absolute date (ISO, month-first, day-first, named-month or compact YYYYMMDD). WSI metadata that
-   * does fails closed.
-   */
-  public static boolean containsIdentifyingText(String value) {
-    return value != null
-        && (LABELLED_MRN.matcher(value).find()
-            || ABSOLUTE_DATE.matcher(value).find()
-            || MONTH_FIRST_DATE.matcher(value).find()
-            || DAY_FIRST_DATE.matcher(value).find()
-            || NAMED_MONTH_DATE.matcher(value).find()
-            || COMPACT_DATE.matcher(value).find());
   }
 
   public static boolean isWsiResourceId(String resourceId) {
