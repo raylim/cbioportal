@@ -111,7 +111,7 @@ public class ClickhouseWsiSlideTableTest {
         .satisfies(
             row -> {
               assertThat(row.sampleId()).isNull();
-              assertThat(row.metadata()).containsKey("wsi_serving");
+              assertThat(row.metadata()).containsKey("serving");
             });
 
     List<ResourceTableRow> sampleRows =
@@ -119,7 +119,7 @@ public class ClickhouseWsiSlideTableTest {
     // 900508 cannot serve tiles: the slide table leaves it out, the resource keeps it.
     assertThat(sampleRows).hasSize(3);
     assertThat(sampleRows)
-        .allSatisfy(row -> assertThat(row.metadata()).containsKeys("slide_key", "wsi_serving"));
+        .allSatisfy(row -> assertThat(row.metadata()).containsKeys("slide_key", "serving"));
   }
 
   // ---- The slide table is served through its allowlisted contract only ----
@@ -314,7 +314,7 @@ public class ClickhouseWsiSlideTableTest {
         .extracting(ResourceMetadataKeyStats::key)
         .containsExactlyInAnyOrder(
             "block_number", "magnification", "part_number", "slide_key", "stain_name");
-    for (String key : List.of("block_key", "reference_sample_id", "wsi_serving")) {
+    for (String key : List.of("block_key", "reference_sample_id", "serving")) {
       assertThat(mapper.getResourceTableMetadataFacets(query, new String[] {key}, FACET_LIMIT))
           .as(key)
           .isEmpty();

@@ -7,7 +7,7 @@
          and an unmatched slide (no sample) when any of its patient's samples does. A slide the
          viewer cannot open (no valid opaque slide_key, or can_serve_tiles false) is not listed
          there and not counted here. Only aggregate-safe public METADATA keys are read; slide_key,
-         URL, DISPLAY_NAME and wsi_serving are never selected. -->
+         URL, DISPLAY_NAME and serving are never selected. -->
     <sql id="cohortSlideRows">
         SELECT
             cs.cancer_study_identifier AS study_id,
