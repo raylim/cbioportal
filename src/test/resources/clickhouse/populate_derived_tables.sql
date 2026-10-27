@@ -511,7 +511,7 @@ OPTIMIZE TABLE generic_assay_meta_derived;
 
 -- The study slide table (see wsi_slide_table_derived in schema.sql).
 INSERT INTO wsi_slide_table_derived
-SELECT internal_id, 'WSI_SAMPLE' AS slide_table_resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url,
+SELECT internal_id, 'WSI_SLIDES' AS slide_table_resource_id, cancer_study_id, resource_scope, patient_id, sample_id, url,
        CAST(NULL, 'Nullable(String)') AS display_name,
        concat('{', arrayStringConcat(
          arrayMap(kv -> concat(toJSONString(kv.1), ':', kv.2),

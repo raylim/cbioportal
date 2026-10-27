@@ -23,7 +23,7 @@ import org.cbioportal.domain.resource.ResourceTableRow;
 import org.cbioportal.domain.resource.ResourceTableTab;
 import org.cbioportal.domain.resource.ResourceTabsRequest;
 import org.cbioportal.domain.resource.repository.ResourceDataRepository;
-import org.cbioportal.domain.wsi.WsiContract;
+import org.cbioportal.domain.wsi.WsiSlideTable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
@@ -123,10 +123,10 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
   }
 
   private MetadataContext resolveMetadataContext(ResourceTableQuery scoped) {
-    if (WsiContract.isStudyTableResource(scoped.resourceId())) {
+    if (WsiSlideTable.isSlideTable(scoped.resourceId())) {
       // The study slide table's typed allowlist is its complete contract: it alone decides the
       // columns, and no key discovery runs over the (large) slide resource.
-      return new MetadataContext(WsiContract.STUDY_TABLE_SCHEMA, Map.of(), true);
+      return new MetadataContext(WsiSlideTable.SCHEMA, Map.of(), true);
     }
     List<ResourceContractRow> contractRows = contractRows(scoped);
     ResourceMetadataSchema schema = mergedSchema(scoped, contractRows);
@@ -146,65 +146,18 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
         && schema.fieldsByKey().values().stream().allMatch(field -> field.type() != null);
   }
 
-  /*
-   * WSI_PATIENT rows are excluded in SQL by every statement (ExcludeWsiResourceRows in
-   * ResourceDataMapper.xml), and WSI_SAMPLE rows are served only as the study slide table, through
-   * its metadata allowlist. Each entry point below checks again here so a future statement that
-   * forgets the predicate still cannot hand a hidden slide row, or a non-allowlisted slide field,
-   * to the generic resource table: tabs, rows (query/fetch), and columns, facets, ranges and
-   * counts (metadata/fetch).
-   */
-
   @Override
   public List<ResourceTableTab> getResourceTableTabs(ResourceTabsRequest request) {
-    return mapper.getResourceTableTabs(request).stream()
-        .filter(tab -> !WsiContract.isHiddenFromResourceTable(tab.resourceId()))
-        .toList();
+    return mapper.getResourceTableTabs(request);
   }
 
   @Override
   public List<ResourceTableRow> getResourceTableRows(ResourceTableQuery query) {
-    if (WsiContract.isHiddenFromResourceTable(query.resourceId())) {
-      return List.of();
-    }
-    return mapper.getResourceTableRows(query).stream()
-        .map(ClickhouseResourceDataRepository::withPublicMetadataOnly)
-        .toList();
-  }
-
-  /**
-   * Reduces a study slide table row to its allowlisted metadata, as wsi_slide_table_derived already
-   * does. Rows of every other resource are returned unchanged.
-   */
-  private static ResourceTableRow withPublicMetadataOnly(ResourceTableRow row) {
-    if (row.metadata() == null || !WsiContract.isStudyTableResource(row.resourceId())) {
-      return row;
-    }
-    Map<String, Object> metadata = new LinkedHashMap<>();
-    row.metadata()
-        .forEach(
-            (key, value) -> {
-              if (WsiContract.isStudyTableMetadataKey(key)) {
-                metadata.put(key, value);
-              }
-            });
-    return new ResourceTableRow(
-        row.studyId(),
-        row.resourceId(),
-        row.resourceDisplayName(),
-        row.resourceType(),
-        row.patientId(),
-        row.sampleId(),
-        row.url(),
-        row.displayName(),
-        metadata);
+    return mapper.getResourceTableRows(query);
   }
 
   @Override
   public ResourceTableMetadataView getResourceTableMetadata(ResourceTableQuery query) {
-    if (WsiContract.isHiddenFromResourceTable(query.resourceId())) {
-      return ResourceTableMetadataView.empty();
-    }
     // Facets and key discovery are always computed against the query with ALL column-level filters
     // removed (only resourceId/study/patient/sample/search scoping kept). This keeps every filter
     // dropdown showing its full, stable option set regardless of what is currently selected in ANY
@@ -442,9 +395,6 @@ public class ClickhouseResourceDataRepository implements ResourceDataRepository 
 
   @Override
   public ResourceTableCounts getResourceTableCounts(ResourceTableQuery query) {
-    if (WsiContract.isHiddenFromResourceTable(query.resourceId())) {
-      return ResourceTableCounts.empty();
-    }
     ResourceTableCounts counts = mapper.getResourceTableCounts(query);
     return counts == null ? ResourceTableCounts.empty() : counts;
   }
