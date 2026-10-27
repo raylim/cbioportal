@@ -6,12 +6,10 @@ import org.cbioportal.domain.wsi.WsiStudySlidesPage;
 import org.cbioportal.domain.wsi.WsiStudySlidesQuery;
 import org.cbioportal.domain.wsi.WsiStudySlidesService;
 import org.cbioportal.legacy.web.parameter.StudyViewFilter;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -64,9 +62,6 @@ public class WsiStudySlidesController {
 
   private final WsiStudySlidesService service;
 
-  @Value("${wsi.local-auth-bypass:false}")
-  private boolean localAuthBypass;
-
   public WsiStudySlidesController(WsiStudySlidesService service) {
     this.service = service;
   }
@@ -76,15 +71,10 @@ public class WsiStudySlidesController {
       consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
   @PreAuthorize(
-      "!isAuthenticated() or hasPermission(#request?.studyViewFilter(), 'StudyViewFilter', "
+      "hasPermission(#request?.studyViewFilter(), 'StudyViewFilter', "
           + "T(org.cbioportal.legacy.utils.security.AccessLevel).READ)")
   public ResponseEntity<WsiStudySlidesPage> fetchStudySlidePatients(
       @RequestBody WsiStudySlidesRequest request) {
-    if (WsiResponses.isAnonymous(SecurityContextHolder.getContext().getAuthentication())
-        && !localAuthBypass) {
-      return WsiResponses.privateResponse(HttpStatus.UNAUTHORIZED).build();
-    }
-
     WsiStudySlidesQuery query = toQuery(request);
     if (query == null) {
       return WsiResponses.privateResponse(HttpStatus.BAD_REQUEST).build();

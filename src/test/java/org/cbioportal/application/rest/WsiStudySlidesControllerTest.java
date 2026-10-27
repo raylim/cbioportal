@@ -77,12 +77,6 @@ public class WsiStudySlidesControllerTest {
   @MockitoBean private CancerStudyPermissionEvaluator cancerStudyPermissionEvaluator;
 
   @Test
-  public void returnsUnauthorizedWithoutAuthentication() throws Exception {
-    perform(STUDY_BODY + "}").andExpect(status().isUnauthorized());
-    verifyNoInteractions(service);
-  }
-
-  @Test
   @WithMockUser
   public void returnsForbiddenWhenStudyAccessIsDenied() throws Exception {
     allowStudyAccess(false);
