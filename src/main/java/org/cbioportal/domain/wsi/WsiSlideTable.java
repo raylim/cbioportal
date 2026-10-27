@@ -23,7 +23,7 @@ public final class WsiSlideTable {
    * keys and no others. The slide key is the de-identified Slide ID that the viewer shows and slide
    * links already carry. Part and block are bare numbers and display_name (the "stain · part /
    * block" caption) is left empty, since either would repeat the columns. Specimen, part and block
-   * keys, the reference sample id, file size and wsi_serving stay in the WSI_SAMPLE and WSI_PATIENT
+   * keys, the reference sample id, file size and serving stay in the WSI_SAMPLE and WSI_PATIENT
    * rows.
    */
   public static final ResourceMetadataSchema SCHEMA =
