@@ -18,7 +18,7 @@ import org.cbioportal.domain.resource.ResourceTableRow;
 import org.cbioportal.domain.resource.ResourceTableTab;
 import org.cbioportal.domain.resource.ResourceTabsRequest;
 import org.cbioportal.domain.resource.usecase.GetResourceTableMetadataUseCase;
-import org.cbioportal.domain.wsi.WsiDeidentification;
+import org.cbioportal.domain.wsi.WsiContract;
 import org.cbioportal.infrastructure.repository.clickhouse.AbstractTestcontainers;
 import org.cbioportal.infrastructure.repository.clickhouse.config.MyBatisConfig;
 import org.junit.Test;
@@ -132,7 +132,7 @@ public class ClickhouseResourceDataPrivacyTest {
             document ->
                 assertThat(OBJECT_MAPPER.readTree(document).fieldNames())
                     .toIterable()
-                    .isSubsetOf(WsiDeidentification.STUDY_TABLE_METADATA_KEYS));
+                    .isSubsetOf(WsiContract.STUDY_TABLE_METADATA_KEYS));
     assertThat(
             jdbcTemplate.queryForList(
                 "SELECT DISTINCT resource_id FROM wsi_slide_table_derived", String.class))
@@ -150,7 +150,7 @@ public class ClickhouseResourceDataPrivacyTest {
         .allSatisfy(
             row ->
                 assertThat(row.metadata().keySet())
-                    .isSubsetOf(WsiDeidentification.STUDY_TABLE_METADATA_KEYS)
+                    .isSubsetOf(WsiContract.STUDY_TABLE_METADATA_KEYS)
                     .contains("stain_name", "part_number", "block_number", "magnification")
                     .doesNotContain("part_description"));
     assertThat(rows.toString())
@@ -294,7 +294,7 @@ public class ClickhouseResourceDataPrivacyTest {
     assertThat(metadata.columns())
         .extracting(ResourceColumnInfo::id)
         .containsExactlyElementsOf(
-            WsiDeidentification.STUDY_TABLE_METADATA_KEYS.stream()
+            WsiContract.STUDY_TABLE_METADATA_KEYS.stream()
                 .map(key -> ResourceColumnInfo.METADATA_COLUMN_PREFIX + key)
                 .toList());
     assertThat(metadata.facets().get("metadata:stain_name"))
@@ -386,7 +386,7 @@ public class ClickhouseResourceDataPrivacyTest {
               .toList();
       assertThat(keys)
           .as(resource)
-          .containsExactlyElementsOf(WsiDeidentification.STUDY_TABLE_METADATA_KEYS);
+          .containsExactlyElementsOf(WsiContract.STUDY_TABLE_METADATA_KEYS);
     }
   }
 

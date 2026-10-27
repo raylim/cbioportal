@@ -609,8 +609,8 @@ CREATE TABLE resource (
 ) ENGINE = MergeTree ORDER BY (cancer_study_id, resource_id, patient_id, sample_id, internal_id)
   SETTINGS allow_nullable_key = 1;
 
--- The study slide table (see WsiDeidentification.STUDY_TABLE_RESOURCE_ID), in resource's
--- shape with metadata reduced to WsiDeidentification.STUDY_TABLE_SCHEMA. Filled by
+-- The study slide table (see WsiContract.STUDY_TABLE_RESOURCE_ID), in resource's
+-- shape with metadata reduced to WsiContract.STUDY_TABLE_SCHEMA. Filled by
 -- populate_derived_tables.sql.
 CREATE TABLE wsi_slide_table_derived (
     `internal_id` Int64,
