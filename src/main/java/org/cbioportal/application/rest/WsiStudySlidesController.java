@@ -120,14 +120,10 @@ public class WsiStudySlidesController {
       consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
   @PreAuthorize(
-      "!isAuthenticated() or hasPermission(#request?.studyViewFilter(), 'StudyViewFilter', "
+      "hasPermission(#request?.studyViewFilter(), 'StudyViewFilter', "
           + "T(org.cbioportal.legacy.utils.security.AccessLevel).READ)")
   public ResponseEntity<WsiStudySlideFacets> fetchStudySlideFacets(
       @RequestBody WsiStudySlideFacetsRequest request) {
-    if (WsiResponses.isAnonymous(SecurityContextHolder.getContext().getAuthentication())
-        && !localAuthBypass) {
-      return WsiResponses.privateResponse(HttpStatus.UNAUTHORIZED).build();
-    }
     WsiStudySlidesQuery query =
         request == null
             ? null
