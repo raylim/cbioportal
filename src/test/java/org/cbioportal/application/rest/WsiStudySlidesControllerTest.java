@@ -111,7 +111,7 @@ public class WsiStudySlidesControllerTest {
                 0L,
                 2,
                 25,
-                List.of(new WsiStudySlidePatient("study", "P-1", 1, counts))));
+                List.of(new WsiStudySlidePatient("study", "P-1", 1, 1, counts))));
 
     perform(
             STUDY_BODY
@@ -126,7 +126,7 @@ public class WsiStudySlidesControllerTest {
                     "{\"totalPatients\":1,\"totalSlides\":1,"
                         + "\"locatedIndex\":0,\"pageNumber\":2,\"pageSize\":25,"
                         + "\"patients\":[{\"studyId\":\"study\",\"patientId\":\"P-1\","
-                        + "\"slideCount\":1}]}"));
+                        + "\"slideCount\":1,\"sampleCount\":1}]}"));
   }
 
   private void allowStudyAccess(boolean allowed) {

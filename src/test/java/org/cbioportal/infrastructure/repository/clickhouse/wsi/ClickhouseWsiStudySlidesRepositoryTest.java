@@ -52,6 +52,8 @@ public class ClickhouseWsiStudySlidesRepositoryTest {
     WsiStudySlidePatient cohortA = page.patients().get(0);
     assertEquals(COHORT_STUDY, cohortA.studyId());
     assertEquals(2, cohortA.slideCount());
+    // A viewable slide on COHORT-A-1 plus an unmatched slide: one sample.
+    assertEquals(1, cohortA.sampleCount());
     assertEquals(stainCounts(1, 0, 0, 1), cohortA.stainGroupCounts());
     // An uncontrolled slide type ("Special stain") is Unknown, as the WSI hierarchy resolves it.
     assertEquals(stainCounts(0, 0, 0, 1), page.patients().get(1).stainGroupCounts());
