@@ -283,13 +283,17 @@ The Clinical Data Dictionary from MSKCC is used to normalize clinical data, and 
 
 Whole-slide images (WSI) are imported as standard [Resource Data](#resource-data):
 one resource row per slide, in the `WSI_SAMPLE` resource (slides matched to a
-sample) or `WSI_PATIENT` (unmatched slides). The row format and the offline
-converter for legacy `meta_wsi.txt`/`data_wsi.txt` pairs are documented with
-the importer, in
-cbioportal-core's
-[WSI study import](https://github.com/cBioPortal/cbioportal-core/blob/main/docs/wsi-study-format.md). With `--study-dir`, the converter
-also merges the six `WSI_*` slide-count clinical attributes into the study's
-clinical files.
+sample) or `WSI_PATIENT` (unmatched slides). A row's `URL` links to the
+standalone viewer (`/wsi/patient/{patientId}?studyId=…&slideKey=…`), and its
+`METADATA` holds the slide's fields: `slide_key`, part and block keys, numbers
+and labels, `match_level`, stain fields, `can_serve_tiles`, and, for a slide
+that can serve tiles, the `serving` object described below.
+
+The study's clinical files can also carry six slide-count attributes, which
+the Study View shows: `WSI_{SAMPLE,PATIENT}_SLIDE_COUNT` and the part- and
+block-matched `WSI_{SAMPLE,PATIENT}_{PART,BLOCK}_MATCHED_SLIDE_COUNT`
+(`NUMBER`). They count the slides the viewer can open: sample counts cover
+matched slides, patient counts include unmatched slides.
 
 The viewer lists a patient's slides through the generic resource API
 (`POST /api/resource-table/query/fetch` for `WSI_SAMPLE` and `WSI_PATIENT`).
