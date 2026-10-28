@@ -41,6 +41,7 @@ public class ClickhouseWsiStudySlidesRepository implements WsiStudySlidesReposit
                             (String) row.get("study_id"),
                             (String) row.get("patient_id"),
                             longValue(row, "slide_count"),
+                            longValue(row, "sample_count"),
                             stainGroupCounts(row)))
                 .toList()
             : List.of();

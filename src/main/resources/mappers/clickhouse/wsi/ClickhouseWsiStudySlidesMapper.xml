@@ -12,6 +12,7 @@
         SELECT
             cs.cancer_study_identifier AS study_id,
             assumeNotNull(r.patient_id) AS patient_id,
+            r.sample_id AS sample_id,
             <!-- The resolved flags first, then a controlled stored slide type; a missing or
                  uncontrolled slide type is Unknown, not a confirmed Other. -->
             JSONExtractString(ifNull(r.metadata, '{}'), 'slide_type') AS stored_slide_type,
@@ -105,6 +106,8 @@
             study_id,
             patient_id,
             count() AS slide_count,
+            <!-- The patient's samples among the listed slides; unmatched slides have none. -->
+            uniqExactIf(sample_id, sample_id IS NOT NULL) AS sample_count,
             <include refid="stainGroupCounts"/>
         FROM (<include refid="cohortSlideRows"/>)
         WHERE <include refid="stainSelected"/>
