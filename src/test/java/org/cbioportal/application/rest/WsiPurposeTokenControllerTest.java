@@ -83,16 +83,27 @@ public class WsiPurposeTokenControllerTest {
   }
 
   @Test
-  public void issuesToAnAnonymousReaderOfTheStudy() throws Exception {
-    // Study read permission is checked by @PreAuthorize; with no login the subject is anonymous.
+  public void requiresASignedInUser() {
+    // Also on a portal without login, where method security (the study check) is off.
     WsiPurposeTokenController controller = controller();
+    SecurityContextHolder.clearContext();
+
+    assertEquals(
+        401, controller.issueAccessToken("study-1", "annotations").getStatusCode().value());
+    assertEquals(401, controller.issueAccessToken("study-1", "agent").getStatusCode().value());
+  }
+
+  @Test
+  public void localDevelopmentStacksMayIssueWithoutLogin() throws Exception {
+    WsiPurposeTokenController controller = controller();
+    ReflectionTestUtils.setField(controller, "localAuthBypass", true);
     SecurityContextHolder.clearContext();
 
     ResponseEntity<?> response = controller.issueAccessToken("study-1", "annotations");
 
     assertEquals(200, response.getStatusCode().value());
     JsonNode claims = claims((String) ((Map<?, ?>) response.getBody()).get("access_token"));
-    assertEquals("anonymousUser", claims.get("sub").asText());
+    assertEquals("local-development", claims.get("sub").asText());
   }
 
   private JsonNode claims(String token) throws Exception {
