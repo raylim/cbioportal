@@ -8,7 +8,6 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
@@ -124,7 +123,6 @@ public class WsiStudySlidesControllerTest {
                 + "\"locateStudyId\":\"study\",\"locatePatientId\":\"P-1\","
                 + "\"pageNumber\":2,\"pageSize\":25}")
         .andExpect(status().isOk())
-        .andExpect(header().string("Cache-Control", "private, no-store"))
         .andExpect(content().contentTypeCompatibleWith("application/json"))
         .andExpect(
             content()

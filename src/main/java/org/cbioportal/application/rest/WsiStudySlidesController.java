@@ -6,7 +6,6 @@ import org.cbioportal.domain.wsi.WsiStudySlidesPage;
 import org.cbioportal.domain.wsi.WsiStudySlidesQuery;
 import org.cbioportal.domain.wsi.WsiStudySlidesService;
 import org.cbioportal.legacy.web.parameter.StudyViewFilter;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -77,11 +76,9 @@ public class WsiStudySlidesController {
       @RequestBody WsiStudySlidesRequest request) {
     WsiStudySlidesQuery query = toQuery(request);
     if (query == null) {
-      return WsiResponses.privateResponse(HttpStatus.BAD_REQUEST).build();
+      return ResponseEntity.badRequest().build();
     }
-    return WsiResponses.privateResponse(HttpStatus.OK)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(service.getStudySlides(request.studyViewFilter(), query));
+    return ResponseEntity.ok(service.getStudySlides(request.studyViewFilter(), query));
   }
 
   /** Returns the validated query, or null when the request is malformed. */
