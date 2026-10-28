@@ -176,7 +176,6 @@ public class WsiStudySlidesControllerTest {
                         + ",\"matchLevels\":[\"PART\"],"
                         + "\"attributeIds\":[\"CANCER_TYPE\",\"CANCER_TYPE\"]}"))
         .andExpect(status().isOk())
-        .andExpect(header().string("Cache-Control", "private, no-store"))
         .andExpect(
             content()
                 .json(

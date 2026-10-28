@@ -141,10 +141,9 @@ public class WsiStudySlidesController {
     if (query == null
         || attributeIds.size() > MAX_FACET_ATTRIBUTES
         || attributeIds.stream().anyMatch(id -> id == null || id.isBlank())) {
-      return WsiResponses.privateResponse(HttpStatus.BAD_REQUEST).build();
+      return ResponseEntity.badRequest().build();
     }
-    return WsiResponses.privateResponse(HttpStatus.OK)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(service.getStudySlideFacets(request.studyViewFilter(), query, attributeIds));
+    return ResponseEntity.ok(
+        service.getStudySlideFacets(request.studyViewFilter(), query, attributeIds));
   }
 }
