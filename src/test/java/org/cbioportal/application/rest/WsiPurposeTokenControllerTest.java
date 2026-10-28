@@ -3,11 +3,6 @@ package org.cbioportal.application.rest;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,14 +10,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import org.cbioportal.application.security.CancerStudyPermissionEvaluator;
-import org.cbioportal.legacy.utils.security.AccessLevel;
 import org.junit.After;
 import org.junit.Test;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.TestingAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -31,12 +22,6 @@ public class WsiPurposeTokenControllerTest {
   private static final String SECRET = "0123456789abcdef0123456789abcdef";
 
   private final ObjectMapper objectMapper = new ObjectMapper();
-  private final CancerStudyPermissionEvaluator cancerStudyPermissionEvaluator =
-      mock(CancerStudyPermissionEvaluator.class);
-
-  @SuppressWarnings("unchecked")
-  private final ObjectProvider<CancerStudyPermissionEvaluator> permissionEvaluatorProvider =
-      mock(ObjectProvider.class);
 
   @After
   public void tearDown() {
@@ -45,7 +30,7 @@ public class WsiPurposeTokenControllerTest {
 
   @Test
   public void returnsAnnotationScopeWhenRequested() throws Exception {
-    WsiPurposeTokenController controller = createStudyReaderController();
+    WsiPurposeTokenController controller = controller();
 
     ResponseEntity<?> response = controller.issueAccessToken("study-1", "annotations");
 
@@ -55,7 +40,7 @@ public class WsiPurposeTokenControllerTest {
     assertEquals("Bearer", body.get("token_type"));
     assertEquals(300, body.get("expires_in"));
     JsonNode claims = claims((String) body.get("access_token"));
-    assertEquals("private, no-store", response.getHeaders().getCacheControl());
+    assertEquals("user", claims.get("sub").asText());
     // The tile service accepts only HS256 tokens that declare typ JWT.
     JsonNode header =
         objectMapper.readTree(
@@ -71,7 +56,7 @@ public class WsiPurposeTokenControllerTest {
 
   @Test
   public void returnsAgentScopesWhenRequested() throws Exception {
-    WsiPurposeTokenController controller = createStudyReaderController();
+    WsiPurposeTokenController controller = controller();
 
     ResponseEntity<?> response = controller.issueAccessToken("study-1", "agent");
 
@@ -86,40 +71,28 @@ public class WsiPurposeTokenControllerTest {
 
   @Test
   public void neverIssuesAStudyWideSlideCapability() {
-    WsiPurposeTokenController controller = createStudyReaderController();
+    WsiPurposeTokenController controller = controller();
 
     // Slide pixels are reachable only through the per-slide resources access endpoint.
-    for (String purpose : new String[] {"wsi", "WSI", "Annotations", "tiles", "", " ", null}) {
+    for (String purpose : new String[] {"wsi", "WSI", "Annotations", "tiles", "", " "}) {
       assertEquals(
           "purpose should be rejected: " + purpose,
           400,
           controller.issueAccessToken("study-1", purpose).getStatusCode().value());
     }
-    verifyNoInteractions(cancerStudyPermissionEvaluator);
   }
 
   @Test
-  public void requiresLoginForAStudyCapability() {
-    WsiPurposeTokenController controller = createStudyReaderController();
+  public void issuesToAnAnonymousReaderOfTheStudy() throws Exception {
+    // Study read permission is checked by @PreAuthorize; with no login the subject is anonymous.
+    WsiPurposeTokenController controller = controller();
     SecurityContextHolder.clearContext();
 
-    assertEquals(
-        401, controller.issueAccessToken("study-1", "annotations").getStatusCode().value());
-  }
+    ResponseEntity<?> response = controller.issueAccessToken("study-1", "annotations");
 
-  @Test
-  public void refusesAStudyCapabilityWhenPermissionsAreUnavailable() {
-    WsiPurposeTokenController controller = createAuthenticatedController();
-
-    assertEquals(
-        403, controller.issueAccessToken("study-1", "annotations").getStatusCode().value());
-  }
-
-  @Test
-  public void refusesAStudyCapabilityWithoutStudyReadPermission() {
-    WsiPurposeTokenController controller = createStudyReaderController();
-
-    assertEquals(403, controller.issueAccessToken("study-2", "agent").getStatusCode().value());
+    assertEquals(200, response.getStatusCode().value());
+    JsonNode claims = claims((String) ((Map<?, ?>) response.getBody()).get("access_token"));
+    assertEquals("anonymousUser", claims.get("sub").asText());
   }
 
   private JsonNode claims(String token) throws Exception {
@@ -146,18 +119,8 @@ public class WsiPurposeTokenControllerTest {
     assertFalse(claims.get("scope").asText().contains("wsi:"));
   }
 
-  private WsiPurposeTokenController createStudyReaderController() {
-    WsiPurposeTokenController controller = createAuthenticatedController();
-    when(permissionEvaluatorProvider.getIfAvailable()).thenReturn(cancerStudyPermissionEvaluator);
-    when(cancerStudyPermissionEvaluator.hasPermission(
-            any(Authentication.class), eq("study-1"), eq("CancerStudyId"), eq(AccessLevel.READ)))
-        .thenReturn(true);
-    return controller;
-  }
-
-  private WsiPurposeTokenController createAuthenticatedController() {
-    WsiPurposeTokenController controller =
-        new WsiPurposeTokenController(permissionEvaluatorProvider);
+  private WsiPurposeTokenController controller() {
+    WsiPurposeTokenController controller = new WsiPurposeTokenController();
     ReflectionTestUtils.setField(controller, "accessTokenSecret", SECRET);
     ReflectionTestUtils.setField(controller, "accessTokenAudience", "cbioportal-wsi");
     ReflectionTestUtils.setField(controller, "accessTokenTtlSeconds", 300);

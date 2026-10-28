@@ -217,8 +217,8 @@ public class FrontendPropertiesServiceImpl implements FrontendPropertiesService 
     study_availability_enabled("study_availability.enabled", "false"),
 
     wsi_tile_server_url("wsi.tile_server.url", null),
-    msk_wsi_annotation_api_url("msk.wsi.annotation_api.url", null),
-    msk_wsi_agent_enabled("msk.wsi.agent.enabled", "false");
+    wsi_annotation_api_url("wsi.annotation_api.url", null),
+    wsi_agent_enabled("wsi.agent.enabled", "false");
 
     private final String propertyName;
     private final String defaultValue;

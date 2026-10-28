@@ -5,18 +5,10 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
-import org.cbioportal.application.security.CancerStudyPermissionEvaluator;
-import org.cbioportal.legacy.utils.security.AccessLevel;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,96 +40,41 @@ public class WsiPurposeTokenController {
   @Value("${wsi.access-token-ttl-seconds:300}")
   private int accessTokenTtlSeconds;
 
-  /** Local development stacks may opt into issuing capabilities without portal authentication. */
-  @Value("${wsi.local-auth-bypass:false}")
-  private boolean localAuthBypass;
-
-  /** Absent when portal authentication is off; then no study capability is issued. */
-  private final ObjectProvider<CancerStudyPermissionEvaluator> cancerStudyPermissionEvaluator;
-
-  public WsiPurposeTokenController(
-      ObjectProvider<CancerStudyPermissionEvaluator> cancerStudyPermissionEvaluator) {
-    this.cancerStudyPermissionEvaluator = cancerStudyPermissionEvaluator;
-  }
-
   /**
    * Issues a study-scoped capability for the annotation service ({@code purpose=annotations}) or
-   * the slide assistant ({@code purpose=agent}). Any other or missing purpose is a 400: slide
-   * access is per slide, from the resources access endpoint only.
+   * the slide assistant ({@code purpose=agent}). Any other purpose is a 400: slide access is per
+   * slide, from the resources access endpoint only.
    */
   @GetMapping("/access-token")
   @PreAuthorize(
-      "!isAuthenticated() or hasPermission(#studyId, 'CancerStudyId', "
-          + "T(org.cbioportal.legacy.utils.security.AccessLevel).READ)")
-  public ResponseEntity<?> issueAccessToken(
-      @RequestParam(required = false) String studyId,
-      @RequestParam(required = false) String purpose) {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    boolean anonymous = isAnonymous(authentication);
-    if (anonymous && !localAuthBypass) {
-      return privateResponse(HttpStatus.UNAUTHORIZED).build();
+      "hasPermission(#studyId, 'CancerStudyId', T(org.cbioportal.legacy.utils.security.AccessLevel).READ)")
+  public ResponseEntity<Map<String, Object>> issueAccessToken(
+      @RequestParam String studyId, @RequestParam String purpose) {
+    String scope = PURPOSE_SCOPES.get(purpose);
+    if (scope == null) {
+      return ResponseEntity.badRequest().build();
     }
-    if (anonymous) {
-      authentication = localDevelopmentAuthentication();
-    }
-    if (studyId == null
-        || studyId.isBlank()
-        || purpose == null
-        || !PURPOSE_SCOPES.containsKey(purpose)) {
-      return privateResponse(HttpStatus.BAD_REQUEST).build();
-    }
-    if (!anonymous) {
-      CancerStudyPermissionEvaluator evaluator = cancerStudyPermissionEvaluator.getIfAvailable();
-      if (evaluator == null
-          || !evaluator.hasPermission(authentication, studyId, "CancerStudyId", AccessLevel.READ)) {
-        return privateResponse(HttpStatus.FORBIDDEN).build();
-      }
-    }
-    if (accessTokenSecret == null
-        || accessTokenSecret.getBytes(StandardCharsets.UTF_8).length < 32) {
-      return privateResponse(HttpStatus.SERVICE_UNAVAILABLE).build();
-    }
-
-    int ttl = Math.max(60, Math.min(accessTokenTtlSeconds, 300));
     Instant issuedAt = Instant.now();
     String token =
-        issuePurposeToken(authentication, studyId, purpose, issuedAt, issuedAt.plusSeconds(ttl));
-    return privateResponse(HttpStatus.OK)
-        .body(Map.of("access_token", token, "token_type", "Bearer", "expires_in", ttl));
+        Jwts.builder()
+            .setHeaderParam("typ", "JWT")
+            .setSubject(subject())
+            .setAudience(accessTokenAudience)
+            .claim("scope", scope)
+            .claim("study_id", studyId)
+            .setIssuedAt(Date.from(issuedAt))
+            .setExpiration(Date.from(issuedAt.plusSeconds(accessTokenTtlSeconds)))
+            .signWith(SignatureAlgorithm.HS256, accessTokenSecret.getBytes(StandardCharsets.UTF_8))
+            .compact();
+    return ResponseEntity.ok(
+        Map.of("access_token", token, "token_type", "Bearer", "expires_in", accessTokenTtlSeconds));
   }
 
-  private String issuePurposeToken(
-      Authentication authentication,
-      String studyId,
-      String purpose,
-      Instant issuedAt,
-      Instant expiresAt) {
-    return Jwts.builder()
-        .setHeaderParam("typ", "JWT")
-        .setSubject(authentication.getName())
-        .setAudience(accessTokenAudience)
-        .claim("scope", PURPOSE_SCOPES.get(purpose))
-        .claim("study_id", studyId)
-        .setIssuedAt(Date.from(issuedAt))
-        .setExpiration(Date.from(expiresAt))
-        .signWith(SignatureAlgorithm.HS256, accessTokenSecret.getBytes(StandardCharsets.UTF_8))
-        .compact();
-  }
-
-  private static boolean isAnonymous(Authentication authentication) {
-    return authentication == null
-        || !authentication.isAuthenticated()
-        || authentication instanceof AnonymousAuthenticationToken;
-  }
-
-  /** A response that no shared cache may store and that varies with the caller's credentials. */
-  private static ResponseEntity.BodyBuilder privateResponse(HttpStatus status) {
-    return ResponseEntity.status(status)
-        .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
-        .header(HttpHeaders.VARY, "Authorization, Cookie");
-  }
-
-  private static Authentication localDevelopmentAuthentication() {
-    return new UsernamePasswordAuthenticationToken("local-development", null, List.of());
+  /** The caller's name, or {@code anonymousUser} when the portal has no login or nobody is in. */
+  private static String subject() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    return authentication == null || authentication.getName() == null
+        ? "anonymousUser"
+        : authentication.getName();
   }
 }
