@@ -289,6 +289,12 @@ standalone viewer (`/wsi/patient/{patientId}?studyId=…&slideKey=…`), and its
 and labels, `match_level`, stain fields, `can_serve_tiles`, and, for a slide
 that can serve tiles, the `serving` object described below.
 
+The study's clinical files can also carry six slide-count attributes, which
+the Study View shows: `WSI_{SAMPLE,PATIENT}_SLIDE_COUNT` and the part- and
+block-matched `WSI_{SAMPLE,PATIENT}_{PART,BLOCK}_MATCHED_SLIDE_COUNT`
+(`NUMBER`). They count the slides the viewer can open: sample counts cover
+matched slides, patient counts include unmatched slides.
+
 The viewer lists a patient's slides through the generic resource API
 (`POST /api/resource-table/query/fetch` for `WSI_SAMPLE` and `WSI_PATIENT`).
 
