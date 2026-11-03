@@ -1,5 +1,6 @@
 package org.cbioportal.application.rest;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -26,12 +27,13 @@ import org.cbioportal.legacy.web.parameter.StudyViewFilter;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
 import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -80,7 +82,10 @@ public class WsiStudySlidesControllerTest {
   public void returnsForbiddenWhenStudyAccessIsDenied() throws Exception {
     allowStudyAccess(false);
 
-    perform(STUDY_BODY + "}").andExpect(status().isForbidden());
+    // This slice has no security filter chain to turn the denial into a 403, so the method
+    // security exception reaches MockMvc.
+    assertThatThrownBy(() -> perform(STUDY_BODY + "}"))
+        .hasRootCauseInstanceOf(AuthorizationDeniedException.class);
     verifyNoInteractions(service);
   }
 
