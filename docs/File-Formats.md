@@ -1794,7 +1794,7 @@ The sample resource file should follow this format, it has four **required** col
 - **PATIENT_ID (required)**: a unique patient ID. This field allows only numbers, letters, points, underscores and hyphens.
 - **SAMPLE_ID (required)**: a unique sample ID. This field allows only numbers, letters, points, underscores and hyphens.
 - **RESOURCE_ID (required)**: the kind of resource this item is, naming a RESOURCE_ID declared in the `Resource Definition data file`. Many rows share one RESOURCE_ID -- it groups items of the same kind rather than identifying this one.
-- **URL (required)**: url to the resources, start with `http` or `https`.
+- **URL (required)**: url to the resource: an absolute `http` or `https` URL, or a path on the portal starting with a single `/` (for example `/wsi/patient/P-0000012?studyId=msk_impact- **URL (required)**: url to the resources, start with `http` or `https`.slideKey=0acdab3d2bb2`), which is served relative to the portal's own host.
 - **DISPLAY_NAME (optional)**: a human-readable label for this individual item. Without it the item's label column is blank and the table still names the resource itself in its own column.
 - **METADATA (optional)**: a JSON **object** of descriptive fields for this item. Each key becomes a searchable, sortable, filterable column in the resource table; where the resource definition gives a [CUSTOM_METADATA](#describing-metadata-columns-with-custom_metadata) contract, every key used here must be declared in it. Arrays, scalars and malformed JSON are rejected at import.
 
@@ -1813,7 +1813,7 @@ where a `CUSTOM_METADATA` contract can label it, type it and decide whether it f
 The patient resource file should follow this format, it has three **required** columns:
 - **PATIENT_ID (required)**: a unique patient ID. This field allows only numbers, letters, points, underscores and hyphens.
 - **RESOURCE_ID (required)**: the kind of resource this item is, naming a RESOURCE_ID declared in the `Resource Definition data file`. Many rows share one RESOURCE_ID -- it groups items of the same kind rather than identifying this one.
-- **URL (required)**: url to the resources, start with `http` or `https`.
+- **URL (required)**: url to the resource: an absolute `http` or `https` URL, or a path on the portal starting with a single `/` (for example `/wsi/patient/P-0000012?studyId=msk_impact- **URL (required)**: url to the resources, start with `http` or `https`.slideKey=0acdab3d2bb2`), which is served relative to the portal's own host.
 
 `DISPLAY_NAME` and `METADATA` are also accepted here, with the same meaning as in the
 [Sample Resource data file](#sample-resource-data-file).
@@ -1828,7 +1828,7 @@ The patient resource file should follow this format, it has three **required** c
 ### Study Resource Data File
 The study resource file should follow this format, it has two **required** columns:
 - **RESOURCE_ID (required)**: the kind of resource this item is, naming a RESOURCE_ID declared in the `Resource Definition data file`. Many rows share one RESOURCE_ID -- it groups items of the same kind rather than identifying this one.
-- **URL (required)**: url to the resources, start with `http` or `https`.
+- **URL (required)**: url to the resource: an absolute `http` or `https` URL, or a path on the portal starting with a single `/` (for example `/wsi/patient/P-0000012?studyId=msk_impact- **URL (required)**: url to the resources, start with `http` or `https`.slideKey=0acdab3d2bb2`), which is served relative to the portal's own host.
 
 `DISPLAY_NAME` and `METADATA` are also accepted here, with the same meaning as in the
 [Sample Resource data file](#sample-resource-data-file).
